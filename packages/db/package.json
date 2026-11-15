@@ -1,0 +1,18 @@
+{
+  "name": "@forgekit/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "commonjs",
+  "types": "./src/index.ts",
+  "exports": { ".": { "types": "./src/index.ts", "default": "./dist/index.js" } },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "db:check": "pnpm build && node dist/check.js",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": { "drizzle-orm": "^0.44.0", "mysql2": "^3.14.0" },
+  "devDependencies": { "@types/node": "^22.0.0", "dotenv": "^16.6.0", "drizzle-kit": "^0.31.0", "tsx": "^4.20.0", "typescript": "^5.9.0", "vitest": "^3.2.0" }
+}
