@@ -1,8 +1,10 @@
 #!/usr/bin/env node
 import { existsSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { createProjectPlan, renderProjectFiles, ProjectValidationError, type ProjectFeature } from '@forgekit/project-core';
+import type { AssetVerificationReceipt } from '@forgekit/contracts';
 import {
   listAssets, parseAssetLock, planAssetInstall, planAssetUpgrade, planAssetUninstall,
   type AssetInstallPlan, type AssetLifecyclePlan,
@@ -33,14 +35,14 @@ async function readSafeFile(path: string): Promise<string | null> {
 
 type AnyAssetPlan = AssetInstallPlan | AssetLifecyclePlan;
 
-async function getAssetPlan(id: string, projectDir: string, operation: 'add' | 'upgrade' | 'remove'): Promise<{ plan: AnyAssetPlan; lockBefore: string | null }> {
+async function getAssetPlan(id: string, projectDir: string, operation: 'add' | 'upgrade' | 'remove'): Promise<{ plan: AnyAssetPlan; lockBefore: string | null; projectName: string | undefined; files: Record<string, string | null> }> {
   await assertDirectory(projectDir);
   await assertDirectory(join(projectDir, 'src'));
   await assertDirectory(join(projectDir, 'src/forgekit'), true);
   await assertDirectory(join(projectDir, '.forgekit'), true);
   const source = await readSafeFile(join(projectDir, 'package.json'));
   if (!source) throw new ProjectValidationError('未找到 package.json，请指定有效 Vue 项目目录。');
-  let config: { dependencies?: Record<string, string> };
+  let config: { name?: string; dependencies?: Record<string, string> };
   try { config = JSON.parse(source) as typeof config; }
   catch { throw new ProjectValidationError('package.json 不是有效 JSON。'); }
   if (!config.dependencies?.vue) throw new ProjectValidationError('当前仅支持 Vue Web 项目。');
@@ -53,7 +55,7 @@ async function getAssetPlan(id: string, projectDir: string, operation: 'add' | '
   const plan = operation === 'upgrade' ? planAssetUpgrade(id, 'vue-web', files, lock)
     : operation === 'remove' ? planAssetUninstall(id, 'vue-web', files, lock)
     : planAssetInstall(id, 'vue-web', files, lock);
-  return { plan, lockBefore };
+  return { plan, lockBefore, projectName: config.name, files };
 }
 
 async function assetCommand(args: string[]): Promise<void> {
@@ -68,19 +70,46 @@ async function assetCommand(args: string[]): Promise<void> {
   let dir: string | undefined;
   let dryRun = action === 'plan' || action === 'verify';
   let confirmed = false;
+  let jsonOutput = false;
   for (let index = 0; index < rest.length; index++) {
     const arg = rest[index];
     if (arg === '--dir' && !dir && rest[index + 1] && !rest[index + 1]?.startsWith('--')) dir = rest[++index];
     else if (arg === '--dry-run' && !dryRun) dryRun = true;
     else if (arg === '--yes' && !confirmed) confirmed = true;
+    else if (arg === '--json' && action === 'verify' && !jsonOutput) jsonOutput = true;
     else throw new ProjectValidationError(`无效或重复参数：${arg}`);
   }
+  if (action === 'verify' && confirmed) throw new ProjectValidationError('只读验证不接受 --yes 参数。');
   const projectDir = resolve(dir ?? process.cwd());
   const operation = action === 'upgrade' ? 'upgrade' : action === 'remove' ? 'remove' : 'add';
-  const { plan, lockBefore } = await getAssetPlan(id, projectDir, operation);
+  const { plan, lockBefore, projectName, files } = await getAssetPlan(id, projectDir, operation);
   if (action === 'verify') {
     if (!('alreadyInstalled' in plan) || !plan.alreadyInstalled) {
       throw new ProjectValidationError(`资产尚未安装或版本不匹配：${id}`);
+    }
+    if (jsonOutput) {
+      if (!projectName || !/^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/.test(projectName) || !lockBefore) {
+        throw new ProjectValidationError('项目名称或资产锁文件无效，无法生成回执。');
+      }
+      const installed = plan.lock.assets[plan.asset.id];
+      if (!installed) throw new ProjectValidationError('资产锁记录缺失。');
+      const digest = (content: string) => createHash('sha256').update(content, 'utf8').digest('hex');
+      const report: AssetVerificationReceipt = {
+        schemaVersion: 1,
+        kind: 'forgekit.asset-verification',
+        project: projectName,
+        assetId: plan.asset.id,
+        assetVersion: plan.asset.version,
+        files: Object.keys(installed.files).sort().map((path) => {
+          const content = files[path];
+          if (content === null || content === undefined) throw new ProjectValidationError(`缺少受管理文件：${path}`);
+          return { path, sha256: digest(content) };
+        }),
+        lockSha256: digest(lockBefore),
+        verifiedAt: new Date().toISOString(),
+      };
+      console.log(JSON.stringify(report));
+      return;
     }
     console.log(`✓ 资产文件与锁记录已校验：${id}@${plan.asset.version}（只读验证）。`);
     return;
@@ -165,7 +194,7 @@ const [command] = process.argv.slice(2);
 if (command === 'version' || command === '--version') {
   console.log('ForgeKit CLI 0.0.0');
 } else if (command === 'help' || command === '--help' || !command) {
-  console.log('ForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset verify <id> [--dir project-directory]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
+  console.log('ForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset verify <id> [--dir project-directory] [--json]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
 } else if (command === 'create') {
   createProject(process.argv.slice(3)).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : '项目创建失败');

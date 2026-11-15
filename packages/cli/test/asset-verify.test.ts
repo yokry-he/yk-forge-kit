@@ -19,6 +19,16 @@ describe('read-only CLI verification', () => {
     expect(result.stdout).toContain('只读验证');
   });
 
+  it('prints a machine-readable unsigned verification report', () => {
+    const result = run('asset', 'verify', 'official.theme', '--dir', join(root, 'with-theme'), '--json');
+    expect(result.status).toBe(0);
+    const report = JSON.parse(result.stdout) as { kind: string; project: string; files: Array<{ sha256: string }> };
+    expect(report.kind).toBe('forgekit.asset-verification');
+    expect(report.project).toBe('with-theme');
+    expect(report.files).toHaveLength(2);
+    expect(report.files.every((file) => /^[a-f0-9]{64}$/.test(file.sha256))).toBe(true);
+  });
+
   it('fails when the asset was not installed', () => {
     expect(run('create', 'without-theme', '--features', 'none', '--dir', root).status).toBe(0);
     const result = run('asset', 'verify', 'official.theme', '--dir', join(root, 'without-theme'));
