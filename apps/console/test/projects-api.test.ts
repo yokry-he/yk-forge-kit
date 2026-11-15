@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProjectApiError, listProjects, saveProject } from '../src/api/projects';
 import { listProjectAssets, planProjectAsset } from '../src/api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../src/api/project-members';
-import { issueInvitation, listInvitations, redeemInvitation } from '../src/api/invitations';
+import { issueInvitation, listInvitations, redeemInvitation, revokeInvitation } from '../src/api/invitations';
 import { getAccessToken } from '../src/auth/session';
 
 vi.mock('../src/auth/session', () => ({ getAccessToken: vi.fn(async () => null) }));
@@ -73,8 +73,10 @@ describe('project API client', () => {
     await issueInvitation('my-app', 'editor');
     await listInvitations('my-app');
     await redeemInvitation('a'.repeat(43));
+    await revokeInvitation('my-app', 'invitation-id');
     expect(fetch).toHaveBeenNthCalledWith(1, '/api/v1/projects/my-app/invitations', expect.objectContaining({ method: 'POST', body: '{"role":"editor"}' }));
     expect(fetch).toHaveBeenNthCalledWith(2, '/api/v1/projects/my-app/invitations', expect.any(Object));
     expect(fetch).toHaveBeenNthCalledWith(3, '/api/v1/invitations/redeem', expect.objectContaining({ method: 'POST', body: JSON.stringify({ code: 'a'.repeat(43) }) }));
+    expect(fetch).toHaveBeenNthCalledWith(4, '/api/v1/projects/my-app/invitations/invitation-id', expect.objectContaining({ method: 'DELETE' }));
   });
 });

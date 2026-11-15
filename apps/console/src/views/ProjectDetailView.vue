@@ -6,7 +6,7 @@ import { listAssets } from '@forgekit/asset-core';
 import { getProject } from '../api/projects';
 import { listProjectAssets, planProjectAsset } from '../api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../api/project-members';
-import { issueInvitation, listInvitations, type InvitationSummary, type IssuedInvitation } from '../api/invitations';
+import { issueInvitation, listInvitations, revokeInvitation, type InvitationSummary, type IssuedInvitation } from '../api/invitations';
 
 const route = useRoute();
 const project = ref<ProjectRecord | null>(null);
@@ -32,6 +32,7 @@ const issuingInvite = ref(false);
 const issuedInvite = ref<IssuedInvitation | null>(null);
 const invitations = ref<InvitationSummary[]>([]);
 const inviteError = ref('');
+const revokingInvite = ref('');
 const catalog = listAssets().filter((asset) => asset.target.includes('vue-web'));
 const pendingAssets = computed(() => assets.value.filter((item) => item.status === 'planned'));
 
@@ -91,6 +92,19 @@ async function createInvite(): Promise<void> {
     invitations.value = await listInvitations(project.value.slug);
   } catch (reason) { inviteError.value = reason instanceof Error ? reason.message : '无法创建邀请。'; }
   finally { issuingInvite.value = false; }
+}
+
+async function revokeInvite(invitationId: string): Promise<void> {
+  if (!project.value || members.value?.currentRole !== 'owner' || revokingInvite.value) return;
+  revokingInvite.value = invitationId;
+  inviteError.value = '';
+  try {
+    await revokeInvitation(project.value.slug, invitationId);
+    invitations.value = await listInvitations(project.value.slug);
+    // A newly issued code must not remain visible after its invitation is revoked.
+    issuedInvite.value = null;
+  } catch (reason) { inviteError.value = reason instanceof Error ? reason.message : '撤销邀请码失败。'; }
+  finally { revokingInvite.value = ''; }
 }
 
 async function changeRole(userId: string, role: string): Promise<void> {
@@ -226,7 +240,7 @@ watch(() => route.params.slug, refresh);
         <div class="invite-controls"><label for="invite-role">加入角色</label><select id="invite-role" v-model="inviteRole"><option value="viewer">Viewer</option><option value="editor">Editor</option></select><button class="subtle-button" :disabled="issuingInvite" @click="createInvite">{{ issuingInvite ? '正在生成…' : '生成邀请码' }}</button></div>
         <p v-if="inviteError" class="form-error" role="alert">{{ inviteError }}</p>
         <div v-if="issuedInvite" class="issued-code" role="status"><strong>邀请码仅在本次生成时显示</strong><code>{{ issuedInvite.code }}</code><span>有效期至 {{ new Date(issuedInvite.expiresAt).toLocaleString('zh-CN') }}</span><button class="subtle-button" @click="copyCommand(issuedInvite.code, 'invite')">{{ copied === 'invite' ? '已复制' : '复制邀请码' }}</button></div>
-        <div v-if="invitations.length" class="invitation-history"><strong>近期邀请</strong><div v-for="invitation in invitations" :key="invitation.id"><span>{{ invitation.role }}</span><small>{{ invitation.redeemedAt ? '已兑换' : new Date(invitation.expiresAt).getTime() <= Date.now() ? '已过期' : '待兑换' }}</small></div></div>
+        <div v-if="invitations.length" class="invitation-history"><strong>近期邀请</strong><div v-for="invitation in invitations" :key="invitation.id"><span>{{ invitation.role }}</span><small>{{ invitation.redeemedAt ? '已兑换' : invitation.revokedAt ? '已撤销' : new Date(invitation.expiresAt).getTime() <= Date.now() ? '已过期' : '待兑换' }}</small><button v-if="!invitation.redeemedAt && !invitation.revokedAt && new Date(invitation.expiresAt).getTime() > Date.now()" class="subtle-button" :disabled="!!revokingInvite" @click="revokeInvite(invitation.id)">{{ revokingInvite === invitation.id ? '撤销中…' : '撤销' }}</button></div></div>
       </div>
     </section>
   </div>
