@@ -1,0 +1,13 @@
+{
+  "name": "forgekit",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "dev": "pnpm --parallel --filter @forgekit/console --filter @forgekit/api dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm -r --if-present test"
+  },
+  "engines": { "node": ">=22" }
+}
