@@ -3,20 +3,21 @@ import { and, eq } from 'drizzle-orm';
 import { assetInstallations } from '@forgekit/db';
 import { DatabaseService } from './database.service';
 import { ProjectsService } from './projects.service';
+import type { ProjectAuthContext } from './project-auth-context';
 
 @Injectable()
 export class ProjectAssetsService {
   constructor(private readonly database: DatabaseService, private readonly projects: ProjectsService) {}
 
-  async list(slug: string) {
-    const project = await this.projects.findBySlug(slug);
+  async list(slug: string, auth: ProjectAuthContext) {
+    const project = await this.projects.findBySlug(slug, auth, 'asset:read');
     return this.database.db.select().from(assetInstallations)
       .where(eq(assetInstallations.projectId, project.id));
   }
 
   /** Records intent only. No source files are changed, and applied status cannot be set via HTTP. */
-  async plan(slug: string, assetId: string, version: string) {
-    const project = await this.projects.findBySlug(slug);
+  async plan(slug: string, assetId: string, version: string, auth: ProjectAuthContext) {
+    const project = await this.projects.findBySlug(slug, auth, 'asset:plan');
     const db = this.database.db;
     const where = and(eq(assetInstallations.projectId, project.id), eq(assetInstallations.assetId, assetId));
     const [existing] = await db.select().from(assetInstallations).where(where).limit(1);

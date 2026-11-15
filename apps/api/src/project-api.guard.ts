@@ -1,14 +1,20 @@
-import { CanActivate, ExecutionContext, ForbiddenException, Injectable } from '@nestjs/common';
-import { allowUnauthenticatedProjectRoutes, resolveAuthConfig } from './auth.config';
+import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { resolveAuthConfig } from './auth.config';
+import { AuthService } from './auth.service';
+import type { ProjectAuthRequest } from './project-auth-context';
 
 @Injectable()
 export class ProjectApiGuard implements CanActivate {
-  private readonly localOnly = allowUnauthenticatedProjectRoutes(resolveAuthConfig(process.env));
+  private readonly mode = resolveAuthConfig(process.env).mode;
+  constructor(private readonly auth: AuthService) {}
 
-  canActivate(_context: ExecutionContext): boolean {
-    if (!this.localOnly) {
-      // Safe default until trusted subject -> membership -> action checks exist.
-      throw new ForbiddenException('项目资源授权尚未启用，暂不开放访问。');
+  async canActivate(context: ExecutionContext): Promise<boolean> {
+    const request = context.switchToHttp().getRequest<ProjectAuthRequest>();
+    if (this.mode === 'local') {
+      request.projectAuth = { mode: 'local' };
+    } else {
+      const subject = await this.auth.authenticate(request.headers.authorization);
+      request.projectAuth = { mode: 'oidc', ...subject };
     }
     return true;
   }
