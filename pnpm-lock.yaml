@@ -19,6 +19,9 @@ importers:
       '@forgekit/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@forgekit/identity-core':
+        specifier: workspace:*
+        version: link:../../packages/identity-core
       '@forgekit/project-core':
         specifier: workspace:*
         version: link:../../packages/project-core

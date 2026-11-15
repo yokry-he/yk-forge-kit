@@ -1,6 +1,6 @@
 /** Authorization policy is pure and provider-independent. The HTTP guard must supply trusted membership data. */
-export { createOidcTokenVerifier, validateOidcVerifierConfig } from './oidc';
-export type { AuthenticatedSubject, OidcVerifierConfig } from './oidc';
+export { createOidcTokenVerifier, validateOidcVerifierConfig } from './oidc.js';
+export type { AuthenticatedSubject, OidcVerifierConfig } from './oidc.js';
 export type ProjectRole = 'owner' | 'editor' | 'viewer';
 export type ProjectPermission =
   | 'project:read' | 'project:update' | 'project:delete'
