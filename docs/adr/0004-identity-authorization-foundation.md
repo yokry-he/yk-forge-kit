@@ -31,6 +31,8 @@ ForgeKit 将支持多用户、项目协作、CLI 执行器及云端发布。此�
 4. CLI 通过有生命周期、可撤销的独立授权流程获取能力，执行器权限不能等同管理员用户权限。
 5. 进行越权、跨项目访问、会话失效、重复提交和迁移测试后，才允许部署到外网。
 
+2026-11-16 补充：首个可复用 OIDC 访问令牌验证器采用 `jose`，固定 issuer、audience、HTTPS JWKS 与算法白名单。该模块只完成密码学和声明验证，不代表业务路由已启用鉴权。详见 `docs/zh-CN/oidc-verification.md`。
+
 ## 参考
 
 - [OWASP Authorization Cheat Sheet](https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html)
