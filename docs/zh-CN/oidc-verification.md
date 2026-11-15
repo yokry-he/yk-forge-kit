@@ -1,6 +1,6 @@
 # OIDC 令牌验证基础（尚未启用登录）
 
-状态：开发阶段基础库，仅实现 API 访问令牌的签名与声明验证，**尚未连接到 NestJS 路由，也没有登录界面、会话或项目授权守卫**。
+状态：开发阶段认证接口原型，已接入 NestJS 身份检查接口，**尚未实现登录界面、会话或项目级成员授权**。
 
 ## 为什么先做验证器
 
@@ -34,5 +34,16 @@ OIDC_JWKS_URL=https://idp.example.com/realms/forgekit/protocol/openid-connect/ce
 2. NestJS 守卫、主体映射与项目归属迁移；默认拒绝无权限访问。
 3. CLI 设备授权/短期凭据、撤销、密钥轮换与审计。
 4. 令牌校验异常、跨项目访问与回归端到端测试。
+
+## 当前 NestJS 接入方式
+
+`AUTH_MODE` 支持：
+
+- `local`：仅允许非生产环境，且 API 监听 `127.0.0.1`、`::1` 或 `localhost`。项目 API 保持现有本机开发行为；`GET /api/v1/auth/whoami` 返回 503，不生成假用户。
+- `oidc`：必须设置 `OIDC_ISSUER`、`OIDC_API_AUDIENCE` 和 `OIDC_JWKS_URL`。`GET /api/v1/auth/whoami` 从 `Authorization: Bearer <token>` 中验证签名和声明，返回 `(issuer, subject)`，非法令牌返回 401。
+
+生产模式要求 `oidc` 配置，否则启动失败。为了避免产生“只有认证、没有资源授权”的漏洞，**当前 `oidc` 模式下所有项目和资产项目 API 均返回 403**，直到下一阶段完成用户映射、成员资格查询和逐项权限执行。健康检查仍可用于部署探针。
+
+不要将本机开发模式用于公网或生产环境，也不要把当前的 `whoami` 当作已完成登录流程。
 
 参考：[jose JWT 验证](https://github.com/panva/jose/blob/main/docs/jwt/verify/functions/jwtVerify.md)、[OWASP JWT](https://cheatsheetseries.owasp.org/cheatsheets/JSON_Web_Token_Cheat_Sheet.html)、[OpenID Connect Discovery](https://openid.net/specs/openid-connect-discovery-1_0.html)。

@@ -1,8 +1,10 @@
-import { BadRequestException, Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { normalizeProjectOptions, ProjectValidationError, type ProjectOptions } from '@forgekit/project-core';
 import { ProjectsService } from './projects.service';
+import { ProjectApiGuard } from './project-api.guard';
 
 @Controller('api/v1/projects')
+@UseGuards(ProjectApiGuard)
 export class ProjectsController {
   constructor(private readonly projects: ProjectsService) {}
 

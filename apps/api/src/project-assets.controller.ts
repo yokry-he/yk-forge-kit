@@ -1,8 +1,10 @@
-import { BadRequestException, Body, Controller, Get, Param, Post } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { AssetError, resolveAssets, type AssetManifest } from '@forgekit/asset-core';
 import { ProjectAssetsService } from './project-assets.service';
+import { ProjectApiGuard } from './project-api.guard';
 
 @Controller('api/v1/projects/:slug/assets')
+@UseGuards(ProjectApiGuard)
 export class ProjectAssetsController {
   constructor(private readonly assets: ProjectAssetsService) {}
 
