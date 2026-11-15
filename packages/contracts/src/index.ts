@@ -30,6 +30,19 @@ export interface ProjectAssetRecord {
   createdAt: string;
 }
 
+export interface ProjectMemberRecord {
+  userId: string;
+  displayName: string;
+  role: 'owner' | 'editor' | 'viewer';
+  joinedAt: string;
+}
+
+export interface ProjectMembersResponse {
+  members: ProjectMemberRecord[];
+  currentUserId: string | null;
+  currentRole: 'owner' | 'editor' | 'viewer' | null;
+}
+
 /** Unsigned local verification evidence, never sufficient to authorize a database status change. */
 export interface AssetVerificationReceipt {
   schemaVersion: 1;

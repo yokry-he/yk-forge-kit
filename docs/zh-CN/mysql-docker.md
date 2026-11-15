@@ -83,7 +83,9 @@ Schema 定义在 packages/db/src/schema.ts，生成 SQL 到 packages/db/drizzle/
 
 当前业务数据基础是 projects 和 asset_installations；`0001` 迁移新增项目模板与能力配置字段，`0002` 迁移添加资产状态和项目内资产唯一约束。**如果既有数据库已经有同一项目重复的资产记录，必须先人工核查和处理，否则唯一约束迁移会失败**。组织协作与正式运行时授权仍待实现。
 
-`0003` 迁移新增 `users`、`external_identities`、`project_memberships`，形成用户与项目角色的存储基础。**这不代表登录或 API 授权已经上线**；旧项目仍无归属，需要单独设计安全认领流程。现阶段服务端仍仅用于本机开发，暂不能公网部署。详细决策见 `docs/adr/0004-identity-authorization-foundation.md`。
+`0003` 迁移新增 `users`、`external_identities`、`project_memberships`，形成用户与项目角色的存储基础。当前虽已编写 OIDC 登录与项目级授权原型，但尚未经过真实身份提供方及 MySQL 的端到端验证；旧项目仍无归属，需要单独设计安全认领流程。暂不能据此直接公网部署。详细决策见 `docs/adr/0004-identity-authorization-foundation.md`。
+
+`0004` 迁移新增项目成员权限变更审计表。OIDC 模式已具备部分项目成员级授权与登录原型，但正式部署仍需完成真实身份提供方、MySQL 事务和越权测试。
 
 ## 安全底线
 

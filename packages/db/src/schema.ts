@@ -1,4 +1,4 @@
-import { bigint, json, mysqlTable, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
+import { bigint, index, json, mysqlTable, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
 
 /** Initial metadata only; no user/auth schema is assumed at this stage. */
 export const projects = mysqlTable('projects', {
@@ -34,6 +34,17 @@ export const projectMemberships = mysqlTable('project_memberships', {
   role: varchar('role', { length: 16 }).$type<'owner' | 'editor' | 'viewer'>().notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [uniqueIndex('project_membership_project_user_unique').on(table.projectId, table.userId)]);
+
+/** Append-only member role audit. User IDs remain as historical identifiers. */
+export const projectMemberAudit = mysqlTable('project_member_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  targetUserId: varchar('target_user_id', { length: 36 }).notNull(),
+  previousRole: varchar('previous_role', { length: 16 }).notNull(),
+  nextRole: varchar('next_role', { length: 16 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [index('project_member_audit_project_time_idx').on(table.projectId, table.createdAt)]);
 
 export const assetInstallations = mysqlTable('asset_installations', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),

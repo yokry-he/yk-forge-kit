@@ -50,6 +50,8 @@ OIDC_JWKS_URL=https://idp.example.com/realms/forgekit/protocol/openid-connect/ce
 - 资产记录查询与计划登记：分别检查 `asset:read`、`asset:plan`；Viewer 不能登记计划。
 - 旧项目如果没有成员关系，OIDC 身份不能访问。**不得通过自动认领将旧项目交给首次登录者**，迁移前必须确认归属。
 
+项目成员列表及角色调整已接入：`GET /api/v1/projects/:slug/members` 和 `PATCH /api/v1/projects/:slug/members/:userId`。仅 Owner 能调整已有 Editor/Viewer，且由服务端事务锁定目标行并写入审计。详情见 `docs/zh-CN/project-members.md`。
+
 注意：目前还没有用户登录界面，也没有真实身份提供方的全流程集成测试。项目级授权实现不能代替部署前的权限审计和测试。
 
 不要将本机开发模式用于公网或生产环境，也不要把当前的 `whoami` 当作已完成登录流程。
