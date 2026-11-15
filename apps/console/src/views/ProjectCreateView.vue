@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, ref, watch } from 'vue';
 import { createProjectPlan, type ProjectFeature } from '@forgekit/project-core';
+import { RouterLink } from 'vue-router';
+import { saveProject } from '../api/projects';
 
 const step = ref(1);
 const name = ref('my-forge-app');
 const features = ref<ProjectFeature[]>(['theme']);
 const copyStatus = ref('');
+const saving = ref(false);
+const saveError = ref('');
+const savedSlug = ref('');
+watch([name, features], () => { savedSlug.value = ''; saveError.value = ''; });
 const options: Array<{ id: ProjectFeature; label: string; detail: string }> = [
   { id: 'theme', label: '主题系统', detail: '深色视觉风格与语义设计变量' },
   { id: 'router', label: '页面路由', detail: 'Vue Router 和首页路由' },
@@ -17,7 +23,17 @@ const plan = computed(() => {
 });
 const command = computed(() => plan.value ? `node packages/cli/dist/index.js create ${plan.value.options.name} --features ${plan.value.options.features.join(',') || 'none'}` : '');
 function toggle(id: ProjectFeature): void {
+  savedSlug.value = '';
   features.value = features.value.includes(id) ? features.value.filter((x) => x !== id) : [...features.value, id];
+}
+async function save(): Promise<void> {
+  if (!plan.value || saving.value) return;
+  saving.value = true;
+  saveError.value = '';
+  savedSlug.value = '';
+  try { savedSlug.value = (await saveProject(plan.value.options)).slug; }
+  catch (reason) { saveError.value = reason instanceof Error ? reason.message : '保存失败，请稍后重试。'; }
+  finally { saving.value = false; }
 }
 async function copy(): Promise<void> {
   try { await navigator.clipboard.writeText(command.value); copyStatus.value = '命令已复制'; }
@@ -56,7 +72,7 @@ async function copy(): Promise<void> {
         </section>
 
         <section v-else class="panel">
-          <h2>确认项目配置</h2><p>确认后通过本地 CLI 生成真实源码。</p>
+          <h2>确认项目配置</h2><p>可先将配置保存至 MySQL。保存记录不会自动生成本机源码。</p>
           <div class="summary">
             <div><span>名称</span><strong>{{ name }}</strong></div>
             <div><span>模板</span><strong>Vue 3 / Vite</strong></div>
@@ -66,6 +82,12 @@ async function copy(): Promise<void> {
           <label>本地创建命令</label>
           <div class="command"><code>{{ command }}</code><button @click="copy">复制</button></div>
           <small role="status">{{ copyStatus || '需要先构建并连接本仓库 CLI；此操作不会直接写入浏览器所在设备。' }}</small>
+          <div class="save-record">
+            <button class="save-button" type="button" :disabled="saving || !!savedSlug || !plan" @click="save">{{ saving ? '正在保存…' : savedSlug ? '项目配置已保存' : '保存项目配置到 MySQL' }}</button>
+            <p v-if="saveError" class="form-error" role="alert">{{ saveError }}</p>
+            <p v-if="savedSlug" class="form-success" role="status">项目记录已保存。<RouterLink :to="`/projects/${encodeURIComponent(savedSlug)}`">查看项目详情 →</RouterLink></p>
+            <small v-if="!savedSlug && !saveError">需要后端 API 已连接，并完成数据库迁移。</small>
+          </div>
           <details><summary>查看即将生成的文件</summary><ul><li v-for="file in plan?.files" :key="file">{{ file }}</li></ul></details>
         </section>
         <div class="actions"><button v-if="step > 1" class="back" @click="step--">上一步</button><span></span><button v-if="step < 3" :disabled="step === 1 && !plan" @click="step++">继续 →</button><button v-else @click="step = 1; copyStatus = ''">创建另一个项目</button></div>

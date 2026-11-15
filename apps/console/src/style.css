@@ -57,3 +57,21 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 .lifecycle-tools { border-top: 1px solid #383842; padding-top: 20px; margin-top: 20px; }.lifecycle-tools p { font-size: 11px; color: #a1a1aa; line-height: 1.7; }.lifecycle-tools code { color: #c4b5fd; }
 @media(max-width:1100px) { .asset-layout { grid-template-columns: 1fr; } }
 @media(max-width:580px) { .asset-toolbar { flex-direction: column; }.asset-toolbar select { width: 100%; } }
+
+/* Project registry — follows the SiteForge-inspired dark workspace palette. */
+.section-toolbar { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 38px 0 18px; font-size: 13px; font-weight: 600; }
+.section-toolbar>div { display: flex; gap: 10px; align-items: center; }
+.subtle-button,.primary-link { display: inline-flex; justify-content: center; align-items: center; padding: 10px 14px; font-size: 12px; border-radius: 9px; text-decoration: none; }
+.subtle-button { color: #e4e4e7; background: #24242a; border: 1px solid #45454e; }.subtle-button:disabled { opacity: .55; cursor: wait; }
+.primary-link { color: #fff; background: #6d28d9; border: 1px solid #8b5cf6; }
+.state-card { border: 1px dashed #454550; border-radius: 15px; padding: 38px; background: #17171b; color: #a1a1aa; font-size: 13px; }
+.state-card strong { display: block; font-size: 18px; color: #fafafa; }.state-card p { font-size: 13px; margin: 12px 0 22px; }
+.project-grid { display: grid; grid-template-columns: repeat(auto-fill,minmax(240px,1fr)); gap: 16px; }
+.project-card { display: block; text-decoration: none; color: #fafafa; background: #18181b; border: 1px solid #383842; border-radius: 14px; padding: 22px; transition: border-color .18s, transform .18s; }
+.project-card:hover { border-color: #8b5cf6; transform: translateY(-2px); }.project-card:focus-visible,.primary-link:focus-visible,.subtle-button:focus-visible { outline: 2px solid #22d3ee; outline-offset: 3px; }
+.project-card-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }.project-mark { display: grid; place-items: center; width: 39px; height: 39px; border-radius: 10px; background: #163a37; color: #4ade80; font-size: 22px; font-weight: 800; }
+.project-card strong { font-size: 17px; }.project-card p { font-size: 12px; margin: 9px 0 24px; }.project-card small { color: #71717a; font-size: 11px; }
+.inline-link { color: #a78bfa; text-decoration: none; }.inline-link:hover { text-decoration: underline; }
+.content .project-detail-panel { margin-top: 30px; min-height: 0; }.project-detail-panel h2 { margin: 0 0 23px; font-size: 26px; }.project-detail-panel .summary strong { overflow-wrap: anywhere; }
+.save-record { margin-top: 24px; padding: 18px; border: 1px solid #40324f; background: #201928; border-radius: 11px; }.save-record .save-button { width: 100%; padding: 13px; background: #6d28d9; border: 1px solid #8b5cf6; color: #fff; font-weight: 600; border-radius: 9px; }.save-record .save-button:disabled { opacity: .65; cursor: default; }.save-record small { display: block; color: #a1a1aa; font-size: 11px; margin-top: 10px; }.save-record .form-error { color: #fda4af; font-size: 12px; margin: 12px 0 0; }.save-record .form-success { color: #6ee7b7; font-size: 12px; margin: 12px 0 0; }.form-success a { color: #c4b5fd; }
+@media(max-width:580px) { .section-toolbar { flex-direction: column; align-items: stretch; }.section-toolbar>div { justify-content: space-between; }.project-grid { grid-template-columns: 1fr; } }

@@ -5,7 +5,7 @@ import type { HealthResponse } from '@forgekit/contracts';
 
 const route = useRoute();
 const apiOnline = ref(false);
-const pageName = computed(() => route.path === '/assets' ? '资产中心' : '创建项目');
+const pageName = computed(() => route.path === '/assets' ? '资产中心' : route.path === '/projects/new' ? '创建项目' : route.path === '/projects' ? '项目列表' : '项目详情');
 
 onMounted(async () => {
   try {
@@ -23,7 +23,7 @@ onMounted(async () => {
       <div class="brand"><span>◆</span> ForgeKit <small>WORKSPACE</small></div>
       <div class="menu-title">工作空间</div>
       <RouterLink to="/projects/new" class="menu" active-class="active">◈　创建项目</RouterLink>
-      <div class="menu muted">▦　项目列表 <small>即将推出</small></div>
+      <RouterLink to="/projects" class="menu" active-class="active">▦　项目列表</RouterLink>
       <RouterLink to="/assets" class="menu" active-class="active">◫　资产中心</RouterLink>
       <div class="side-status">{{ apiOnline ? '● 基础 API 已连接' : '○ 本地规划模式' }}</div>
     </aside>
