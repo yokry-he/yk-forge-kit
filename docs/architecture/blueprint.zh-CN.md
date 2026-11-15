@@ -22,7 +22,7 @@
 | Vue 状态管理 | Pinia | 仅管理客户端共享状态；服务端数据与缓存策略另议 |
 | 官网/文档站 | Nuxt（后续） | SEO/SSR 需求出现时独立建设，不提前引入第二个前端应用 |
 | API | NestJS + TypeScript | 优先模块化单体；业务模块明确 API 契约 |
-| 数据 | PostgreSQL | 业务主数据库；ORM 从 Prisma/Drizzle 中以原型验证选择 |
+| 数据 | 现有 Docker MySQL | 业务主数据库；初期采用 mysql2 + Drizzle ORM，迁移需显式审查与执行 |
 | 队列 | Redis + BullMQ（有异步任务时） | 构建、部署、重试等耗时任务 |
 | 工作区 | pnpm Workspace | 先利用原生工作区；任务规模需要时再引入 Turborepo |
 | CLI | Node.js + TypeScript | 复用共享协议、资产解析与项目本地操作 |
@@ -110,7 +110,7 @@ yk-forge-kit/
 
 ## 10. 待决策清单
 
-- ORM、认证与多租户策略、API 契约格式。
+- 认证与多租户策略、API 契约格式；MySQL 与初期 Drizzle 实现已确定。
 - 资产 Manifest Schema、锁文件及源代码合并策略。
 - Runner 运行模式、缓存、产物存储与计费边界。
 - UI 库的 Vue 组件与跨端 Token 包边界。
