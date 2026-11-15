@@ -81,7 +81,10 @@ export function renderProjectFiles(input: ProjectOptions): Record<string, string
       'src/style.css': files['src/style.css'] ?? null,
       'src/forgekit/theme.css': null,
     }, emptyAssetLock());
-    for (const change of plan.changes) files[change.path] = change.after;
+    for (const change of plan.changes) {
+      if (change.after === null) throw new Error('项目创建过程不允许资产删除操作。');
+      files[change.path] = change.after;
+    }
     files['.forgekit/assets.lock.json'] = JSON.stringify(plan.lock, null, 2) + '\n';
   }
   return files;
