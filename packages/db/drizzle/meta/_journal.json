@@ -15,6 +15,13 @@
       "when": 1794743660684,
       "tag": "0001_flimsy_triathlon",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794744856082,
+      "tag": "0002_big_hellion",
+      "breakpoints": true
     }
   ]
 }

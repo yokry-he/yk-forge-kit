@@ -1,4 +1,4 @@
-import { bigint, json, mysqlTable, timestamp, varchar } from 'drizzle-orm/mysql-core';
+import { bigint, json, mysqlTable, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
 
 /** Initial metadata only; no user/auth schema is assumed at this stage. */
 export const projects = mysqlTable('projects', {
@@ -15,5 +15,6 @@ export const assetInstallations = mysqlTable('asset_installations', {
   projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
   assetId: varchar('asset_id', { length: 128 }).notNull(),
   version: varchar('version', { length: 32 }).notNull(),
+  status: varchar('status', { length: 16 }).$type<'planned' | 'applied'>().notNull().default('planned'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-});
+}, (table) => [uniqueIndex('asset_installations_project_asset_unique').on(table.projectId, table.assetId)]);
