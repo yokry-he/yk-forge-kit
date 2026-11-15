@@ -2,12 +2,14 @@
 import { computed, onMounted, ref } from 'vue';
 import { RouterLink, RouterView, useRoute } from 'vue-router';
 import type { HealthResponse } from '@forgekit/contracts';
+import { authSession, oidcEnabled, restoreSession } from './auth/session';
 
 const route = useRoute();
 const apiOnline = ref(false);
-const pageName = computed(() => route.path === '/assets' ? '资产中心' : route.path === '/projects/new' ? '创建项目' : route.path === '/projects' ? '项目列表' : '项目详情');
+const pageName = computed(() => route.path.startsWith('/auth/') ? '用户中心' : route.path === '/assets' ? '资产中心' : route.path === '/projects/new' ? '创建项目' : route.path === '/projects' ? '项目列表' : '项目详情');
 
 onMounted(async () => {
+  try { await restoreSession(); } catch { /* Login screen remains available if restore fails. */ }
   try {
     const response = await fetch('/api/v1/health', { signal: AbortSignal.timeout(3000) });
     if (!response.ok) return;
@@ -25,6 +27,7 @@ onMounted(async () => {
       <RouterLink to="/projects/new" class="menu" active-class="active">◈　创建项目</RouterLink>
       <RouterLink to="/projects" class="menu" active-class="active">▦　项目列表</RouterLink>
       <RouterLink to="/assets" class="menu" active-class="active">◫　资产中心</RouterLink>
+      <RouterLink to="/auth/login" class="menu" active-class="active">◇　用户中心 <small>{{ authSession ? '已登录' : oidcEnabled ? '登录' : '本机模式' }}</small></RouterLink>
       <div class="side-status">{{ apiOnline ? '● 基础 API 已连接' : '○ 本地规划模式' }}</div>
     </aside>
     <main class="main">
