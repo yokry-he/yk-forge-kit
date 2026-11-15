@@ -62,11 +62,11 @@ async function assetCommand(args: string[]): Promise<void> {
     for (const asset of listAssets()) console.log(`${asset.id}@${asset.version}  ${asset.name}  [${asset.target.join(',')}]`);
     return;
   }
-  if (!['plan', 'add', 'upgrade', 'remove'].includes(action ?? '') || !id) {
-    throw new ProjectValidationError('用法：forgekit asset list | plan/add/upgrade/remove <id> [--dir project-path] [--dry-run] [--yes]');
+  if (!['plan', 'add', 'upgrade', 'remove', 'verify'].includes(action ?? '') || !id) {
+    throw new ProjectValidationError('用法：forgekit asset list | plan/add/upgrade/remove/verify <id> [--dir project-path] [--dry-run] [--yes]');
   }
   let dir: string | undefined;
-  let dryRun = action === 'plan';
+  let dryRun = action === 'plan' || action === 'verify';
   let confirmed = false;
   for (let index = 0; index < rest.length; index++) {
     const arg = rest[index];
@@ -78,6 +78,13 @@ async function assetCommand(args: string[]): Promise<void> {
   const projectDir = resolve(dir ?? process.cwd());
   const operation = action === 'upgrade' ? 'upgrade' : action === 'remove' ? 'remove' : 'add';
   const { plan, lockBefore } = await getAssetPlan(id, projectDir, operation);
+  if (action === 'verify') {
+    if (!('alreadyInstalled' in plan) || !plan.alreadyInstalled) {
+      throw new ProjectValidationError(`资产尚未安装或版本不匹配：${id}`);
+    }
+    console.log(`✓ 资产文件与锁记录已校验：${id}@${plan.asset.version}（只读验证）。`);
+    return;
+  }
   if ('alreadyInstalled' in plan ? plan.alreadyInstalled : plan.noChange) {
     console.log(`✓ ${id} 已是目标版本，受管理文件未变化。`);
     return;
@@ -158,7 +165,7 @@ const [command] = process.argv.slice(2);
 if (command === 'version' || command === '--version') {
   console.log('ForgeKit CLI 0.0.0');
 } else if (command === 'help' || command === '--help' || !command) {
-  console.log('ForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
+  console.log('ForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset verify <id> [--dir project-directory]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
 } else if (command === 'create') {
   createProject(process.argv.slice(3)).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : '项目创建失败');

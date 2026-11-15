@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref, watch } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import type { ProjectAssetRecord, ProjectRecord } from '@forgekit/contracts';
 import { listAssets } from '@forgekit/asset-core';
@@ -15,7 +15,24 @@ const assetsError = ref('');
 const assetsLoading = ref(false);
 const planning = ref('');
 const planMessage = ref('');
+const localDirectory = ref('');
+const copied = ref('');
 const catalog = listAssets().filter((asset) => asset.target.includes('vue-web'));
+const pendingAssets = computed(() => assets.value.filter((item) => item.status === 'planned'));
+
+function quoteShell(value: string): string {
+  return `'${value.replace(/'/g, "'\\''")}'`;
+}
+
+function assetCliCommand(action: 'plan' | 'add' | 'verify', assetId: string): string {
+  const directory = localDirectory.value.trim() || `./${project.value?.slug ?? 'my-project'}`;
+  return `node packages/cli/dist/index.js asset ${action} ${quoteShell(assetId)} --dir ${quoteShell(directory)}`;
+}
+
+async function copyCommand(command: string, key: string): Promise<void> {
+  try { await navigator.clipboard.writeText(command); copied.value = key; }
+  catch { copied.value = '复制失败，请手动选择命令'; }
+}
 
 async function refreshAssets(slug: string): Promise<void> {
   assetsLoading.value = true;
@@ -44,6 +61,7 @@ async function refresh(): Promise<void> {
   project.value = null;
   assets.value = [];
   planMessage.value = '';
+  copied.value = '';
   try {
     project.value = await getProject(String(route.params.slug));
     await refreshAssets(project.value.slug);
@@ -89,6 +107,21 @@ watch(() => route.params.slug, refresh);
         <button class="subtle-button" :disabled="!!planning || assetsLoading || assets.some((asset) => asset.assetId === item.id)" @click="planAsset(item.id)">{{ planning === item.id ? '正在登记…' : assets.some((asset) => asset.assetId === item.id) ? '已登记' : '登记安装计划' }}</button>
       </div>
       <p class="asset-help">当前仅提供已实现安装器的官方主题资产；用户中心、大屏等资产仍在规划中。</p>
+      <div v-if="pendingAssets.length" class="asset-handoff">
+        <h3>在本机执行已登记的资产计划</h3>
+        <p class="asset-help">输入项目源码目录。先预览变更，再执行安装，最后只读校验；命令需要在 ForgeKit 仓库根目录执行。执行成功也不会自动将数据库状态改为“已安装”。</p>
+        <label for="project-source-dir">项目源码目录</label>
+        <input id="project-source-dir" v-model="localDirectory" :placeholder="`./${project.slug}`" spellcheck="false" />
+        <div v-for="item in pendingAssets" :key="item.id" class="handoff-item">
+          <strong>{{ item.assetId }} <small>v{{ item.version }}</small></strong>
+          <div v-for="action in (['plan', 'add', 'verify'] as const)" :key="action" class="handoff-command">
+            <span>{{ { plan: '预览', add: '执行', verify: '校验' }[action] }}</span>
+            <code>{{ assetCliCommand(action, item.assetId) }}</code>
+            <button class="subtle-button" @click="copyCommand(assetCliCommand(action, item.assetId), `${item.assetId}:${action}`)">{{ copied === `${item.assetId}:${action}` ? '已复制' : '复制' }}</button>
+          </div>
+        </div>
+        <small role="status">{{ copied === '复制失败，请手动选择命令' ? copied : '建议先查看 git diff，确认文件变更后再提交。' }}</small>
+      </div>
     </section>
   </div>
 </template>
