@@ -7,7 +7,8 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
   app.enableCors({ origin: process.env.CONSOLE_ORIGIN ?? 'http://localhost:5173' });
-  await app.listen(Number(process.env.PORT ?? 3001), '0.0.0.0');
+  // Development defaults to loopback until authentication is in place.
+  await app.listen(Number(process.env.PORT ?? 3001), process.env.API_HOST ?? '127.0.0.1');
 }
 
 bootstrap().catch((error: unknown) => {

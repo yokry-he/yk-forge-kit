@@ -29,6 +29,16 @@
 - GET /api/v1/health：进程存活，不依赖数据库。
 - GET /api/v1/ready：数据库 Ping 成功返回 200，否则 503，不暴露驱动错误或密码。
 
+当前 API 默认仅监听 `127.0.0.1:3001`（可通过 `API_HOST`、`PORT` 调整）。用户中心与鉴权尚未接入前，不要将项目管理 API 暴露到公网。
+
+项目元数据 API（不负责写入项目源码文件）：
+
+- `POST /api/v1/projects`：接收 `{ "name": "my-app", "template": "vue-web", "features": ["theme"] }`，校验项目配置并存入 MySQL；名称重复返回 409。
+- `GET /api/v1/projects`：按创建时间倒序查询最近 50 条项目记录。
+- `GET /api/v1/projects/:slug`：按名称读取单条记录；不存在返回 404。
+
+项目的本地源码生成仍由 CLI 完成。修改/删除 API 会在用户中心和权限策略就绪后实现，避免当前无鉴权阶段开放破坏性操作。
+
 若需单独检查连接，可在 packages/db/.env 配置 DATABASE_URL，执行：
 
     corepack pnpm --filter @forgekit/db db:check
@@ -45,7 +55,7 @@ Schema 定义在 packages/db/src/schema.ts，生成 SQL 到 packages/db/drizzle/
 
     corepack pnpm --filter @forgekit/db db:migrate
 
-当前 Schema 仅是 projects 和 asset_installations 的初始元数据模型，用户/组织/权限模型尚未定案。
+当前 Schema 仅是 projects 和 asset_installations 的初始元数据模型；`0001` 迁移新增项目模板与能力配置字段。用户/组织/权限模型尚未定案。
 
 ## 安全底线
 

@@ -1,10 +1,12 @@
-import { bigint, mysqlTable, timestamp, varchar } from 'drizzle-orm/mysql-core';
+import { bigint, json, mysqlTable, timestamp, varchar } from 'drizzle-orm/mysql-core';
 
 /** Initial metadata only; no user/auth schema is assumed at this stage. */
 export const projects = mysqlTable('projects', {
   id: varchar('id', { length: 36 }).primaryKey(),
   slug: varchar('slug', { length: 100 }).notNull().unique(),
   name: varchar('name', { length: 150 }).notNull(),
+  template: varchar('template', { length: 32 }).notNull().default('vue-web'),
+  features: json('features').$type<Array<'theme' | 'router' | 'pinia'>>().notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
