@@ -49,6 +49,18 @@ Vue 控制台的 `/projects` 页面显示项目列表，`/projects/new` 创建�
 
 当前尚无鉴权，不提供资产升级、卸载或直接覆盖源码的远程写操作。Vue 项目详情页会显示待执行计划与可选的官方资产。
 
+### 在本机执行资产计划
+
+项目详情页可根据你填写的项目源码目录生成三条命令（应在 ForgeKit 仓库根目录执行）：
+
+    node packages/cli/dist/index.js asset plan official.theme --dir ./my-app
+    node packages/cli/dist/index.js asset add official.theme --dir ./my-app
+    node packages/cli/dist/index.js asset verify official.theme --dir ./my-app
+
+其中 `plan` 只预览文件变更；`add` 执行已有的安全安装流程；`verify` 仅检查锁记录、版本及受管理文件摘要，不修改文件。建议执行前先将项目纳入 Git 版本控制，执行后核对 `git diff`。
+
+**这三个 CLI 操作都不会修改数据库状态**：当前尚未实现经过身份认证、执行回执及项目目录绑定的可靠状态同步，不能将浏览器记录自动标记为 `applied`。
+
 若需单独检查连接，可在 packages/db/.env 配置 DATABASE_URL，执行：
 
     corepack pnpm --filter @forgekit/db db:check
