@@ -39,6 +39,8 @@
 
 项目的本地源码生成仍由 CLI 完成。修改/删除 API 会在用户中心和权限策略就绪后实现，避免当前无鉴权阶段开放破坏性操作。
 
+Vue 控制台的 `/projects` 页面显示项目列表，`/projects/new` 创建向导可调用 API 保存元数据，`/projects/:slug` 显示详情。后端或 MySQL 不可用时会展示明确的错误和重试操作，创建向导仍保留独立的本地 CLI 命令。**保存元数据与生成源码是两个不同操作**。
+
 若需单独检查连接，可在 packages/db/.env 配置 DATABASE_URL，执行：
 
     corepack pnpm --filter @forgekit/db db:check
