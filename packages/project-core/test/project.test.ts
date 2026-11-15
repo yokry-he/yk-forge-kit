@@ -7,6 +7,8 @@ describe('Vue project creation plan', () => {
     const plan = createProjectPlan({ ...options, features: [...options.features] });
     expect(plan.options.features).toEqual(['theme', 'router', 'pinia']);
     expect(plan.files).toContain('src/views/Home.vue');
+    expect(plan.files).toContain('.forgekit/assets.lock.json');
+    expect(renderProjectFiles(plan.options)['src/forgekit/theme.css']).toContain('--fk-brand');
     expect(renderProjectFiles(plan.options)['src/main.ts']).toContain('createPinia');
   });
 

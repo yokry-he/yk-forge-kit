@@ -67,8 +67,20 @@ importers:
         specifier: ^3.0.0
         version: 3.3.14(typescript@5.9.3)
 
+  packages/asset-core:
+    devDependencies:
+      typescript:
+        specifier: ^5.9.0
+        version: 5.9.3
+      vitest:
+        specifier: ^3.2.0
+        version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)
+
   packages/cli:
     dependencies:
+      '@forgekit/asset-core':
+        specifier: workspace:*
+        version: link:../asset-core
       '@forgekit/contracts':
         specifier: workspace:*
         version: link:../contracts
@@ -96,6 +108,10 @@ importers:
         version: 3.2.7(@types/node@22.20.5)(tsx@4.23.15)
 
   packages/project-core:
+    dependencies:
+      '@forgekit/asset-core':
+        specifier: workspace:*
+        version: link:../asset-core
     devDependencies:
       typescript:
         specifier: ^5.9.0
