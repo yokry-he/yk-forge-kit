@@ -79,7 +79,9 @@ Schema 定义在 packages/db/src/schema.ts，生成 SQL 到 packages/db/drizzle/
 
     corepack pnpm --filter @forgekit/db db:migrate
 
-当前 Schema 仅是 projects 和 asset_installations 的初始元数据模型；`0001` 迁移新增项目模板与能力配置字段，`0002` 迁移添加资产状态和项目内资产唯一约束。**如果既有数据库已经有同一项目重复的资产记录，必须先人工核查和处理，否则唯一约束迁移会失败**。用户/组织/权限模型尚未定案。
+当前业务数据基础是 projects 和 asset_installations；`0001` 迁移新增项目模板与能力配置字段，`0002` 迁移添加资产状态和项目内资产唯一约束。**如果既有数据库已经有同一项目重复的资产记录，必须先人工核查和处理，否则唯一约束迁移会失败**。组织协作与正式运行时授权仍待实现。
+
+`0003` 迁移新增 `users`、`external_identities`、`project_memberships`，形成用户与项目角色的存储基础。**这不代表登录或 API 授权已经上线**；旧项目仍无归属，需要单独设计安全认领流程。现阶段服务端仍仅用于本机开发，暂不能公网部署。详细决策见 `docs/adr/0004-identity-authorization-foundation.md`。
 
 ## 安全底线
 

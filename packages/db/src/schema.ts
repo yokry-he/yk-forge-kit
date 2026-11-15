@@ -10,6 +10,31 @@ export const projects = mysqlTable('projects', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
+/** Human accounts are provider-neutral; no passwords or credentials are stored here. */
+export const users = mysqlTable('users', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  displayName: varchar('display_name', { length: 150 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+});
+
+/** Stable issuer + subject pairing; email is not an authentication identifier. */
+export const externalIdentities = mysqlTable('external_identities', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  userId: varchar('user_id', { length: 36 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  issuer: varchar('issuer', { length: 255 }).notNull(),
+  subject: varchar('subject', { length: 255 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [uniqueIndex('external_identity_issuer_subject_unique').on(table.issuer, table.subject)]);
+
+/** Project roles remain separate from global identity records. */
+export const projectMemberships = mysqlTable('project_memberships', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  userId: varchar('user_id', { length: 36 }).notNull().references(() => users.id, { onDelete: 'cascade' }),
+  role: varchar('role', { length: 16 }).$type<'owner' | 'editor' | 'viewer'>().notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [uniqueIndex('project_membership_project_user_unique').on(table.projectId, table.userId)]);
+
 export const assetInstallations = mysqlTable('asset_installations', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
   projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
