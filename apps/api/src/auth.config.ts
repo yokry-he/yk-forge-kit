@@ -20,7 +20,3 @@ export function resolveAuthConfig(env: Environment): AuthConfig {
   return { mode: 'oidc', verifier: { issuer: env.OIDC_ISSUER, audience: env.OIDC_API_AUDIENCE, jwksUrl: env.OIDC_JWKS_URL } };
 }
 
-/** Until per-project membership checks are integrated, OIDC mode must deny project routes. */
-export function allowUnauthenticatedProjectRoutes(config: AuthConfig): boolean {
-  return config.mode === 'local';
-}
