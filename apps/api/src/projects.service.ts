@@ -73,14 +73,15 @@ export class ProjectsService {
     return row.project;
   }
 
-  private async ensureUser(auth: Extract<ProjectAuthContext, { mode: 'oidc' }>): Promise<string> {
+  async findUserId(auth: Extract<ProjectAuthContext, { mode: 'oidc' }>): Promise<string | null> {
+    const [identity] = await this.database.db.select({ userId: externalIdentities.userId }).from(externalIdentities)
+      .where(subjectMatches(auth)).limit(1);
+    return identity?.userId ?? null;
+  }
+
+  async ensureUser(auth: Extract<ProjectAuthContext, { mode: 'oidc' }>): Promise<string> {
     const db = this.database.db;
-    const find = async () => {
-      const [identity] = await db.select({ userId: externalIdentities.userId }).from(externalIdentities)
-        .where(subjectMatches(auth)).limit(1);
-      return identity?.userId;
-    };
-    const existing = await find();
+    const existing = await this.findUserId(auth);
     if (existing) return existing;
     const userId = randomUUID();
     try {
@@ -91,7 +92,7 @@ export class ProjectsService {
       return userId;
     } catch (error) {
       if (!hasMysqlCode(error, 'ER_DUP_ENTRY')) throw error;
-      const concurrent = await find();
+      const concurrent = await this.findUserId(auth);
       if (concurrent) return concurrent;
       // A case-folding collision is not permission to reuse a different identity.
       throw new ConflictException('身份标识冲突，请联系管理员检查数据库排序规则。');

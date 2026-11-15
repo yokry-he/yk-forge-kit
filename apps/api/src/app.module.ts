@@ -11,9 +11,11 @@ import { AuthService } from './auth.service';
 import { ProjectApiGuard } from './project-api.guard';
 import { ProjectMembersController } from './project-members.controller';
 import { ProjectMembersService } from './project-members.service';
+import { InvitationRedemptionController, ProjectInvitationsController } from './project-invitations.controller';
+import { ProjectInvitationsService } from './project-invitations.service';
 
 @Module({
-  controllers: [HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, AuthController],
-  providers: [DatabaseService, ProjectsService, ProjectAssetsService, ProjectMembersService, AuthService, ProjectApiGuard],
+  controllers: [HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
+  providers: [DatabaseService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, AuthService, ProjectApiGuard],
 })
 export class AppModule {}
