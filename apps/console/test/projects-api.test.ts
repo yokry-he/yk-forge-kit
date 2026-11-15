@@ -1,6 +1,9 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProjectApiError, listProjects, saveProject } from '../src/api/projects';
 import { listProjectAssets, planProjectAsset } from '../src/api/project-assets';
+import { getAccessToken } from '../src/auth/session';
+
+vi.mock('../src/auth/session', () => ({ getAccessToken: vi.fn(async () => null) }));
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -19,6 +22,17 @@ describe('project API client', () => {
     expect(fetch).toHaveBeenCalledWith('/api/v1/projects', expect.objectContaining({
       method: 'POST', body: JSON.stringify({ name: 'demo', template: 'vue-web', features: ['theme'] }),
     }));
+  });
+
+  it('attaches a bearer access token without placing it in the URL or body', async () => {
+    vi.mocked(getAccessToken).mockResolvedValueOnce('signed.access.token');
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal('fetch', fetch);
+    await listProjects();
+    const [url, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe('/api/v1/projects');
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer signed.access.token');
+    expect(init.body).toBeUndefined();
   });
 
   it('reports duplicate project names', async () => {
