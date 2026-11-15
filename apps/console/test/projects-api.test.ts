@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProjectApiError, listProjects, saveProject } from '../src/api/projects';
 import { listProjectAssets, planProjectAsset } from '../src/api/project-assets';
+import { listProjectMembers, updateProjectMemberRole } from '../src/api/project-members';
 import { getAccessToken } from '../src/auth/session';
 
 vi.mock('../src/auth/session', () => ({ getAccessToken: vi.fn(async () => null) }));
@@ -54,5 +55,14 @@ describe('project API client', () => {
     await planProjectAsset('my-app', 'official.theme');
     expect(fetch).toHaveBeenNthCalledWith(1, '/api/v1/projects/my-app/assets', expect.any(Object));
     expect(fetch).toHaveBeenNthCalledWith(2, '/api/v1/projects/my-app/assets', expect.objectContaining({ method: 'POST', body: '{"assetId":"official.theme"}' }));
+  });
+
+  it('loads project members and submits scoped role updates', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ members: [], currentRole: null, currentUserId: null }) });
+    vi.stubGlobal('fetch', fetch);
+    await listProjectMembers('my-app');
+    await updateProjectMemberRole('my-app', 'user-id', 'viewer');
+    expect(fetch).toHaveBeenNthCalledWith(1, '/api/v1/projects/my-app/members', expect.any(Object));
+    expect(fetch).toHaveBeenNthCalledWith(2, '/api/v1/projects/my-app/members/user-id', expect.objectContaining({ method: 'PATCH', body: '{"role":"viewer"}' }));
   });
 });

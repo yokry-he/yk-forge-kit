@@ -9,9 +9,11 @@ import { ProjectAssetsService } from './project-assets.service';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { ProjectApiGuard } from './project-api.guard';
+import { ProjectMembersController } from './project-members.controller';
+import { ProjectMembersService } from './project-members.service';
 
 @Module({
-  controllers: [HealthController, ReadyController, ProjectsController, ProjectAssetsController, AuthController],
-  providers: [DatabaseService, ProjectsService, ProjectAssetsService, AuthService, ProjectApiGuard],
+  controllers: [HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, AuthController],
+  providers: [DatabaseService, ProjectsService, ProjectAssetsService, ProjectMembersService, AuthService, ProjectApiGuard],
 })
 export class AppModule {}

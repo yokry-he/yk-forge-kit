@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
-import { parseAssetVerificationReceipt, type AssetVerificationReceipt, type ProjectAssetRecord, type ProjectRecord } from '@forgekit/contracts';
+import { parseAssetVerificationReceipt, type AssetVerificationReceipt, type ProjectAssetRecord, type ProjectMembersResponse, type ProjectRecord } from '@forgekit/contracts';
 import { listAssets } from '@forgekit/asset-core';
 import { getProject } from '../api/projects';
 import { listProjectAssets, planProjectAsset } from '../api/project-assets';
+import { listProjectMembers, updateProjectMemberRole } from '../api/project-members';
 
 const route = useRoute();
 const project = ref<ProjectRecord | null>(null);
@@ -20,6 +21,11 @@ const copied = ref('');
 const receiptText = ref('');
 const inspectedReceipt = ref<AssetVerificationReceipt | null>(null);
 const receiptError = ref('');
+const members = ref<ProjectMembersResponse | null>(null);
+const membersLoading = ref(false);
+const membersError = ref('');
+const memberFeedback = ref('');
+const updatingMember = ref('');
 const catalog = listAssets().filter((asset) => asset.target.includes('vue-web'));
 const pendingAssets = computed(() => assets.value.filter((item) => item.status === 'planned'));
 
@@ -58,6 +64,27 @@ async function refreshAssets(slug: string): Promise<void> {
   finally { assetsLoading.value = false; }
 }
 
+async function refreshMembers(slug: string): Promise<void> {
+  membersLoading.value = true;
+  membersError.value = '';
+  try { members.value = await listProjectMembers(slug); }
+  catch (reason) { membersError.value = reason instanceof Error ? reason.message : '成员列表加载失败。'; }
+  finally { membersLoading.value = false; }
+}
+
+async function changeRole(userId: string, role: string): Promise<void> {
+  if (!project.value || updatingMember.value || (role !== 'editor' && role !== 'viewer')) return;
+  updatingMember.value = userId;
+  membersError.value = '';
+  memberFeedback.value = '';
+  try {
+    await updateProjectMemberRole(project.value.slug, userId, role);
+    await refreshMembers(project.value.slug);
+    memberFeedback.value = '成员角色已更新。';
+  } catch (reason) { membersError.value = reason instanceof Error ? reason.message : '成员角色更新失败。'; }
+  finally { updatingMember.value = ''; }
+}
+
 async function planAsset(assetId: string): Promise<void> {
   if (!project.value || planning.value) return;
   planning.value = assetId;
@@ -80,9 +107,11 @@ async function refresh(): Promise<void> {
   copied.value = '';
   receiptText.value = '';
   inspectedReceipt.value = null;
+  members.value = null;
+  memberFeedback.value = '';
   try {
     project.value = await getProject(String(route.params.slug));
-    await refreshAssets(project.value.slug);
+    await Promise.all([refreshAssets(project.value.slug), refreshMembers(project.value.slug)]);
   }
   catch (reason) { error.value = reason instanceof Error ? reason.message : '项目读取失败。'; }
   finally { loading.value = false; }
@@ -150,6 +179,24 @@ watch(() => route.params.slug, refresh);
           <div v-if="inspectedReceipt" class="receipt-result" role="status"><strong>回执字段匹配</strong><small>{{ inspectedReceipt.assetId }}@{{ inspectedReceipt.assetVersion }} · {{ inspectedReceipt.files.length }} 个文件摘要 · {{ new Date(inspectedReceipt.verifiedAt).toLocaleString('zh-CN') }}</small><p>此结果只代表回执内容通过格式与项目匹配检查，不代表服务器验证了本地文件；数据库状态仍为原值。</p></div>
         </div>
       </div>
+    </section>
+    <section v-if="project" class="project-assets-panel member-panel">
+      <div class="section-toolbar"><span>项目成员</span><button class="subtle-button" :disabled="membersLoading" @click="refreshMembers(project.slug)">刷新</button></div>
+      <p class="asset-help">成员关系来自服务端授权记录。Owner 可以调整已有 Editor/Viewer 的角色，不能通过此界面降级 Owner。</p>
+      <p v-if="membersError" class="form-error" role="alert">{{ membersError }}</p>
+      <p v-if="memberFeedback" class="form-success" role="status">{{ memberFeedback }}</p>
+      <div v-if="membersLoading" class="state-card compact-state" role="status">正在加载项目成员…</div>
+      <div v-else-if="!members?.members.length" class="state-card compact-state">暂无成员记录。旧项目的归属需要由管理员确认后迁移。</div>
+      <div v-else class="member-list">
+        <div v-for="member in members.members" :key="member.userId" class="member-row">
+          <span class="member-avatar">{{ member.displayName.slice(0, 1).toUpperCase() }}</span>
+          <div class="member-name"><strong>{{ member.displayName }} <small v-if="member.userId === members.currentUserId">（我）</small></strong><small>{{ member.userId }}</small></div>
+          <span v-if="members.currentRole !== 'owner' || member.role === 'owner' || member.userId === members.currentUserId" class="asset-tag" :class="{ verified: member.role === 'owner' }">{{ member.role }}</span>
+          <label v-else class="sr-only" :for="`role-${member.userId}`">成员角色</label>
+          <select v-if="members.currentRole === 'owner' && member.role !== 'owner' && member.userId !== members.currentUserId" :id="`role-${member.userId}`" :value="member.role" :disabled="!!updatingMember" @change="changeRole(member.userId, ($event.target as HTMLSelectElement).value)"><option value="editor">Editor</option><option value="viewer">Viewer</option></select>
+        </div>
+      </div>
+      <p class="asset-help">成员邀请和加入流程将在身份提供方完成实际联调后补充；当前不发送邀请，也不创建未经验证的外部账号。</p>
     </section>
   </div>
 </template>
