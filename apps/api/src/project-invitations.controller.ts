@@ -30,8 +30,10 @@ export class InvitationRedemptionController {
   constructor(private readonly invitations: ProjectInvitationsService) {}
 
   @Post('redeem')
-  redeem(@Body() body: unknown, @Req() request: ProjectAuthRequest) {
-    return this.invitations.redeem(parseInvitationCode(body), requireProjectAuth(request));
+  async redeem(@Body() body: unknown, @Req() request: ProjectAuthRequest) {
+    const auth = requireProjectAuth(request);
+    await this.invitations.limitRedemption(auth);
+    return this.invitations.redeem(parseInvitationCode(body), auth);
   }
 }
 

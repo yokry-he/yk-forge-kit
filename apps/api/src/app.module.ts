@@ -13,9 +13,10 @@ import { ProjectMembersController } from './project-members.controller';
 import { ProjectMembersService } from './project-members.service';
 import { InvitationRedemptionController, ProjectInvitationsController } from './project-invitations.controller';
 import { ProjectInvitationsService } from './project-invitations.service';
+import { InvitationRateLimiter } from './invitation-rate-limiter';
 
 @Module({
   controllers: [HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
-  providers: [DatabaseService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, AuthService, ProjectApiGuard],
+  providers: [DatabaseService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
 })
 export class AppModule {}

@@ -5,19 +5,22 @@ import { projectInvitationAudit, projectInvitations, projectMemberships, project
 import { DatabaseService } from './database.service';
 import type { ProjectAuthContext } from './project-auth-context';
 import { ProjectsService } from './projects.service';
+import { InvitationRateLimiter } from './invitation-rate-limiter';
 
 const INVITATION_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 const tokenDigest = (token: string) => createHash('sha256').update(token, 'utf8').digest('hex');
 
 @Injectable()
 export class ProjectInvitationsService {
-  constructor(private readonly database: DatabaseService, private readonly projects: ProjectsService) {}
+  constructor(private readonly database: DatabaseService, private readonly projects: ProjectsService,
+    private readonly limiter: InvitationRateLimiter) {}
 
   async create(slug: string, role: 'editor' | 'viewer', auth: ProjectAuthContext) {
     if (auth.mode !== 'oidc') throw new ForbiddenException('项目邀请需要 OIDC 登录。');
     const project = await this.projects.findBySlug(slug, auth, 'member:manage');
     const actorId = await this.projects.findUserId(auth);
     if (!actorId) throw new ForbiddenException('当前用户身份未关联。');
+    await this.limiter.consume('create', auth.issuer, auth.subject);
     const code = randomBytes(32).toString('base64url');
     const expiresAt = new Date(Date.now() + INVITATION_TTL_MS);
     const invitationId = randomUUID();
@@ -104,5 +107,11 @@ export class ProjectInvitationsService {
       if (!project) throw new NotFoundException('被邀请的项目不存在。');
       return { projectSlug: project.slug, role: invitation.role };
     });
+  }
+
+  /** Called before validation so malformed redemption bodies also consume quota. */
+  async limitRedemption(auth: ProjectAuthContext): Promise<void> {
+    if (auth.mode !== 'oidc') throw new ForbiddenException('只有已登录用户才能兑换邀请。');
+    await this.limiter.consume('redeem', auth.issuer, auth.subject);
   }
 }

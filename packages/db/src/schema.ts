@@ -1,4 +1,4 @@
-import { bigint, index, json, mysqlTable, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
+import { bigint, index, int, json, mysqlTable, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
 
 /** Initial metadata only; no user/auth schema is assumed at this stage. */
 export const projects = mysqlTable('projects', {
@@ -70,6 +70,13 @@ export const projectInvitationAudit = mysqlTable('project_invitation_audit', {
   action: varchar('action', { length: 16 }).$type<'created' | 'redeemed' | 'revoked'>().notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [index('project_invitation_audit_project_time_idx').on(table.projectId, table.createdAt)]);
+
+/** Shared atomic rate counters, keyed by non-reversible OIDC identity digest and time window. */
+export const invitationRateBuckets = mysqlTable('invitation_rate_buckets', {
+  key: varchar('bucket_key', { length: 96 }).primaryKey(),
+  attempts: int('attempts', { unsigned: true }).notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [index('invitation_rate_bucket_created_idx').on(table.createdAt)]);
 
 export const assetInstallations = mysqlTable('asset_installations', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
