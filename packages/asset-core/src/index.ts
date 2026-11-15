@@ -18,9 +18,9 @@ export interface AssetLock {
 
 export interface AssetChange {
   path: string;
-  action: 'create' | 'modify';
+  action: 'create' | 'modify' | 'delete';
   before: string | null;
-  after: string;
+  after: string | null;
 }
 
 export interface AssetInstallPlan {
@@ -30,13 +30,23 @@ export interface AssetInstallPlan {
   alreadyInstalled: boolean;
 }
 
+export interface AssetLifecyclePlan {
+  asset: AssetManifest;
+  operation: 'upgrade' | 'uninstall';
+  changes: AssetChange[];
+  lock: AssetLock;
+  noChange: boolean;
+  fromVersion: string;
+  toVersion: string | null;
+}
+
 export class AssetError extends Error {
   constructor(message: string) { super(message); this.name = 'AssetError'; }
 }
 
 const THEME: AssetManifest = {
   id: 'official.theme',
-  version: '1.0.0',
+  version: '1.1.0',
   name: '主题系统',
   description: '为 Vue 项目安装语义化颜色 Token 和深色主题样式。',
   target: ['vue-web'],
@@ -104,7 +114,7 @@ export function fingerprint(content: string): string {
   return (hash >>> 0).toString(16).padStart(8, '0');
 }
 
-const themeCss = `:root {
+const themeCssV1 = `:root {
   --fk-bg: #09090b;
   --fk-surface: #18181b;
   --fk-text: #fafafa;
@@ -113,7 +123,32 @@ const themeCss = `:root {
   --fk-accent: #22d3ee;
 }
 `;
+const themeCss = themeCssV1.replace(
+  '  --fk-accent: #22d3ee;',
+  '  --fk-accent: #22d3ee;\n  --fk-brand-hover: #7c3aed;\n  --fk-radius: 10px;',
+);
 const themeImport = "@import './forgekit/theme.css';\n";
+
+function requireInstalled(assetId: string, target: AssetTarget, lock: AssetLock): { asset: AssetManifest; installed: AssetLock['assets'][string] } {
+  const [asset] = resolveAssets([assetId], target);
+  if (!asset) throw new AssetError('未找到资产。');
+  const installed = lock.assets[asset.id];
+  if (!installed) throw new AssetError(`资产尚未安装：${assetId}`);
+  if (!['1.0.0', '1.1.0'].includes(installed.version)) throw new AssetError(`不支持的已安装版本：${installed.version}`);
+  const managed = Object.keys(installed.files).sort();
+  if (managed.join('|') !== ['src/forgekit/theme.css', 'src/style.css'].join('|')) {
+    throw new AssetError('资产锁定的文件集合与已知版本不一致。');
+  }
+  return { asset, installed };
+}
+
+function assertUnmodified(installed: AssetLock['assets'][string], files: Record<string, string | null>): void {
+  for (const [path, hash] of Object.entries(installed.files)) {
+    if (files[path] === null || files[path] === undefined || fingerprint(files[path]) !== hash) {
+      throw new AssetError(`已安装资产文件被修改：${path}；请手动处理，避免覆盖用户代码。`);
+    }
+  }
+}
 
 /** This planner is pure: the CLI applies changes only after preflight checks. */
 export function planAssetInstall(
@@ -126,12 +161,8 @@ export function planAssetInstall(
   if (!asset) throw new AssetError('未找到资产。');
   const installed = lock.assets[asset.id];
   if (installed) {
-    if (installed.version !== asset.version) throw new AssetError('检测到其他资产版本，请使用未来的显式升级流程。');
-    for (const [path, hash] of Object.entries(installed.files)) {
-      if (files[path] === null || files[path] === undefined || fingerprint(files[path]) !== hash) {
-        throw new AssetError(`已安装资产文件被修改：${path}；请手动处理，避免覆盖用户代码。`);
-      }
-    }
+    if (installed.version !== asset.version) throw new AssetError('存在新版本，请使用 asset upgrade 显式升级。');
+    assertUnmodified(installed, files);
     return { asset, changes: [], lock, alreadyInstalled: true };
   }
   if (asset.id !== 'official.theme') throw new AssetError('当前暂无该资产的安装器。');
@@ -147,7 +178,62 @@ export function planAssetInstall(
   ];
   const newLock: AssetLock = {
     schemaVersion: 1,
-    assets: { ...lock.assets, [asset.id]: { version: asset.version, files: Object.fromEntries(changes.map((item) => [item.path, fingerprint(item.after)])) } },
+    assets: { ...lock.assets, [asset.id]: { version: asset.version, files: Object.fromEntries(changes.map((item) => [item.path, fingerprint(item.after ?? '')])) } },
   };
   return { asset, changes, lock: newLock, alreadyInstalled: false };
+}
+
+/** Upgrade only known, verified historical versions. Never merge arbitrary user edits. */
+export function planAssetUpgrade(
+  assetId: string, target: AssetTarget, files: Record<string, string | null>, lock: AssetLock,
+): AssetLifecyclePlan {
+  const { asset, installed } = requireInstalled(assetId, target, lock);
+  assertUnmodified(installed, files);
+  if (installed.version === asset.version) {
+    return { asset, operation: 'upgrade', changes: [], lock, noChange: true, fromVersion: installed.version, toVersion: asset.version };
+  }
+  if (installed.version !== '1.0.0' || asset.id !== 'official.theme') {
+    throw new AssetError('该版本没有受支持的升级路径。');
+  }
+  const before = files['src/forgekit/theme.css'];
+  if (before !== themeCssV1) throw new AssetError('旧版资产内容与已知版本不一致。');
+  const changes: AssetChange[] = [{ path: 'src/forgekit/theme.css', action: 'modify', before, after: themeCss }];
+  const updated = {
+    ...installed,
+    version: asset.version,
+    files: { ...installed.files, 'src/forgekit/theme.css': fingerprint(themeCss) },
+  };
+  return {
+    asset, operation: 'upgrade', changes, noChange: false,
+    lock: { schemaVersion: 1, assets: { ...lock.assets, [asset.id]: updated } },
+    fromVersion: installed.version, toVersion: asset.version,
+  };
+}
+
+/** Remove exactly the managed import and asset file after verifying all recorded hashes. */
+export function planAssetUninstall(
+  assetId: string, target: AssetTarget, files: Record<string, string | null>, lock: AssetLock,
+): AssetLifecyclePlan {
+  const { asset, installed } = requireInstalled(assetId, target, lock);
+  assertUnmodified(installed, files);
+  const style = files['src/style.css'];
+  const theme = files['src/forgekit/theme.css'];
+  if (style === null || style === undefined || !style.startsWith(themeImport) || theme === null || theme === undefined) {
+    throw new AssetError('资产文件与预期结构不一致，无法安全卸载。');
+  }
+  const dependents = Object.keys(lock.assets).filter((id) =>
+    id !== asset.id && BUILT_INS[id as AssetId]?.dependencies.includes(asset.id),
+  );
+  if (dependents.length) throw new AssetError(`仍有资产依赖此模块：${dependents.join(', ')}`);
+  const updatedAssets = { ...lock.assets };
+  delete updatedAssets[asset.id];
+  return {
+    asset, operation: 'uninstall', noChange: false,
+    changes: [
+      { path: 'src/forgekit/theme.css', action: 'delete', before: theme, after: null },
+      { path: 'src/style.css', action: 'modify', before: style, after: style.slice(themeImport.length) },
+    ],
+    lock: { schemaVersion: 1, assets: updatedAssets },
+    fromVersion: installed.version, toVersion: null,
+  };
 }

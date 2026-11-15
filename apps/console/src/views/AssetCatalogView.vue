@@ -29,6 +29,8 @@ const cliCommand = computed(() => selected.value
   ? `node packages/cli/dist/index.js asset plan ${selected.value.id} --dir ${shellQuote(directory.value.trim() || '/path/to/my-app')}`
   : '');
 const installCommand = computed(() => cliCommand.value.replace(' asset plan ', ' asset add '));
+const upgradePreviewCommand = computed(() => cliCommand.value.replace(' asset plan ', ' asset upgrade ') + ' --dry-run');
+const uninstallPreviewCommand = computed(() => cliCommand.value.replace(' asset plan ', ' asset remove ') + ' --dry-run');
 
 async function copy(text: string): Promise<void> {
   try { await navigator.clipboard.writeText(text); message.value = '命令已复制'; }
@@ -76,6 +78,12 @@ async function copy(text: string): Promise<void> {
         <input id="project-dir" v-model="directory" spellcheck="false" />
         <div class="asset-actions"><button @click="copy(cliCommand)">复制预览命令</button><button class="primary-action" @click="copy(installCommand)">复制安装命令</button></div>
         <p class="asset-feedback" role="status">{{ message || '命令需要在 ForgeKit 仓库根目录构建 CLI 后执行；浏览器不会直接修改本地文件。' }}</p>
+        <div class="lifecycle-tools">
+          <h3>已安装资产维护 <small>CLI 操作</small></h3>
+          <p>如项目已安装此资产，可检查可用升级或卸载变更。确认后才在对应命令中添加 <code>--yes</code> 执行。</p>
+          <div class="asset-actions"><button @click="copy(upgradePreviewCommand)">复制升级预览</button><button @click="copy(uninstallPreviewCommand)">复制卸载预览</button></div>
+          <p>如果受管理文件被修改，CLI 会拒绝自动覆盖或删除。</p>
+        </div>
       </section>
       <div v-else class="asset-detail asset-empty">请选择资产查看详情。</div>
     </div>

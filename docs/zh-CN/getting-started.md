@@ -59,7 +59,7 @@ corepack pnpm dev
 
 ## 资产预览与安装（MVP）
 
-平台内置一个示范资产 `official.theme@1.0.0`。项目创建时选择 `theme`，会通过同一套资产安装器集成主题并写入 `.forgekit/assets.lock.json`。
+平台内置一个示范资产 `official.theme@1.1.0`。项目创建时选择 `theme`，会通过同一套资产安装器集成主题并写入 `.forgekit/assets.lock.json`。
 
 ```bash
 node packages/cli/dist/index.js asset list
@@ -69,7 +69,16 @@ node packages/cli/dist/index.js asset add official.theme --dir /path/to/my-app
 
 建议先执行 `plan` 检查将创建或修改的文件，再执行 `add`。已有目录或受管理文件被用户修改时，不会静默覆盖；已安装且未变化的同版本资产重复执行为幂等操作。
 
-当前只支持安装，**尚不支持资产升级、卸载、远程 Registry 或自动合并用户修改**。锁文件内的本地指纹用于发现变化，不是数字签名；未来资产分发与签名验证会单独设计。
+升级与卸载需要先预览，再明确确认：
+
+```bash
+node packages/cli/dist/index.js asset upgrade official.theme --dir /path/to/my-app --dry-run
+node packages/cli/dist/index.js asset upgrade official.theme --dir /path/to/my-app --yes
+node packages/cli/dist/index.js asset remove official.theme --dir /path/to/my-app --dry-run
+node packages/cli/dist/index.js asset remove official.theme --dir /path/to/my-app --yes
+```
+
+当前仅支持从已知 `1.0.0` 到 `1.1.0` 的主题升级及安全卸载，**尚不支持远程 Registry、任意第三方资产迁移或自动合并用户修改**。锁文件指纹用于本地变化检测，不是数字签名。
 
 控制台提供三步配置与文件预览，当前通过复制上述 CLI 命令完成本地创建，不会直接在浏览器写入文件。
 

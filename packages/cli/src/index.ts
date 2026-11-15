@@ -3,7 +3,10 @@ import { existsSync } from 'node:fs';
 import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
 import { createProjectPlan, renderProjectFiles, ProjectValidationError, type ProjectFeature } from '@forgekit/project-core';
-import { listAssets, parseAssetLock, planAssetInstall, type AssetInstallPlan } from '@forgekit/asset-core';
+import {
+  listAssets, parseAssetLock, planAssetInstall, planAssetUpgrade, planAssetUninstall,
+  type AssetInstallPlan, type AssetLifecyclePlan,
+} from '@forgekit/asset-core';
 
 const LOCK_PATH = '.forgekit/assets.lock.json';
 
@@ -28,7 +31,9 @@ async function readSafeFile(path: string): Promise<string | null> {
   }
 }
 
-async function getAssetPlan(id: string, projectDir: string): Promise<AssetInstallPlan> {
+type AnyAssetPlan = AssetInstallPlan | AssetLifecyclePlan;
+
+async function getAssetPlan(id: string, projectDir: string, operation: 'add' | 'upgrade' | 'remove'): Promise<{ plan: AnyAssetPlan; lockBefore: string | null }> {
   await assertDirectory(projectDir);
   await assertDirectory(join(projectDir, 'src'));
   await assertDirectory(join(projectDir, 'src/forgekit'), true);
@@ -43,7 +48,12 @@ async function getAssetPlan(id: string, projectDir: string): Promise<AssetInstal
     'src/style.css': await readSafeFile(join(projectDir, 'src/style.css')),
     'src/forgekit/theme.css': await readSafeFile(join(projectDir, 'src/forgekit/theme.css')),
   };
-  return planAssetInstall(id, 'vue-web', files, parseAssetLock(await readSafeFile(join(projectDir, LOCK_PATH))));
+  const lockBefore = await readSafeFile(join(projectDir, LOCK_PATH));
+  const lock = parseAssetLock(lockBefore);
+  const plan = operation === 'upgrade' ? planAssetUpgrade(id, 'vue-web', files, lock)
+    : operation === 'remove' ? planAssetUninstall(id, 'vue-web', files, lock)
+    : planAssetInstall(id, 'vue-web', files, lock);
+  return { plan, lockBefore };
 }
 
 async function assetCommand(args: string[]): Promise<void> {
@@ -52,36 +62,50 @@ async function assetCommand(args: string[]): Promise<void> {
     for (const asset of listAssets()) console.log(`${asset.id}@${asset.version}  ${asset.name}  [${asset.target.join(',')}]`);
     return;
   }
-  if ((action !== 'plan' && action !== 'add') || !id) {
-    throw new ProjectValidationError('用法：forgekit asset list | plan/add <asset-id> [--dir project-path]');
+  if (!['plan', 'add', 'upgrade', 'remove'].includes(action ?? '') || !id) {
+    throw new ProjectValidationError('用法：forgekit asset list | plan/add/upgrade/remove <id> [--dir project-path] [--dry-run] [--yes]');
   }
-  if (rest.length !== 0 && (rest.length !== 2 || rest[0] !== '--dir' || !rest[1])) {
-    throw new ProjectValidationError('只支持 --dir project-path 参数。');
+  let dir: string | undefined;
+  let dryRun = action === 'plan';
+  let confirmed = false;
+  for (let index = 0; index < rest.length; index++) {
+    const arg = rest[index];
+    if (arg === '--dir' && !dir && rest[index + 1] && !rest[index + 1]?.startsWith('--')) dir = rest[++index];
+    else if (arg === '--dry-run' && !dryRun) dryRun = true;
+    else if (arg === '--yes' && !confirmed) confirmed = true;
+    else throw new ProjectValidationError(`无效或重复参数：${arg}`);
   }
-  const projectDir = resolve(rest[1] ?? process.cwd());
-  const plan = await getAssetPlan(id, projectDir);
-  if (plan.alreadyInstalled) {
-    console.log(`✓ ${id} 已安装，版本和受管理文件均未变化。`);
+  const projectDir = resolve(dir ?? process.cwd());
+  const operation = action === 'upgrade' ? 'upgrade' : action === 'remove' ? 'remove' : 'add';
+  const { plan, lockBefore } = await getAssetPlan(id, projectDir, operation);
+  if ('alreadyInstalled' in plan ? plan.alreadyInstalled : plan.noChange) {
+    console.log(`✓ ${id} 已是目标版本，受管理文件未变化。`);
     return;
   }
-  console.log(`资产：${plan.asset.name}@${plan.asset.version}`);
-  for (const item of plan.changes) console.log(`  ${item.action === 'create' ? '+' : '~'} ${item.path}`);
-  console.log(`  + ${LOCK_PATH}`);
-  if (action === 'plan') return;
+  console.log(`资产：${plan.asset.name}@${plan.asset.version}（${operation}）`);
+  for (const item of plan.changes) console.log(`  ${item.action === 'create' ? '+' : item.action === 'delete' ? '-' : '~'} ${item.path}`);
+  console.log(`  ~ ${LOCK_PATH}`);
+  if (dryRun) return;
+  if ((operation === 'upgrade' || operation === 'remove') && !confirmed) {
+    throw new ProjectValidationError('升级或卸载需明确添加 --yes；建议先使用 --dry-run 查看变更。');
+  }
 
   // Files touched by this operation are restored if a write fails.
   const changed: Array<{ path: string; before: string | null }> = [];
   try {
     for (const item of plan.changes) {
       const path = join(projectDir, item.path);
+      if (await readSafeFile(path) !== item.before) throw new ProjectValidationError(`执行前文件已变化：${item.path}`);
       await mkdir(dirname(path), { recursive: true });
-      await writeFile(path, item.after, { flag: item.before === null ? 'wx' : 'w' });
       changed.push({ path, before: item.before });
+      if (item.after === null) await rm(path);
+      else await writeFile(path, item.after, { flag: item.before === null ? 'wx' : 'w' });
     }
     const lockFile = join(projectDir, LOCK_PATH);
+    if (await readSafeFile(lockFile) !== lockBefore) throw new ProjectValidationError('资产锁文件已变化，请重新生成计划。');
     await mkdir(dirname(lockFile), { recursive: true });
-    await writeFile(lockFile, JSON.stringify(plan.lock, null, 2) + '\n', { flag: 'wx' });
-    changed.push({ path: lockFile, before: null });
+    changed.push({ path: lockFile, before: lockBefore });
+    await writeFile(lockFile, JSON.stringify(plan.lock, null, 2) + '\n', { flag: lockBefore === null ? 'wx' : 'w' });
   } catch (error) {
     for (const item of changed.reverse()) {
       try {
@@ -91,7 +115,7 @@ async function assetCommand(args: string[]): Promise<void> {
     }
     throw error;
   }
-  console.log(`✓ 安装完成：${id}。请查看 Git Diff 后提交。`);
+  console.log(`✓ 资产操作完成：${id}（${operation}）。请查看 Git Diff 后提交。`);
 }
 
 async function createProject(args: string[]): Promise<void> {
@@ -134,7 +158,7 @@ const [command] = process.argv.slice(2);
 if (command === 'version' || command === '--version') {
   console.log('ForgeKit CLI 0.0.0');
 } else if (command === 'help' || command === '--help' || !command) {
-  console.log('ForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  version\n  help');
+  console.log('ForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
 } else if (command === 'create') {
   createProject(process.argv.slice(3)).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : '项目创建失败');
