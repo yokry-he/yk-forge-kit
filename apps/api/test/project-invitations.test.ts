@@ -17,5 +17,11 @@ describe('secure invitation boundaries', () => {
     const service = new ProjectInvitationsService({} as never, {} as never);
     await expect(service.create('demo', 'viewer', { mode: 'local' })).rejects.toBeInstanceOf(ForbiddenException);
     await expect(service.redeem('a'.repeat(43), { mode: 'local' })).rejects.toBeInstanceOf(ForbiddenException);
+    await expect(service.revoke('demo', 'any-id', { mode: 'local' })).rejects.toBeInstanceOf(ForbiddenException);
+  });
+  it('rejects malformed invitation IDs before accessing project data', async () => {
+    const service = new ProjectInvitationsService({} as never, {} as never);
+    await expect(service.revoke('demo', '../invalid', { mode: 'oidc', issuer: 'https://example.test', subject: 'user-1' }))
+      .rejects.toMatchObject({ status: 404 });
   });
 });

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Post, Delete, Req, UseGuards } from '@nestjs/common';
 import { ProjectApiGuard } from './project-api.guard';
 import { requireProjectAuth, type ProjectAuthRequest } from './project-auth-context';
 import { ProjectInvitationsService } from './project-invitations.service';
@@ -16,6 +16,11 @@ export class ProjectInvitationsController {
   @Post()
   create(@Param('slug') slug: string, @Body() body: unknown, @Req() request: ProjectAuthRequest) {
     return this.invitations.create(slug, parseInvitationRole(body), requireProjectAuth(request));
+  }
+
+  @Delete(':invitationId')
+  revoke(@Param('slug') slug: string, @Param('invitationId') invitationId: string, @Req() request: ProjectAuthRequest) {
+    return this.invitations.revoke(slug, invitationId, requireProjectAuth(request));
   }
 }
 

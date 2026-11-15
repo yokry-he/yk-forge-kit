@@ -57,7 +57,19 @@ export const projectInvitations = mysqlTable('project_invitations', {
   expiresAt: timestamp('expires_at').notNull(),
   redeemedAt: timestamp('redeemed_at'),
   redeemedByUserId: varchar('redeemed_by_user_id', { length: 36 }),
+  revokedAt: timestamp('revoked_at'),
+  revokedByUserId: varchar('revoked_by_user_id', { length: 36 }),
 }, (table) => [index('project_invitation_project_expiry_idx').on(table.projectId, table.expiresAt)]);
+
+/** Append-only invitation lifecycle audit; never includes invitation plaintext or digest. */
+export const projectInvitationAudit = mysqlTable('project_invitation_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  invitationId: varchar('invitation_id', { length: 36 }).notNull(),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: varchar('action', { length: 16 }).$type<'created' | 'redeemed' | 'revoked'>().notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+}, (table) => [index('project_invitation_audit_project_time_idx').on(table.projectId, table.createdAt)]);
 
 export const assetInstallations = mysqlTable('asset_installations', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),

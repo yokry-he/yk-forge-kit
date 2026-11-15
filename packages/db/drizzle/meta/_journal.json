@@ -43,6 +43,13 @@
       "when": 1794778825379,
       "tag": "0005_luxuriant_trauma",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1794779798952,
+      "tag": "0006_first_gideon",
+      "breakpoints": true
     }
   ]
 }

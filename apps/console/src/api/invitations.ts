@@ -1,7 +1,7 @@
 import { apiRequest, projectRequest } from './projects';
 
 export interface IssuedInvitation { code: string; role: 'editor' | 'viewer'; expiresAt: string }
-export interface InvitationSummary { id: string; role: 'editor' | 'viewer'; createdAt: string; expiresAt: string; redeemedAt: string | null }
+export interface InvitationSummary { id: string; role: 'editor' | 'viewer'; createdAt: string; expiresAt: string; redeemedAt: string | null; revokedAt: string | null }
 
 export function issueInvitation(slug: string, role: 'editor' | 'viewer'): Promise<IssuedInvitation> {
   return projectRequest<IssuedInvitation>(`/${encodeURIComponent(slug)}/invitations`, {
@@ -11,6 +11,10 @@ export function issueInvitation(slug: string, role: 'editor' | 'viewer'): Promis
 
 export function listInvitations(slug: string): Promise<InvitationSummary[]> {
   return projectRequest<InvitationSummary[]>(`/${encodeURIComponent(slug)}/invitations`);
+}
+
+export function revokeInvitation(slug: string, invitationId: string): Promise<{ id: string; revokedAt: string }> {
+  return projectRequest(`/${encodeURIComponent(slug)}/invitations/${encodeURIComponent(invitationId)}`, { method: 'DELETE' });
 }
 
 export function redeemInvitation(code: string): Promise<{ projectSlug: string; role: 'editor' | 'viewer' }> {
