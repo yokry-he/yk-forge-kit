@@ -9,13 +9,13 @@ export class ProjectApiError extends Error {
   }
 }
 
-export async function projectRequest<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     const headers = new Headers(init?.headers);
     const token = await getAccessToken();
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    response = await fetch(`/api/v1/projects${path}`, { ...init, headers, signal: AbortSignal.timeout(8000) });
+    response = await fetch(`/api/v1${path}`, { ...init, headers, signal: AbortSignal.timeout(8000) });
   } catch {
     throw new ProjectApiError('无法连接后端 API。请确认 API 与 MySQL 已启动。', 0);
   }
@@ -26,6 +26,10 @@ export async function projectRequest<T>(path: string, init?: RequestInit): Promi
     throw new ProjectApiError(response.status === 401 ? '需要登录或当前会话已失效，请重新登录。' : message, response.status);
   }
   return response.json() as Promise<T>;
+}
+
+export function projectRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  return apiRequest<T>(`/projects${path}`, init);
 }
 
 export function listProjects(): Promise<ProjectRecord[]> {

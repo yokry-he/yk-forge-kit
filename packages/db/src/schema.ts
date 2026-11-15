@@ -46,6 +46,19 @@ export const projectMemberAudit = mysqlTable('project_member_audit', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [index('project_member_audit_project_time_idx').on(table.projectId, table.createdAt)]);
 
+/** One-time invitation codes are stored only as SHA-256 digests. */
+export const projectInvitations = mysqlTable('project_invitations', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  tokenHash: varchar('token_hash', { length: 64 }).notNull().unique(),
+  role: varchar('role', { length: 16 }).$type<'editor' | 'viewer'>().notNull(),
+  createdByUserId: varchar('created_by_user_id', { length: 36 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  expiresAt: timestamp('expires_at').notNull(),
+  redeemedAt: timestamp('redeemed_at'),
+  redeemedByUserId: varchar('redeemed_by_user_id', { length: 36 }),
+}, (table) => [index('project_invitation_project_expiry_idx').on(table.projectId, table.expiresAt)]);
+
 export const assetInstallations = mysqlTable('asset_installations', {
   id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
   projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),

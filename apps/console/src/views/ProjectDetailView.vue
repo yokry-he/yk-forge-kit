@@ -6,6 +6,7 @@ import { listAssets } from '@forgekit/asset-core';
 import { getProject } from '../api/projects';
 import { listProjectAssets, planProjectAsset } from '../api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../api/project-members';
+import { issueInvitation, listInvitations, type InvitationSummary, type IssuedInvitation } from '../api/invitations';
 
 const route = useRoute();
 const project = ref<ProjectRecord | null>(null);
@@ -26,6 +27,11 @@ const membersLoading = ref(false);
 const membersError = ref('');
 const memberFeedback = ref('');
 const updatingMember = ref('');
+const inviteRole = ref<'editor' | 'viewer'>('viewer');
+const issuingInvite = ref(false);
+const issuedInvite = ref<IssuedInvitation | null>(null);
+const invitations = ref<InvitationSummary[]>([]);
+const inviteError = ref('');
 const catalog = listAssets().filter((asset) => asset.target.includes('vue-web'));
 const pendingAssets = computed(() => assets.value.filter((item) => item.status === 'planned'));
 
@@ -67,9 +73,24 @@ async function refreshAssets(slug: string): Promise<void> {
 async function refreshMembers(slug: string): Promise<void> {
   membersLoading.value = true;
   membersError.value = '';
-  try { members.value = await listProjectMembers(slug); }
+  try {
+    members.value = await listProjectMembers(slug);
+    invitations.value = members.value.currentRole === 'owner' ? await listInvitations(slug) : [];
+  }
   catch (reason) { membersError.value = reason instanceof Error ? reason.message : '成员列表加载失败。'; }
   finally { membersLoading.value = false; }
+}
+
+async function createInvite(): Promise<void> {
+  if (!project.value || issuingInvite.value || members.value?.currentRole !== 'owner') return;
+  issuingInvite.value = true;
+  inviteError.value = '';
+  issuedInvite.value = null;
+  try {
+    issuedInvite.value = await issueInvitation(project.value.slug, inviteRole.value);
+    invitations.value = await listInvitations(project.value.slug);
+  } catch (reason) { inviteError.value = reason instanceof Error ? reason.message : '无法创建邀请。'; }
+  finally { issuingInvite.value = false; }
 }
 
 async function changeRole(userId: string, role: string): Promise<void> {
@@ -109,6 +130,8 @@ async function refresh(): Promise<void> {
   inspectedReceipt.value = null;
   members.value = null;
   memberFeedback.value = '';
+  issuedInvite.value = null;
+  inviteError.value = '';
   try {
     project.value = await getProject(String(route.params.slug));
     await Promise.all([refreshAssets(project.value.slug), refreshMembers(project.value.slug)]);
@@ -196,7 +219,15 @@ watch(() => route.params.slug, refresh);
           <select v-if="members.currentRole === 'owner' && member.role !== 'owner' && member.userId !== members.currentUserId" :id="`role-${member.userId}`" :value="member.role" :disabled="!!updatingMember" @change="changeRole(member.userId, ($event.target as HTMLSelectElement).value)"><option value="editor">Editor</option><option value="viewer">Viewer</option></select>
         </div>
       </div>
-      <p class="asset-help">成员邀请和加入流程将在身份提供方完成实际联调后补充；当前不发送邀请，也不创建未经验证的外部账号。</p>
+      <p class="asset-help">支持一次性邀请码，不发送邮件，也不会提前创建受邀用户。受邀者需要使用自己的 OIDC 身份完成兑换。</p>
+      <div v-if="members?.currentRole === 'owner'" class="invite-box">
+        <h3>邀请新成员</h3>
+        <p class="asset-help">生成 7 天有效、仅能使用一次的邀请码。请通过可信渠道单独发送给受邀人；受邀人使用 OIDC 登录后在用户中心兑换。</p>
+        <div class="invite-controls"><label for="invite-role">加入角色</label><select id="invite-role" v-model="inviteRole"><option value="viewer">Viewer</option><option value="editor">Editor</option></select><button class="subtle-button" :disabled="issuingInvite" @click="createInvite">{{ issuingInvite ? '正在生成…' : '生成邀请码' }}</button></div>
+        <p v-if="inviteError" class="form-error" role="alert">{{ inviteError }}</p>
+        <div v-if="issuedInvite" class="issued-code" role="status"><strong>邀请码仅在本次生成时显示</strong><code>{{ issuedInvite.code }}</code><span>有效期至 {{ new Date(issuedInvite.expiresAt).toLocaleString('zh-CN') }}</span><button class="subtle-button" @click="copyCommand(issuedInvite.code, 'invite')">{{ copied === 'invite' ? '已复制' : '复制邀请码' }}</button></div>
+        <div v-if="invitations.length" class="invitation-history"><strong>近期邀请</strong><div v-for="invitation in invitations" :key="invitation.id"><span>{{ invitation.role }}</span><small>{{ invitation.redeemedAt ? '已兑换' : new Date(invitation.expiresAt).getTime() <= Date.now() ? '已过期' : '待兑换' }}</small></div></div>
+      </div>
     </section>
   </div>
 </template>
