@@ -8,7 +8,7 @@ export class ProjectApiError extends Error {
   }
 }
 
-async function request<T>(path: string, init?: RequestInit): Promise<T> {
+export async function projectRequest<T>(path: string, init?: RequestInit): Promise<T> {
   let response: Response;
   try {
     response = await fetch(`/api/v1/projects${path}`, { ...init, signal: AbortSignal.timeout(8000) });
@@ -25,15 +25,15 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 }
 
 export function listProjects(): Promise<ProjectRecord[]> {
-  return request<ProjectRecord[]>('');
+  return projectRequest<ProjectRecord[]>('');
 }
 
 export function getProject(slug: string): Promise<ProjectRecord> {
-  return request<ProjectRecord>(`/${encodeURIComponent(slug)}`);
+  return projectRequest<ProjectRecord>(`/${encodeURIComponent(slug)}`);
 }
 
 export function saveProject(options: ProjectOptions): Promise<ProjectRecord> {
-  return request<ProjectRecord>('', {
+  return projectRequest<ProjectRecord>('', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(options),

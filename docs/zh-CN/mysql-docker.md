@@ -41,6 +41,14 @@
 
 Vue 控制台的 `/projects` 页面显示项目列表，`/projects/new` 创建向导可调用 API 保存元数据，`/projects/:slug` 显示详情。后端或 MySQL 不可用时会展示明确的错误和重试操作，创建向导仍保留独立的本地 CLI 命令。**保存元数据与生成源码是两个不同操作**。
 
+项目资产计划 API：
+
+- `GET /api/v1/projects/:slug/assets`：列出此项目登记的资产与版本。
+- `POST /api/v1/projects/:slug/assets`：接收 `{ "assetId": "official.theme" }`，使用资产目录验证目标兼容性，并登记当前版本。重复登记同版本是幂等的。
+- 记录状态初始为 `planned`（待执行）；**该 API 不读取、不修改本地项目文件，不能声明安装成功**。只有后续 CLI 执行器校验成功，才能设计可信的 `applied` 状态同步流程。
+
+当前尚无鉴权，不提供资产升级、卸载或直接覆盖源码的远程写操作。Vue 项目详情页会显示待执行计划与可选的官方资产。
+
 若需单独检查连接，可在 packages/db/.env 配置 DATABASE_URL，执行：
 
     corepack pnpm --filter @forgekit/db db:check
@@ -57,7 +65,7 @@ Schema 定义在 packages/db/src/schema.ts，生成 SQL 到 packages/db/drizzle/
 
     corepack pnpm --filter @forgekit/db db:migrate
 
-当前 Schema 仅是 projects 和 asset_installations 的初始元数据模型；`0001` 迁移新增项目模板与能力配置字段。用户/组织/权限模型尚未定案。
+当前 Schema 仅是 projects 和 asset_installations 的初始元数据模型；`0001` 迁移新增项目模板与能力配置字段，`0002` 迁移添加资产状态和项目内资产唯一约束。**如果既有数据库已经有同一项目重复的资产记录，必须先人工核查和处理，否则唯一约束迁移会失败**。用户/组织/权限模型尚未定案。
 
 ## 安全底线
 

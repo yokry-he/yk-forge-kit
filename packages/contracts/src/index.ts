@@ -21,4 +21,13 @@ export interface ProjectRecord {
   createdAt: string;
 }
 
+export interface ProjectAssetRecord {
+  id: number;
+  projectId: string;
+  assetId: string;
+  version: string;
+  status: 'planned' | 'applied';
+  createdAt: string;
+}
+
 export const API_VERSION = 'v1' as const;

@@ -1,0 +1,2 @@
+ALTER TABLE `asset_installations` ADD `status` varchar(16) DEFAULT 'planned' NOT NULL;--> statement-breakpoint
+ALTER TABLE `asset_installations` ADD CONSTRAINT `asset_installations_project_asset_unique` UNIQUE(`project_id`,`asset_id`);

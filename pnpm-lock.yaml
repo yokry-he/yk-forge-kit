@@ -10,6 +10,9 @@ importers:
 
   apps/api:
     dependencies:
+      '@forgekit/asset-core':
+        specifier: workspace:*
+        version: link:../../packages/asset-core
       '@forgekit/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts

@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProjectApiError, listProjects, saveProject } from '../src/api/projects';
+import { listProjectAssets, planProjectAsset } from '../src/api/project-assets';
 
 afterEach(() => vi.unstubAllGlobals());
 
@@ -30,5 +31,14 @@ describe('project API client', () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')));
     await expect(listProjects()).rejects.toBeInstanceOf(ProjectApiError);
     await expect(listProjects()).rejects.toMatchObject({ status: 0 });
+  });
+
+  it('loads and plans assets under the selected project', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => [] });
+    vi.stubGlobal('fetch', fetch);
+    await listProjectAssets('my-app');
+    await planProjectAsset('my-app', 'official.theme');
+    expect(fetch).toHaveBeenNthCalledWith(1, '/api/v1/projects/my-app/assets', expect.any(Object));
+    expect(fetch).toHaveBeenNthCalledWith(2, '/api/v1/projects/my-app/assets', expect.objectContaining({ method: 'POST', body: '{"assetId":"official.theme"}' }));
   });
 });
