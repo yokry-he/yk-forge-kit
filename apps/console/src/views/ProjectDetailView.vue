@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
-import type { ProjectAssetRecord, ProjectRecord } from '@forgekit/contracts';
+import { parseAssetVerificationReceipt, type AssetVerificationReceipt, type ProjectAssetRecord, type ProjectRecord } from '@forgekit/contracts';
 import { listAssets } from '@forgekit/asset-core';
 import { getProject } from '../api/projects';
 import { listProjectAssets, planProjectAsset } from '../api/project-assets';
@@ -17,6 +17,9 @@ const planning = ref('');
 const planMessage = ref('');
 const localDirectory = ref('');
 const copied = ref('');
+const receiptText = ref('');
+const inspectedReceipt = ref<AssetVerificationReceipt | null>(null);
+const receiptError = ref('');
 const catalog = listAssets().filter((asset) => asset.target.includes('vue-web'));
 const pendingAssets = computed(() => assets.value.filter((item) => item.status === 'planned'));
 
@@ -32,6 +35,19 @@ function assetCliCommand(action: 'plan' | 'add' | 'verify', assetId: string): st
 async function copyCommand(command: string, key: string): Promise<void> {
   try { await navigator.clipboard.writeText(command); copied.value = key; }
   catch { copied.value = '复制失败，请手动选择命令'; }
+}
+
+function inspectReceipt(): void {
+  inspectedReceipt.value = null;
+  receiptError.value = '';
+  try {
+    const value = parseAssetVerificationReceipt(receiptText.value);
+    if (!project.value || value.project !== project.value.slug) throw new Error('回执项目名称与当前项目不匹配。');
+    if (!assets.value.some((asset) => asset.assetId === value.assetId && asset.version === value.assetVersion)) {
+      throw new Error('回执资产及版本与当前登记计划不匹配。');
+    }
+    inspectedReceipt.value = value;
+  } catch (reason) { receiptError.value = reason instanceof Error ? reason.message : '无法读取校验回执。'; }
 }
 
 async function refreshAssets(slug: string): Promise<void> {
@@ -62,6 +78,8 @@ async function refresh(): Promise<void> {
   assets.value = [];
   planMessage.value = '';
   copied.value = '';
+  receiptText.value = '';
+  inspectedReceipt.value = null;
   try {
     project.value = await getProject(String(route.params.slug));
     await refreshAssets(project.value.slug);
@@ -121,6 +139,16 @@ watch(() => route.params.slug, refresh);
           </div>
         </div>
         <small role="status">{{ copied === '复制失败，请手动选择命令' ? copied : '建议先查看 git diff，确认文件变更后再提交。' }}</small>
+        <div class="receipt-inspector">
+          <h3>查看本地校验回执</h3>
+          <p class="asset-help">运行下方命令并复制 JSON 输出，可在此检查回执是否对应当前项目与资产版本。回执未签名，仅供本地人工核对，不能作为身份认证或数据库安装确认。</p>
+          <div class="handoff-command"><span>回执</span><code>{{ assetCliCommand('verify', pendingAssets[0]!.assetId) }} --json</code><button class="subtle-button" @click="copyCommand(`${assetCliCommand('verify', pendingAssets[0]!.assetId)} --json`, 'receipt')">{{ copied === 'receipt' ? '已复制' : '复制' }}</button></div>
+          <label for="receipt-json">校验回执 JSON</label>
+          <textarea id="receipt-json" v-model="receiptText" rows="5" placeholder="粘贴 CLI --json 输出" spellcheck="false" @input="inspectedReceipt = null; receiptError = ''"></textarea>
+          <button class="subtle-button" :disabled="!receiptText.trim()" @click="inspectReceipt">检查回执</button>
+          <p v-if="receiptError" class="form-error" role="alert">{{ receiptError }}</p>
+          <div v-if="inspectedReceipt" class="receipt-result" role="status"><strong>回执字段匹配</strong><small>{{ inspectedReceipt.assetId }}@{{ inspectedReceipt.assetVersion }} · {{ inspectedReceipt.files.length }} 个文件摘要 · {{ new Date(inspectedReceipt.verifiedAt).toLocaleString('zh-CN') }}</small><p>此结果只代表回执内容通过格式与项目匹配检查，不代表服务器验证了本地文件；数据库状态仍为原值。</p></div>
+        </div>
       </div>
     </section>
   </div>
