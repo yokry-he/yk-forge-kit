@@ -1,6 +1,6 @@
 # ForgeKit 本地开发（工程骨架）
 
-当前仅提供 Vue 控制台、NestJS API、共享 TypeScript 契约以及 CLI 最小骨架；项目创建、资产安装和部署功能尚未实现。
+当前提供 Vue 控制台、NestJS API、共享 TypeScript 契约和 Vue Web 项目创建能力。用户中心、业务资产市场、云部署尚未实现。
 
 ## 环境要求
 
@@ -30,8 +30,34 @@ corepack pnpm --filter @forgekit/cli dev -- version
 
 ```bash
 corepack pnpm typecheck
+corepack pnpm test
 corepack pnpm build
 ```
+
+## 创建一个 Vue 项目
+
+先在仓库根目录构建 CLI：
+
+```bash
+corepack pnpm build
+node packages/cli/dist/index.js create my-app --features theme,router,pinia
+```
+
+默认启用 `theme`，可通过 `--features none` 创建不含可选功能的基础项目。
+
+支持的能力：`theme`（主题）、`router`（Vue Router）、`pinia`（状态管理）。
+默认生成到当前目录下的项目名子目录；可使用 `--dir /absolute/parent/path` 指定父目录。目标目录已经存在时 CLI 会拒绝覆盖。
+
+生成后：
+
+```bash
+cd my-app
+corepack pnpm install
+corepack pnpm build
+corepack pnpm dev
+```
+
+控制台提供三步配置与文件预览，当前通过复制上述 CLI 命令完成本地创建，不会直接在浏览器写入文件。
 
 API 允许的开发前端 Origin 默认为 `http://localhost:5173`，可通过 `CONSOLE_ORIGIN` 配置；API 端口可由 `PORT` 调整，若修改端口需同时修改 Vite 代理设置。
 
