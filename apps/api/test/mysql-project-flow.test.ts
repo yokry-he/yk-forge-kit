@@ -4,6 +4,7 @@ import { eq } from 'drizzle-orm';
 import { projectInvitationAudit, projectInvitations, projects as projectTable, users, requireDisposableTestDatabase } from '@forgekit/db';
 import { DatabaseService } from '../src/database.service';
 import { ProjectsService } from '../src/projects.service';
+import { IdentityAccountsService } from '../src/identity-accounts.service';
 import { ProjectMembersService } from '../src/project-members.service';
 import { InvitationRateLimiter } from '../src/invitation-rate-limiter';
 import { ProjectInvitationsService } from '../src/project-invitations.service';
@@ -11,6 +12,28 @@ import type { ProjectAuthContext } from '../src/project-auth-context';
 
 // Runs only after the separate MySQL integration job has migrated forgekit_test.
 describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('real MySQL project membership and invitations', () => {
+  it('provisions a first-login account idempotently without granting project membership', async () => {
+    requireDisposableTestDatabase(process.env);
+    const database = new DatabaseService();
+    const accounts = new IdentityAccountsService(database);
+    const projects = new ProjectsService(database, accounts);
+    const issuer = 'https://forgekit-integration.example';
+    const subject = `first-login-${randomUUID()}`;
+    const auth = { mode: 'oidc' as const, issuer, subject };
+    let userId: string | null = null;
+    try {
+      const [first, second] = await Promise.all([accounts.initializeAccount(auth), accounts.initializeAccount(auth)]);
+      expect(first).toMatchObject({ displayName: 'ForgeKit 用户' });
+      expect(second?.id).toBe(first?.id);
+      userId = first?.id ?? null;
+      expect(await accounts.findUserId({ ...auth, subject: subject.toUpperCase() })).toBeNull();
+      expect(await projects.list(auth)).toEqual([]);
+    } finally {
+      try { if (userId) await database.db.delete(users).where(eq(users.id, userId)); }
+      finally { await database.onModuleDestroy(); }
+    }
+  }, 30_000);
+
   it('enforces role boundaries, single-use, revocation, concurrent redemption and shared quotas', async () => {
     requireDisposableTestDatabase(process.env);
     const database = new DatabaseService();

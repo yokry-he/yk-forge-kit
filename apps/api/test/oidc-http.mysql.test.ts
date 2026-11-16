@@ -101,6 +101,16 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('OIDC signed-token 
       expect((await get('/api/v1/auth/whoami', jwt(signingKey, issuer, owner.subject, 'forgekit-api', -60))).status).toBe(401);
       expect((await get('/api/v1/auth/whoami', jwt(createPrivateKey(generateOtherKey()), issuer, owner.subject))).status).toBe(401);
 
+      // Enrollment needs a valid bearer token and grants no project membership.
+      expect((await fetch(`${base}/api/v1/auth/account`, { method: 'POST' })).status).toBe(401);
+      const enroll = () => fetch(`${base}/api/v1/auth/account`, { method: 'POST', headers: headers(viewerToken) });
+      const enrolled = await enroll();
+      expect(enrolled.status).toBe(201);
+      const account = await enrolled.json() as { id: string };
+      expect(account.id).toBeTruthy();
+      expect(enrolled.headers.get('content-type')).toContain('application/json');
+      expect((await (await enroll()).json() as { id: string }).id).toBe(account.id);
+
       const ownerProjects = await get('/api/v1/projects', ownerToken);
       expect(ownerProjects.status).toBe(200);
       expect((await ownerProjects.json() as Array<{ slug: string }>).some((entry) => entry.slug === slug)).toBe(true);
