@@ -25,6 +25,8 @@ corepack pnpm test
 
 `apps/api/test/http-smoke.test.ts` 会启动**编译后的真实 NestJS 进程**，使用随机本机回环端口，并强制清空子进程中的数据库连接配置；检查 `/health` 为 200、无数据库时 `/ready` 和项目路由为 503、本机无 OIDC 时 `/auth/whoami` 为 503。该测试不需要 Docker，运行完会关闭进程，不触及任何真实数据库。
 
+另外新增独立 MySQL 8.0 测试容器及 GitHub Actions 集成测试 Job。它们不会在默认 `pnpm test` 中自动连接数据库，具体安全边界和本机指令见 [MySQL 集成测试环境](./mysql-integration-testing.md)。
+
 Vue 开发服务器将 `/api` 请求代理到 `127.0.0.1:3001`，与 API 默认监听的 IPv4 回环地址一致，避免 `localhost` 优先解析为 IPv6 `::1` 时的代理连接失败。
 
 ## 实际 MySQL 8.0 联调（待用户授权）
