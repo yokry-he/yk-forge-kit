@@ -4,6 +4,7 @@ import { listProjectAssets, planProjectAsset } from '../src/api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../src/api/project-members';
 import { issueInvitation, listInvitations, redeemInvitation, revokeInvitation } from '../src/api/invitations';
 import { getAccessToken } from '../src/auth/session';
+import { verifyCurrentIdentity } from '../src/api/identity';
 
 vi.mock('../src/auth/session', () => ({ getAccessToken: vi.fn(async () => null) }));
 
@@ -35,6 +36,21 @@ describe('project API client', () => {
     expect(url).toBe('/api/v1/projects');
     expect(new Headers(init.headers).get('Authorization')).toBe('Bearer signed.access.token');
     expect(init.body).toBeUndefined();
+  });
+
+  it('uses the backend to verify the current OIDC identity', async () => {
+    vi.mocked(getAccessToken).mockResolvedValueOnce('signed.access.token');
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ issuer: 'https://idp.test', subject: 'alice' }) });
+    vi.stubGlobal('fetch', fetch);
+    expect(await verifyCurrentIdentity()).toEqual({ issuer: 'https://idp.test', subject: 'alice' });
+    const [path, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/api/v1/auth/whoami');
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer signed.access.token');
+  });
+
+  it('rejects an invalid backend identity response', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ subject: 'alice' }) }));
+    await expect(verifyCurrentIdentity()).rejects.toThrow('无效的身份信息');
   });
 
   it('reports duplicate project names', async () => {

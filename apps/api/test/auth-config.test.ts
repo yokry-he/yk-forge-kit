@@ -45,4 +45,12 @@ describe('authentication configuration safety', () => {
     const config = resolveAuthConfig({ AUTH_MODE: 'oidc', OIDC_ISSUER: 'https://idp.example.test', OIDC_API_AUDIENCE: 'forgekit-api', OIDC_JWKS_URL: 'https://idp.example.test/certs' });
     expect(config.mode).toBe('oidc');
   });
+  it('allows HTTP OIDC only when explicitly opted in on development loopback', () => {
+    const oidc = { AUTH_MODE: 'oidc', OIDC_ISSUER: 'http://127.0.0.1:18080/realms/forgekit-dev',
+      OIDC_API_AUDIENCE: 'forgekit-api', OIDC_JWKS_URL: 'http://127.0.0.1:18080/realms/forgekit-dev/protocol/openid-connect/certs' };
+    expect(() => resolveAuthConfig(oidc)).toThrow();
+    expect(resolveAuthConfig({ ...oidc, API_HOST: '127.0.0.1', NODE_ENV: 'development', OIDC_DEV_ALLOW_HTTP_LOOPBACK: 'true' }).mode).toBe('oidc');
+    expect(() => resolveAuthConfig({ ...oidc, NODE_ENV: 'production', OIDC_DEV_ALLOW_HTTP_LOOPBACK: 'true' })).toThrow();
+    expect(() => resolveAuthConfig({ ...oidc, API_HOST: '0.0.0.0', OIDC_DEV_ALLOW_HTTP_LOOPBACK: 'true' })).toThrow();
+  });
 });

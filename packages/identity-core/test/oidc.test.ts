@@ -7,6 +7,9 @@ const config = { issuer: 'https://idp.example.test/realms/forgekit', audience: '
 describe('OIDC token verification', () => {
   it('rejects unsafe or incomplete verifier configuration', () => {
     expect(() => validateOidcVerifierConfig({ ...config, jwksUrl: 'http://idp.example.test/certs' })).toThrow();
+    expect(() => validateOidcVerifierConfig({ ...config, issuer: 'http://127.0.0.1:18080/realms/dev', jwksUrl: 'http://127.0.0.1:18080/jwks' })).toThrow();
+    expect(validateOidcVerifierConfig({ ...config, issuer: 'http://127.0.0.1:18080/realms/dev', jwksUrl: 'http://127.0.0.1:18080/jwks', allowHttpLoopback: true }).allowHttpLoopback).toBe(true);
+    expect(() => validateOidcVerifierConfig({ ...config, issuer: 'http://idp.example.test/realms/dev', jwksUrl: 'http://idp.example.test/certs', allowHttpLoopback: true })).toThrow();
     expect(() => validateOidcVerifierConfig({ ...config, jwksUrl: 'https://other.example.test/certs' })).toThrow();
     expect(() => validateOidcVerifierConfig({ ...config, audience: '' })).toThrow();
     expect(() => validateOidcVerifierConfig({ ...config, issuer: `${config.issuer}?untrusted=true` })).toThrow();

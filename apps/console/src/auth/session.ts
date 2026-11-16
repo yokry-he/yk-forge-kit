@@ -17,6 +17,9 @@ export const oidcEnabled = config.mode === 'oidc';
 
 function getManager(): UserManager {
   if (config.mode !== 'oidc') throw new Error('当前处于本机开发模式，未配置 OIDC 登录。');
+  if (config.allowHttpLoopback && !['127.0.0.1', 'localhost'].includes(window.location.hostname)) {
+    throw new Error('HTTP OIDC 开发模式只能在本机回环地址使用。');
+  }
   if (!manager) {
     const origin = window.location.origin;
     manager = new UserManager({
