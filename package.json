@@ -7,7 +7,8 @@
     "dev": "pnpm --filter @forgekit/db build && pnpm --parallel --filter @forgekit/console --filter @forgekit/api dev",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
-    "test": "pnpm -r --if-present test"
+    "test": "pnpm build && pnpm -r --if-present test",
+    "db:migrations:check": "pnpm --filter @forgekit/db exec drizzle-kit check"
   },
   "engines": { "node": ">=22" }
 }

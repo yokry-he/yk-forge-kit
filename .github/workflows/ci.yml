@@ -16,5 +16,5 @@ jobs:
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm typecheck
+      - run: corepack pnpm db:migrations:check
       - run: corepack pnpm test
-      - run: corepack pnpm build
