@@ -1,6 +1,6 @@
 # 独立 MySQL 8.0 集成测试环境
 
-状态：GitHub Actions `CI` Run #43852965653 已验证 MySQL 8.0 服务容器、空库迁移、CRUD/事务回滚，以及项目成员、邀请码生命周期与并发竞争测试，两个 CI Job 均成功。当前代理执行环境仍没有 Docker 引擎；实际 Mac Docker 与真实身份提供方的端到端验证仍待进行。
+状态：GitHub Actions `CI` Run #43854695490 已验证 MySQL 8.0 服务容器、空库迁移、CRUD/事务回滚、项目成员与邀请码并发，以及本地 HTTPS JWKS + 签名 JWT + NestJS HTTP 访问控制测试，两个 CI Job 均成功。当前代理执行环境仍没有 Docker 引擎；实际 Mac Docker 与第三方身份提供方的浏览器 PKCE 联调仍待进行。
 
 ## 原则
 
