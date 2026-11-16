@@ -2,7 +2,9 @@
 import { ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useRouter } from 'vue-router';
+import { useRoute } from 'vue-router';
 import { authBusy, authSession, oidcEnabled, startSignIn, startSignOut } from '../auth/session';
+import { safeProjectReturnPath } from '../auth/return-path';
 import { redeemInvitation } from '../api/invitations';
 
 const error = ref('');
@@ -11,10 +13,11 @@ const inviteCode = ref('');
 const redeeming = ref(false);
 const redeemError = ref('');
 const router = useRouter();
+const route = useRoute();
 async function submit(): Promise<void> {
   error.value = '';
   pending.value = true;
-  try { if (authSession.value) await startSignOut(); else await startSignIn(); }
+  try { if (authSession.value) await startSignOut(); else await startSignIn(safeProjectReturnPath(route.query.returnTo)); }
   catch (reason) { error.value = reason instanceof Error ? reason.message : '登录服务不可用。'; }
   finally { pending.value = false; }
 }

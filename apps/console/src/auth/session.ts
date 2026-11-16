@@ -1,6 +1,7 @@
 import { readonly, ref } from 'vue';
 import { UserManager, WebStorageStateStore } from 'oidc-client-ts';
 import { parseFrontendAuthConfig } from './config';
+import { returnPathFromOidcState, safeProjectReturnPath } from './return-path';
 
 export interface PublicSession { subject: string; displayName: string; expiresAt: number | null }
 
@@ -8,6 +9,7 @@ const config = parseFrontendAuthConfig(import.meta.env);
 const session = ref<PublicSession | null>(null);
 const busy = ref(false);
 let manager: UserManager | null = null;
+let restoreInFlight: Promise<void> | null = null;
 
 export const authSession = readonly(session);
 export const authBusy = readonly(busy);
@@ -38,30 +40,35 @@ function getManager(): UserManager {
       };
     });
     manager.events.addUserUnloaded(() => { session.value = null; });
+    manager.events.addUserSignedOut(() => { session.value = null; });
+    manager.events.addAccessTokenExpired(() => { session.value = null; });
   }
   return manager;
 }
 
-export async function restoreSession(): Promise<void> {
-  if (config.mode !== 'oidc') return;
+export function restoreSession(): Promise<void> {
+  if (config.mode !== 'oidc') return Promise.resolve();
+  if (restoreInFlight) return restoreInFlight;
   busy.value = true;
-  try {
-    const user = await getManager().getUser();
+  const work = Promise.resolve().then(() => getManager().getUser()).then((user) => {
     session.value = user && !user.expired ? {
       subject: user.profile.sub,
       displayName: typeof user.profile.name === 'string' ? user.profile.name : user.profile.sub,
       expiresAt: user.expires_at ?? null,
     } : null;
-  } finally { busy.value = false; }
+  }).finally(() => { busy.value = false; restoreInFlight = null; });
+  restoreInFlight = work;
+  return work;
 }
 
-export async function startSignIn(): Promise<void> {
-  await getManager().signinRedirect();
+export async function startSignIn(returnTo?: string): Promise<void> {
+  await getManager().signinRedirect({ state: { returnTo: safeProjectReturnPath(returnTo) } });
 }
 
-export async function finishSignIn(): Promise<void> {
-  await getManager().signinRedirectCallback();
+export async function finishSignIn(): Promise<string> {
+  const user = await getManager().signinRedirectCallback();
   await restoreSession();
+  return returnPathFromOidcState(user.state);
 }
 
 export async function startSignOut(): Promise<void> {

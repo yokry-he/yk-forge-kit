@@ -8,9 +8,8 @@ const router = useRouter();
 const error = ref('');
 onMounted(async () => {
   try {
-    if (props.kind === 'login') await finishSignIn();
-    else await finishSignOut();
-    await router.replace('/projects');
+    if (props.kind === 'login') await router.replace(await finishSignIn());
+    else { await finishSignOut(); await router.replace('/auth/login'); }
   } catch (reason) { error.value = reason instanceof Error ? reason.message : '无法完成认证回调。'; }
 });
 </script>
