@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
-import { RouterLink, RouterView, useRoute } from 'vue-router';
+import { computed, onMounted, ref, watch } from 'vue';
+import { RouterLink, RouterView, useRoute, useRouter } from 'vue-router';
 import type { HealthResponse } from '@forgekit/contracts';
 import { authSession, oidcEnabled, restoreSession } from './auth/session';
+import { requiresOidcProjectAccess } from './auth/return-path';
 
 const route = useRoute();
+const router = useRouter();
 const apiOnline = ref(false);
 const pageName = computed(() => route.path.startsWith('/auth/') ? '用户中心' : route.path === '/assets' ? '资产中心' : route.path === '/projects/new' ? '创建项目' : route.path === '/projects' ? '项目列表' : '项目详情');
+
+// A token may expire while the user is already viewing a project page.
+watch(authSession, (next, previous) => {
+  if (oidcEnabled && previous && !next && requiresOidcProjectAccess(route.path)) {
+    void router.replace({ path: '/auth/login', query: { returnTo: route.fullPath } });
+  }
+});
 
 onMounted(async () => {
   try { await restoreSession(); } catch { /* Login screen remains available if restore fails. */ }
