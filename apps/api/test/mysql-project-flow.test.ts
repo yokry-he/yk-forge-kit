@@ -1,0 +1,96 @@
+import { randomUUID } from 'node:crypto';
+import { describe, expect, it } from 'vitest';
+import { eq } from 'drizzle-orm';
+import { projectInvitationAudit, projectInvitations, projects as projectTable, users, requireDisposableTestDatabase } from '@forgekit/db';
+import { DatabaseService } from '../src/database.service';
+import { ProjectsService } from '../src/projects.service';
+import { ProjectMembersService } from '../src/project-members.service';
+import { InvitationRateLimiter } from '../src/invitation-rate-limiter';
+import { ProjectInvitationsService } from '../src/project-invitations.service';
+import type { ProjectAuthContext } from '../src/project-auth-context';
+
+// Runs only after the separate MySQL integration job has migrated forgekit_test.
+describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('real MySQL project membership and invitations', () => {
+  it('enforces role boundaries, single-use, revocation, concurrent redemption and shared quotas', async () => {
+    requireDisposableTestDatabase(process.env);
+    const database = new DatabaseService();
+    const projects = new ProjectsService(database);
+    const members = new ProjectMembersService(database, projects);
+    const limiter = new InvitationRateLimiter(database);
+    const invitations = new ProjectInvitationsService(database, projects, limiter);
+    const runId = randomUUID();
+    const slug = `integration-${runId}`;
+    const issuer = 'https://forgekit-integration.example';
+    const person = (name: string): Extract<ProjectAuthContext, { mode: 'oidc' }> =>
+      ({ mode: 'oidc', issuer, subject: `${runId}-${name}` });
+    const owner = person('owner');
+    const viewer = person('viewer');
+    const candidateA = person('candidate-a');
+    const candidateB = person('candidate-b');
+    const identities = [owner, viewer, candidateA, candidateB];
+    let projectId: string | null = null;
+    try {
+      const project = await projects.create({ name: slug, template: 'vue-web', features: [] }, owner);
+      projectId = project.id;
+      await expect(projects.findBySlug(slug, viewer)).rejects.toMatchObject({ status: 404 });
+
+      const first = await invitations.create(slug, 'viewer', owner);
+      expect(first.code).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      const listed = await invitations.list(slug, owner);
+      expect(listed).toHaveLength(1);
+      expect(JSON.stringify(listed)).not.toContain(first.code);
+      await expect(invitations.redeem('a'.repeat(43), viewer)).rejects.toMatchObject({ status: 404 });
+      expect(await invitations.redeem(first.code, viewer)).toMatchObject({ projectSlug: slug, role: 'viewer' });
+      await expect(invitations.redeem(first.code, viewer)).rejects.toMatchObject({ status: 409 });
+
+      const viewerId = await projects.findUserId(viewer);
+      expect(viewerId).toBeTruthy();
+      expect((await members.list(slug, viewer)).currentRole).toBe('viewer');
+      await expect(members.updateRole(slug, viewerId!, 'editor', viewer)).rejects.toMatchObject({ status: 403 });
+      await members.updateRole(slug, viewerId!, 'editor', owner);
+      expect((await members.list(slug, viewer)).currentRole).toBe('editor');
+
+      const revoked = await invitations.create(slug, 'viewer', owner);
+      const revokedItem = (await invitations.list(slug, owner)).find((invitation) => invitation.role === 'viewer' && !invitation.redeemedAt);
+      expect(revokedItem).toBeDefined();
+      await invitations.revoke(slug, revokedItem!.id, owner);
+      await expect(invitations.redeem(revoked.code, candidateA)).rejects.toMatchObject({ status: 410 });
+
+      const race = await invitations.create(slug, 'viewer', owner);
+      const results = await Promise.allSettled([
+        invitations.redeem(race.code, candidateA),
+        invitations.redeem(race.code, candidateB),
+      ]);
+      expect(results.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(results.filter((result) => result.status === 'rejected')).toHaveLength(1);
+
+      const audits = await database.db.select({ action: projectInvitationAudit.action })
+        .from(projectInvitationAudit).where(eq(projectInvitationAudit.projectId, projectId));
+      expect(audits.filter((event) => event.action === 'created')).toHaveLength(3);
+      expect(audits.filter((event) => event.action === 'redeemed')).toHaveLength(2);
+      expect(audits.filter((event) => event.action === 'revoked')).toHaveLength(1);
+
+      // Counted in MySQL, so a second limiter instance sees the same identity bucket.
+      const quotaSubject = `${runId}-quota`;
+      for (let index = 0; index < 10; index++) await limiter.consume('create', issuer, quotaSubject);
+      await expect(new InvitationRateLimiter(database).consume('create', issuer, quotaSubject))
+        .rejects.toMatchObject({ status: 429 });
+    } finally {
+      try {
+        if (projectId) {
+          await database.db.delete(projectTable).where(eq(projectTable.id, projectId));
+          // Foreign keys cascade project invitations and audit records.
+          const remaining = await database.db.select().from(projectInvitations)
+            .where(eq(projectInvitations.projectId, projectId));
+          expect(remaining).toHaveLength(0);
+        }
+        for (const identity of identities) {
+          const id = await projects.findUserId(identity);
+          if (id) await database.db.delete(users).where(eq(users.id, id));
+        }
+      } finally {
+        await database.onModuleDestroy();
+      }
+    }
+  }, 40_000);
+});

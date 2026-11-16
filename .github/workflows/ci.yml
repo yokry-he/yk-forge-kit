@@ -48,3 +48,5 @@ jobs:
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm db:migrations:check
       - run: corepack pnpm db:test:integration
+      - run: corepack pnpm build
+      - run: corepack pnpm --filter @forgekit/api exec vitest run test/mysql-project-flow.test.ts
