@@ -1,4 +1,4 @@
-import type { OidcVerifierConfig } from '@forgekit/identity-core';
+import { validateOidcVerifierConfig, type OidcVerifierConfig } from '@forgekit/identity-core';
 
 type Environment = Record<string, string | undefined>;
 export type AuthConfig = { mode: 'local' } | { mode: 'oidc'; verifier: OidcVerifierConfig };
@@ -21,7 +21,7 @@ export function resolveAuthConfig(env: Environment): AuthConfig {
   if (allowHttpLoopback && (env.NODE_ENV === 'production' || !['127.0.0.1', 'localhost'].includes(env.API_HOST ?? '127.0.0.1'))) {
     throw new Error('HTTP OIDC 仅允许非生产环境的本机回环 API。');
   }
-  return { mode: 'oidc', verifier: { issuer: env.OIDC_ISSUER, audience: env.OIDC_API_AUDIENCE,
-    jwksUrl: env.OIDC_JWKS_URL, ...(allowHttpLoopback ? { allowHttpLoopback: true } : {}) } };
+  return { mode: 'oidc', verifier: validateOidcVerifierConfig({ issuer: env.OIDC_ISSUER, audience: env.OIDC_API_AUDIENCE,
+    jwksUrl: env.OIDC_JWKS_URL, ...(allowHttpLoopback ? { allowHttpLoopback: true } : {}) }) };
 }
 
