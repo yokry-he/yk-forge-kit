@@ -1,19 +1,43 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { ref, watch } from 'vue';
 import { RouterLink } from 'vue-router';
 import { useRouter } from 'vue-router';
 import { useRoute } from 'vue-router';
 import { authBusy, authSession, oidcEnabled, startSignIn, startSignOut } from '../auth/session';
 import { safeProjectReturnPath } from '../auth/return-path';
 import { redeemInvitation } from '../api/invitations';
+import { verifyCurrentIdentity } from '../api/identity';
 
 const error = ref('');
 const pending = ref(false);
 const inviteCode = ref('');
 const redeeming = ref(false);
 const redeemError = ref('');
+const identityState = ref<'idle' | 'checking' | 'verified' | 'error'>('idle');
+const identityError = ref('');
+let identityCheckSerial = 0;
 const router = useRouter();
 const route = useRoute();
+async function verifyIdentity(): Promise<void> {
+  const current = authSession.value;
+  const serial = ++identityCheckSerial;
+  if (!current || !oidcEnabled) { identityState.value = 'idle'; identityError.value = ''; return; }
+  identityState.value = 'checking';
+  identityError.value = '';
+  try {
+    const verified = await verifyCurrentIdentity();
+    if (serial !== identityCheckSerial) return;
+    if (verified.subject !== current.subject || authSession.value?.subject !== current.subject) {
+      throw new Error('登录会话与 API 身份不一致，请重新登录。');
+    }
+    identityState.value = 'verified';
+  } catch (reason) {
+    if (serial !== identityCheckSerial) return;
+    identityState.value = 'error';
+    identityError.value = reason instanceof Error ? reason.message : 'API 身份验证失败。';
+  }
+}
+watch(authSession, () => { void verifyIdentity(); }, { immediate: true });
 async function submit(): Promise<void> {
   error.value = '';
   pending.value = true;
@@ -44,7 +68,16 @@ async function redeem(): Promise<void> {
       <template v-if="!oidcEnabled"><p>当前为本机开发模式，尚未配置 OIDC 身份提供方。</p><div class="coming">本机模式仅用于开发。正式部署前需配置可信的 OIDC Authority、公开 Client ID 和 API Audience。</div></template>
       <template v-else>
         <p v-if="authBusy">正在恢复会话…</p>
-        <div v-else-if="authSession" class="account-info"><strong>{{ authSession.displayName }}</strong><small>Subject：{{ authSession.subject }}</small></div>
+        <div v-else-if="authSession" class="account-info">
+          <strong>{{ authSession.displayName }}</strong>
+          <small>Subject：{{ authSession.subject }}</small>
+          <p v-if="identityState === 'checking'" role="status">正在向 ForgeKit API 验证身份…</p>
+          <p v-else-if="identityState === 'verified'" role="status">✓ ForgeKit API 已验证当前身份</p>
+          <div v-else-if="identityState === 'error'" role="alert">
+            <p class="form-error">{{ identityError }}</p>
+            <button class="auth-button" type="button" @click="verifyIdentity">重试 API 验证</button>
+          </div>
+        </div>
         <p v-else>点击按钮将跳转到身份提供方完成授权码 + PKCE 登录。</p>
         <button class="auth-button" :disabled="pending || authBusy" @click="submit">{{ pending ? '正在跳转…' : authSession ? '退出登录' : '前往登录' }}</button>
       </template>
