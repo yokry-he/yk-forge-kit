@@ -4,6 +4,7 @@ import * as schema from './schema';
 import { validateDatabaseUrl } from './config';
 
 export { validateDatabaseUrl } from './config';
+export { requireDisposableTestDatabase } from './integration-guard';
 export * from './schema';
 
 export interface DatabaseClient {
