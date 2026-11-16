@@ -6,7 +6,7 @@ import { useRoute } from 'vue-router';
 import { authBusy, authSession, oidcEnabled, startSignIn, startSignOut } from '../auth/session';
 import { safeProjectReturnPath } from '../auth/return-path';
 import { redeemInvitation } from '../api/invitations';
-import { verifyCurrentIdentity } from '../api/identity';
+import { initializeCurrentAccount, verifyCurrentIdentity, type AccountProfile } from '../api/identity';
 
 const error = ref('');
 const pending = ref(false);
@@ -15,13 +15,14 @@ const redeeming = ref(false);
 const redeemError = ref('');
 const identityState = ref<'idle' | 'checking' | 'verified' | 'error'>('idle');
 const identityError = ref('');
+const accountProfile = ref<AccountProfile | null>(null);
 let identityCheckSerial = 0;
 const router = useRouter();
 const route = useRoute();
 async function verifyIdentity(): Promise<void> {
   const current = authSession.value;
   const serial = ++identityCheckSerial;
-  if (!current || !oidcEnabled) { identityState.value = 'idle'; identityError.value = ''; return; }
+  if (!current || !oidcEnabled) { identityState.value = 'idle'; identityError.value = ''; accountProfile.value = null; return; }
   identityState.value = 'checking';
   identityError.value = '';
   try {
@@ -30,6 +31,9 @@ async function verifyIdentity(): Promise<void> {
     if (verified.subject !== current.subject || authSession.value?.subject !== current.subject) {
       throw new Error('登录会话与 API 身份不一致，请重新登录。');
     }
+    const profile = await initializeCurrentAccount();
+    if (serial !== identityCheckSerial || authSession.value?.subject !== current.subject) return;
+    accountProfile.value = profile;
     identityState.value = 'verified';
   } catch (reason) {
     if (serial !== identityCheckSerial) return;
@@ -72,7 +76,10 @@ async function redeem(): Promise<void> {
           <strong>{{ authSession.displayName }}</strong>
           <small>Subject：{{ authSession.subject }}</small>
           <p v-if="identityState === 'checking'" role="status">正在向 ForgeKit API 验证身份…</p>
-          <p v-else-if="identityState === 'verified'" role="status">✓ ForgeKit API 已验证当前身份</p>
+          <div v-else-if="identityState === 'verified'" role="status">
+            <p>✓ ForgeKit API 已验证当前身份，账户已同步</p>
+            <small v-if="accountProfile">账户 ID：{{ accountProfile.id }}</small>
+          </div>
           <div v-else-if="identityState === 'error'" role="alert">
             <p class="form-error">{{ identityError }}</p>
             <button class="auth-button" type="button" @click="verifyIdentity">重试 API 验证</button>

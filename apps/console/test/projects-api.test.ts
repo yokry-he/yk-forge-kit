@@ -4,7 +4,7 @@ import { listProjectAssets, planProjectAsset } from '../src/api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../src/api/project-members';
 import { issueInvitation, listInvitations, redeemInvitation, revokeInvitation } from '../src/api/invitations';
 import { getAccessToken } from '../src/auth/session';
-import { verifyCurrentIdentity } from '../src/api/identity';
+import { initializeCurrentAccount, verifyCurrentIdentity } from '../src/api/identity';
 
 vi.mock('../src/auth/session', () => ({ getAccessToken: vi.fn(async () => null) }));
 
@@ -51,6 +51,16 @@ describe('project API client', () => {
   it('rejects an invalid backend identity response', async () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: true, json: async () => ({ subject: 'alice' }) }));
     await expect(verifyCurrentIdentity()).rejects.toThrow('无效的身份信息');
+  });
+
+  it('initializes a provider-neutral account through an authenticated POST', async () => {
+    vi.mocked(getAccessToken).mockResolvedValueOnce('signed.access.token');
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'user-1', displayName: 'ForgeKit 用户', createdAt: '2026-11-17' }) });
+    vi.stubGlobal('fetch', fetch);
+    expect((await initializeCurrentAccount()).id).toBe('user-1');
+    expect(fetch).toHaveBeenCalledWith('/api/v1/auth/account', expect.objectContaining({ method: 'POST' }));
+    const [, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer signed.access.token');
   });
 
   it('reports duplicate project names', async () => {
