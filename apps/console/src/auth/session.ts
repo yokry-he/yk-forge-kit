@@ -1,6 +1,7 @@
 import { readonly, ref } from 'vue';
 import { UserManager, WebStorageStateStore } from 'oidc-client-ts';
 import { parseFrontendAuthConfig } from './config';
+import { returnPathFromOidcState, safeProjectReturnPath } from './return-path';
 
 export interface PublicSession { subject: string; displayName: string; expiresAt: number | null }
 
@@ -55,13 +56,14 @@ export async function restoreSession(): Promise<void> {
   } finally { busy.value = false; }
 }
 
-export async function startSignIn(): Promise<void> {
-  await getManager().signinRedirect();
+export async function startSignIn(returnTo?: string): Promise<void> {
+  await getManager().signinRedirect({ state: { returnTo: safeProjectReturnPath(returnTo) } });
 }
 
-export async function finishSignIn(): Promise<void> {
-  await getManager().signinRedirectCallback();
+export async function finishSignIn(): Promise<string> {
+  const user = await getManager().signinRedirectCallback();
   await restoreSession();
+  return returnPathFromOidcState(user.state);
 }
 
 export async function startSignOut(): Promise<void> {
