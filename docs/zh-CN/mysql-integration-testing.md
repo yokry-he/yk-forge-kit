@@ -24,6 +24,7 @@ set +a
 corepack pnpm db:test:integration
 corepack pnpm build
 corepack pnpm --filter @forgekit/api exec vitest run test/mysql-project-flow.test.ts
+corepack pnpm --filter @forgekit/api exec vitest run test/oidc-http.mysql.test.ts
 ```
 
 检查完成后，可以显式关闭并删除测试容器：
@@ -44,5 +45,6 @@ GitHub Actions 的 `mysql-integration` Job 在 Runner 上使用 MySQL 8.0 服务
 
 ## 后续增强
 
-- 增加从真实 OIDC 身份提供方到 HTTP Guard 的端到端登录、令牌校验与越权测试（当前数据库服务层测试直接构造经过验证的身份上下文，不验证 JWT）。
+- 已增加使用临时自签名 HTTPS JWKS、测试签名 JWT 和真实 HTTP API 的鉴权端到端测试：覆盖签名、Audience、有效期、项目范围授权及邀请兑换。证书/私钥在测试时临时生成，不提交至仓库。
+- 仍需与**实际第三方 OIDC 身份提供方**联调浏览器 PKCE 登录回调和前端会话（上述测试只是可控的本地模拟 IdP，不代表真实提供方接入完成）。
 - 增加迁移升级兼容及备份恢复演练；新建空测试库验证不能代表已有业务库的数据兼容性。
