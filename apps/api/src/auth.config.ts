@@ -17,6 +17,11 @@ export function resolveAuthConfig(env: Environment): AuthConfig {
   if (!env.OIDC_ISSUER || !env.OIDC_API_AUDIENCE || !env.OIDC_JWKS_URL) {
     throw new Error('OIDC 模式必须配置 OIDC_ISSUER、OIDC_API_AUDIENCE、OIDC_JWKS_URL。');
   }
-  return { mode: 'oidc', verifier: { issuer: env.OIDC_ISSUER, audience: env.OIDC_API_AUDIENCE, jwksUrl: env.OIDC_JWKS_URL } };
+  const allowHttpLoopback = env.OIDC_DEV_ALLOW_HTTP_LOOPBACK === 'true';
+  if (allowHttpLoopback && (env.NODE_ENV === 'production' || !['127.0.0.1', 'localhost'].includes(env.API_HOST ?? '127.0.0.1'))) {
+    throw new Error('HTTP OIDC 仅允许非生产环境的本机回环 API。');
+  }
+  return { mode: 'oidc', verifier: { issuer: env.OIDC_ISSUER, audience: env.OIDC_API_AUDIENCE,
+    jwksUrl: env.OIDC_JWKS_URL, ...(allowHttpLoopback ? { allowHttpLoopback: true } : {}) } };
 }
 

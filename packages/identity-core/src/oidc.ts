@@ -4,6 +4,8 @@ export interface OidcVerifierConfig {
   issuer: string;
   audience: string;
   jwksUrl: string;
+  /** Explicit local-development escape hatch; never enable for public deployments. */
+  allowHttpLoopback?: boolean;
 }
 
 export interface AuthenticatedSubject {
@@ -18,7 +20,10 @@ export function validateOidcVerifierConfig(config: OidcVerifierConfig): OidcVeri
     issuer = new URL(config.issuer);
     jwks = new URL(config.jwksUrl);
   } catch { throw new Error('OIDC issuer/JWKS 地址格式无效。'); }
-  if (issuer.protocol !== 'https:' || jwks.protocol !== 'https:' || issuer.username || issuer.password || jwks.username || jwks.password ||
+  const https = issuer.protocol === 'https:' && jwks.protocol === 'https:';
+  const loopbackHttp = config.allowHttpLoopback === true && issuer.protocol === 'http:' && jwks.protocol === 'http:' &&
+    ['127.0.0.1', 'localhost'].includes(issuer.hostname) && ['127.0.0.1', 'localhost'].includes(jwks.hostname);
+  if ((!https && !loopbackHttp) || issuer.username || issuer.password || jwks.username || jwks.password ||
       issuer.hash || issuer.search || jwks.hash || jwks.search || issuer.origin !== jwks.origin || !config.audience?.trim() || config.audience !== config.audience.trim()) {
     throw new Error('OIDC 配置必须使用同源 HTTPS issuer/JWKS 和非空 API audience。');
   }

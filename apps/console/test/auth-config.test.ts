@@ -16,4 +16,12 @@ describe('frontend OIDC configuration', () => {
       VITE_OIDC_CLIENT_ID: 'forgekit-web', VITE_OIDC_RESOURCE: 'forgekit-api',
     })).toEqual({ mode: 'oidc', authority: 'https://idp.example.test/realms/forgekit', clientId: 'forgekit-web', resource: 'forgekit-api' });
   });
+  it('only permits HTTP Keycloak on explicit Vite development localhost', () => {
+    const env = { VITE_AUTH_MODE: 'oidc', VITE_OIDC_AUTHORITY: 'http://127.0.0.1:18080/realms/forgekit-dev',
+      VITE_OIDC_CLIENT_ID: 'forgekit-web', VITE_OIDC_DEV_ALLOW_HTTP_LOOPBACK: 'true' };
+    expect(() => parseFrontendAuthConfig(env)).toThrow();
+    expect(() => parseFrontendAuthConfig({ ...env, DEV: false })).toThrow();
+    expect(parseFrontendAuthConfig({ ...env, DEV: true })).toMatchObject({ mode: 'oidc', allowHttpLoopback: true });
+    expect(() => parseFrontendAuthConfig({ ...env, DEV: true, VITE_OIDC_AUTHORITY: 'http://idp.example.test' })).toThrow();
+  });
 });
