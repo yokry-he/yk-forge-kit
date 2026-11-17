@@ -24,3 +24,9 @@ export async function initializeCurrentAccount(): Promise<AccountProfile> {
   }
   return value as AccountProfile;
 }
+
+export async function updateCurrentAccountDisplayName(displayName: string): Promise<AccountProfile> {
+  return apiRequest<AccountProfile>('/auth/account', {
+    method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName }),
+  });
+}

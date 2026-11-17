@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException, Injectable, InternalServerErrorException } from '@nestjs/common';
+import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import { externalIdentities, users } from '@forgekit/db';
 import { DatabaseService } from './database.service';
@@ -11,6 +11,19 @@ type OidcAuth = Extract<ProjectAuthContext, { mode: 'oidc' }>;
 export function identityMatches(auth: OidcAuth) {
   return and(sql`BINARY ${externalIdentities.issuer} = BINARY ${auth.issuer}`,
     sql`BINARY ${externalIdentities.subject} = BINARY ${auth.subject}`);
+}
+
+/** Account display names are metadata, never trusted as OIDC identity claims. */
+export function parseDisplayName(body: unknown): string {
+  if (!body || typeof body !== 'object' || Array.isArray(body) ||
+      Object.keys(body).length !== 1 || !('displayName' in body) || typeof body.displayName !== 'string') {
+    throw new BadRequestException('只能提交 displayName 字符串。');
+  }
+  const name = body.displayName.normalize('NFC').trim();
+  if (!name || Array.from(name).length > 60 || /[\p{Cc}\u202a-\u202e\u2066-\u2069]/u.test(name)) {
+    throw new BadRequestException('展示名须为 1–60 个字符，不得包含控制字符或双向控制符。');
+  }
+  return name;
 }
 
 function hasMysqlCode(error: unknown, code: string): boolean {
@@ -60,6 +73,15 @@ export class IdentityAccountsService {
     await this.ensureUser(auth);
     const profile = await this.getProfile(auth);
     if (!profile) throw new InternalServerErrorException('账户初始化后未能读取用户档案。');
+    return profile;
+  }
+
+  async updateDisplayName(auth: OidcAuth, displayName: string) {
+    const id = await this.findUserId(auth);
+    if (!id) throw new NotFoundException('请先初始化 ForgeKit 账户。');
+    await this.database.db.update(users).set({ displayName }).where(eq(users.id, id));
+    const profile = await this.getProfile(auth);
+    if (!profile) throw new InternalServerErrorException('更新后无法读取账户档案。');
     return profile;
   }
 }

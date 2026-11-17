@@ -6,7 +6,7 @@ import { useRoute } from 'vue-router';
 import { authBusy, authSession, oidcEnabled, startSignIn, startSignOut } from '../auth/session';
 import { safeProjectReturnPath } from '../auth/return-path';
 import { redeemInvitation } from '../api/invitations';
-import { initializeCurrentAccount, verifyCurrentIdentity, type AccountProfile } from '../api/identity';
+import { initializeCurrentAccount, updateCurrentAccountDisplayName, verifyCurrentIdentity, type AccountProfile } from '../api/identity';
 
 const error = ref('');
 const pending = ref(false);
@@ -16,13 +16,22 @@ const redeemError = ref('');
 const identityState = ref<'idle' | 'checking' | 'verified' | 'error'>('idle');
 const identityError = ref('');
 const accountProfile = ref<AccountProfile | null>(null);
+const displayNameDraft = ref('');
+const editingProfile = ref(false);
+const savingProfile = ref(false);
+const profileMessage = ref('');
+const profileError = ref('');
 let identityCheckSerial = 0;
 const router = useRouter();
 const route = useRoute();
 async function verifyIdentity(): Promise<void> {
   const current = authSession.value;
   const serial = ++identityCheckSerial;
-  if (!current || !oidcEnabled) { identityState.value = 'idle'; identityError.value = ''; accountProfile.value = null; return; }
+  if (!current || !oidcEnabled) {
+    identityState.value = 'idle'; identityError.value = ''; accountProfile.value = null;
+    editingProfile.value = false; profileMessage.value = ''; profileError.value = '';
+    return;
+  }
   identityState.value = 'checking';
   identityError.value = '';
   try {
@@ -34,12 +43,37 @@ async function verifyIdentity(): Promise<void> {
     const profile = await initializeCurrentAccount();
     if (serial !== identityCheckSerial || authSession.value?.subject !== current.subject) return;
     accountProfile.value = profile;
+    if (!editingProfile.value) displayNameDraft.value = profile.displayName;
     identityState.value = 'verified';
   } catch (reason) {
     if (serial !== identityCheckSerial) return;
     identityState.value = 'error';
     identityError.value = reason instanceof Error ? reason.message : 'API 身份验证失败。';
   }
+}
+function cancelProfileEdit(): void {
+  editingProfile.value = false;
+  displayNameDraft.value = accountProfile.value?.displayName ?? '';
+  profileError.value = '';
+}
+async function saveProfile(): Promise<void> {
+  if (!accountProfile.value || identityState.value !== 'verified' || savingProfile.value) return;
+  profileMessage.value = ''; profileError.value = '';
+  const name = displayNameDraft.value.normalize('NFC').trim();
+  if (!name || Array.from(name).length > 60) { profileError.value = '展示名须为 1–60 个字符。'; return; }
+  savingProfile.value = true;
+  const serial = identityCheckSerial;
+  try {
+    const updated = await updateCurrentAccountDisplayName(name);
+    if (serial !== identityCheckSerial || updated.id !== accountProfile.value?.id) return;
+    accountProfile.value = updated;
+    displayNameDraft.value = updated.displayName;
+    editingProfile.value = false;
+    profileMessage.value = '展示名已保存。';
+  } catch (reason) {
+    if (serial !== identityCheckSerial) return;
+    profileError.value = reason instanceof Error ? reason.message : '展示名保存失败。';
+  } finally { savingProfile.value = false; }
 }
 watch(authSession, () => { void verifyIdentity(); }, { immediate: true });
 async function submit(): Promise<void> {
@@ -90,6 +124,24 @@ async function redeem(): Promise<void> {
       </template>
       <p v-if="error" class="form-error" role="alert">{{ error }}</p>
       <RouterLink class="inline-link" to="/projects">返回工作空间 →</RouterLink>
+    </section>
+    <section v-if="oidcEnabled && identityState === 'verified' && accountProfile" class="panel auth-panel">
+      <h2>ForgeKit 个人资料</h2>
+      <p>这里的展示名仅用于 ForgeKit 项目成员列表，不会修改身份提供方的账号信息或访问权限。</p>
+      <template v-if="editingProfile">
+        <label for="account-display-name">展示名（最多 60 个字符）</label>
+        <input id="account-display-name" v-model="displayNameDraft" type="text" maxlength="120" autocomplete="nickname" />
+        <div class="invite-controls">
+          <button class="auth-button" type="button" :disabled="savingProfile" @click="saveProfile">{{ savingProfile ? '保存中…' : '保存展示名' }}</button>
+          <button class="subtle-button" type="button" :disabled="savingProfile" @click="cancelProfileEdit">取消</button>
+        </div>
+      </template>
+      <template v-else>
+        <p>当前展示名：<strong>{{ accountProfile.displayName }}</strong></p>
+        <button class="subtle-button" type="button" @click="editingProfile = true; profileMessage = ''; profileError = ''">编辑展示名</button>
+      </template>
+      <p v-if="profileError" class="form-error" role="alert">{{ profileError }}</p>
+      <p v-if="profileMessage" class="form-success" role="status">{{ profileMessage }}</p>
     </section>
     <section v-if="oidcEnabled && authSession" class="panel auth-panel invite-redeem">
       <h2>加入受邀项目</h2>

@@ -28,6 +28,10 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('real MySQL project
       userId = first?.id ?? null;
       expect(await accounts.findUserId({ ...auth, subject: subject.toUpperCase() })).toBeNull();
       expect(await projects.list(auth)).toEqual([]);
+      const updated = await accounts.updateDisplayName(auth, 'Yokry');
+      expect(updated.displayName).toBe('Yokry');
+      expect((await accounts.getProfile({ ...auth, subject: subject.toUpperCase() }))).toBeNull();
+      expect((await accounts.getProfile(auth))?.displayName).toBe('Yokry');
     } finally {
       try { if (userId) await database.db.delete(users).where(eq(users.id, userId)); }
       finally { await database.onModuleDestroy(); }
