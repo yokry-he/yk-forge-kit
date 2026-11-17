@@ -1,6 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, sql } from 'drizzle-orm';
-import { externalIdentities, projectMemberAudit, projectMemberships, users } from '@forgekit/db';
+import { and, eq } from 'drizzle-orm';
+import { projectMemberAudit, projectMemberships, users } from '@forgekit/db';
 import { canManageMembership, type ProjectRole } from '@forgekit/identity-core';
 import { DatabaseService } from './database.service';
 import type { ProjectAuthContext } from './project-auth-context';
@@ -12,11 +12,7 @@ export class ProjectMembersService {
 
   private async currentUserId(auth: ProjectAuthContext): Promise<string | null> {
     if (auth.mode === 'local') return null;
-    const [identity] = await this.database.db.select({ userId: externalIdentities.userId })
-      .from(externalIdentities)
-      .where(and(sql`BINARY ${externalIdentities.issuer} = BINARY ${auth.issuer}`,
-        sql`BINARY ${externalIdentities.subject} = BINARY ${auth.subject}`)).limit(1);
-    return identity?.userId ?? null;
+    return this.projects.findUserId(auth);
   }
 
   async list(slug: string, auth: ProjectAuthContext) {
