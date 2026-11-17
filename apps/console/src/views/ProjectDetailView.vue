@@ -27,6 +27,7 @@ const membersLoading = ref(false);
 const membersError = ref('');
 const memberFeedback = ref('');
 const updatingMember = ref('');
+const memberRoleDrafts = ref<Record<string, 'editor' | 'viewer'>>({});
 const inviteRole = ref<'editor' | 'viewer'>('viewer');
 const issuingInvite = ref(false);
 const issuedInvite = ref<IssuedInvitation | null>(null);
@@ -71,14 +72,22 @@ async function refreshAssets(slug: string): Promise<void> {
   finally { assetsLoading.value = false; }
 }
 
-async function refreshMembers(slug: string): Promise<void> {
+async function refreshMembers(slug: string): Promise<boolean> {
   membersLoading.value = true;
   membersError.value = '';
   try {
     members.value = await listProjectMembers(slug);
+    memberRoleDrafts.value = {};
     invitations.value = members.value.currentRole === 'owner' ? await listInvitations(slug) : [];
+    return true;
   }
-  catch (reason) { membersError.value = reason instanceof Error ? reason.message : '成员列表加载失败。'; }
+  catch (reason) {
+    members.value = null;
+    invitations.value = [];
+    memberRoleDrafts.value = {};
+    membersError.value = reason instanceof Error ? reason.message : '成员列表加载失败。';
+    return false;
+  }
   finally { membersLoading.value = false; }
 }
 
@@ -107,15 +116,28 @@ async function revokeInvite(invitationId: string): Promise<void> {
   finally { revokingInvite.value = ''; }
 }
 
+function draftRole(userId: string, role: 'editor' | 'viewer'): void {
+  memberRoleDrafts.value = { ...memberRoleDrafts.value, [userId]: role };
+  memberFeedback.value = '';
+}
+
+function cancelRoleChange(userId: string): void {
+  const next = { ...memberRoleDrafts.value };
+  delete next[userId];
+  memberRoleDrafts.value = next;
+}
+
 async function changeRole(userId: string, role: string): Promise<void> {
   if (!project.value || updatingMember.value || (role !== 'editor' && role !== 'viewer')) return;
+  if (members.value?.currentRole !== 'owner' || userId === members.value.currentUserId ||
+      !members.value.members.some((member) => member.userId === userId && member.role !== 'owner' && member.role !== role)) return;
   updatingMember.value = userId;
   membersError.value = '';
   memberFeedback.value = '';
   try {
     await updateProjectMemberRole(project.value.slug, userId, role);
-    await refreshMembers(project.value.slug);
-    memberFeedback.value = '成员角色已更新。';
+    if (await refreshMembers(project.value.slug)) memberFeedback.value = '成员角色已更新，已从服务器刷新最新成员列表。';
+    else memberFeedback.value = '角色修改已提交，但列表刷新失败，请手动刷新确认。';
   } catch (reason) { membersError.value = reason instanceof Error ? reason.message : '成员角色更新失败。'; }
   finally { updatingMember.value = ''; }
 }
@@ -229,8 +251,14 @@ watch(() => route.params.slug, refresh);
           <span class="member-avatar">{{ member.displayName.slice(0, 1).toUpperCase() }}</span>
           <div class="member-name"><strong>{{ member.displayName }} <small v-if="member.userId === members.currentUserId">（我）</small></strong><small>{{ member.userId }}</small></div>
           <span v-if="members.currentRole !== 'owner' || member.role === 'owner' || member.userId === members.currentUserId" class="asset-tag" :class="{ verified: member.role === 'owner' }">{{ member.role }}</span>
-          <label v-else class="sr-only" :for="`role-${member.userId}`">成员角色</label>
-          <select v-if="members.currentRole === 'owner' && member.role !== 'owner' && member.userId !== members.currentUserId" :id="`role-${member.userId}`" :value="member.role" :disabled="!!updatingMember" @change="changeRole(member.userId, ($event.target as HTMLSelectElement).value)"><option value="editor">Editor</option><option value="viewer">Viewer</option></select>
+          <template v-if="members.currentRole === 'owner' && member.role !== 'owner' && member.userId !== members.currentUserId">
+            <label class="sr-only" :for="`role-${member.userId}`">{{ member.displayName }} 的成员角色</label>
+            <select :id="`role-${member.userId}`" :value="memberRoleDrafts[member.userId] ?? member.role" :disabled="!!updatingMember || membersLoading" @change="draftRole(member.userId, ($event.target as HTMLSelectElement).value as 'editor' | 'viewer')"><option value="editor">Editor</option><option value="viewer">Viewer</option></select>
+            <template v-if="memberRoleDrafts[member.userId] && memberRoleDrafts[member.userId] !== member.role">
+              <button class="subtle-button" :disabled="!!updatingMember" @click="changeRole(member.userId, memberRoleDrafts[member.userId]!)">{{ updatingMember === member.userId ? '保存中…' : '确认更改' }}</button>
+              <button class="subtle-button" :disabled="!!updatingMember" @click="cancelRoleChange(member.userId)">取消</button>
+            </template>
+          </template>
         </div>
       </div>
       <p class="asset-help">支持一次性邀请码，不发送邮件，也不会提前创建受邀用户。受邀者需要使用自己的 OIDC 身份完成兑换。</p>

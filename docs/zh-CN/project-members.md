@@ -6,6 +6,7 @@
 
 - `GET /api/v1/projects/:slug/members`：需要当前用户属于项目，并具备 `member:read`；返回成员 ID、展示名、角色和加入时间，以及当前用户自己的角色。
 - `PATCH /api/v1/projects/:slug/members/:userId`：仅 Owner 能调整**现有** Editor/Viewer 的角色，请求 `{ "role": "editor" }` 或 `{ "role": "viewer" }`。
+- 前端修改角色采用“先选择、再确认”的交互，支持取消；接口请求成功后重新读取服务端成员列表。如果刷新失败，会明确提示操作可能已成功，需要手动核对，不会依据本地选中值假定保存成功。
 
 成员列表不会暴露 OIDC 令牌、issuer/subject 或其他身份凭证。对非成员的项目访问仍按服务端范围授权处理。
 
