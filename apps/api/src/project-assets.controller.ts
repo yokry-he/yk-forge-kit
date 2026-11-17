@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AssetError, resolveAssets, type AssetManifest } from '@forgekit/asset-core';
 import { ProjectAssetsService } from './project-assets.service';
 import { ProjectApiGuard } from './project-api.guard';
@@ -19,6 +19,22 @@ export class ProjectAssetsController {
     const asset = parseAssetSelection(body);
     return this.assets.plan(slug, asset.id, asset.version, requireProjectAuth(request));
   }
+
+  @Patch(':assetId/plan')
+  upgradePlan(@Param('slug') slug: string, @Param('assetId') assetId: string, @Body() body: unknown, @Req() request: ProjectAuthRequest) {
+    const asset = parseAssetSelection({ assetId });
+    const expectedVersion = parseExpectedVersion(body);
+    return this.assets.upgradePlan(slug, asset.id, expectedVersion, asset.version, requireProjectAuth(request));
+  }
+}
+
+export function parseExpectedVersion(body: unknown): string {
+  if (!body || typeof body !== 'object' || Array.isArray(body) || Object.keys(body).length !== 1 ||
+      !('expectedVersion' in body) || typeof body.expectedVersion !== 'string' ||
+      !/^\d+\.\d+\.\d+$/.test(body.expectedVersion)) {
+    throw new BadRequestException('只能提交合法的 expectedVersion。');
+  }
+  return body.expectedVersion;
 }
 
 export function parseAssetSelection(body: unknown): AssetManifest {

@@ -1,17 +1,55 @@
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { eq } from 'drizzle-orm';
-import { projectInvitationAudit, projectInvitations, projects as projectTable, users, requireDisposableTestDatabase } from '@forgekit/db';
+import { assetInstallations, projectInvitationAudit, projectInvitations, projects as projectTable, users, requireDisposableTestDatabase } from '@forgekit/db';
 import { DatabaseService } from '../src/database.service';
 import { ProjectsService } from '../src/projects.service';
 import { IdentityAccountsService } from '../src/identity-accounts.service';
 import { ProjectMembersService } from '../src/project-members.service';
+import { ProjectAssetsService } from '../src/project-assets.service';
 import { InvitationRateLimiter } from '../src/invitation-rate-limiter';
 import { ProjectInvitationsService } from '../src/project-invitations.service';
 import type { ProjectAuthContext } from '../src/project-auth-context';
 
 // Runs only after the separate MySQL integration job has migrated forgekit_test.
 describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('real MySQL project membership and invitations', () => {
+  it('updates only a known planned version using compare-and-swap without changing install status', async () => {
+    requireDisposableTestDatabase(process.env);
+    const database = new DatabaseService();
+    const projects = new ProjectsService(database);
+    const assets = new ProjectAssetsService(database, projects);
+    const id = randomUUID();
+    const slug = `asset-upgrade-${id}`;
+    const owner = { mode: 'oidc' as const, issuer: 'https://forgekit-integration.example', subject: `${id}-owner` };
+    const outsider = { ...owner, subject: `${id}-outsider` };
+    let projectId: string | null = null;
+    try {
+      const project = await projects.create({ name: slug, template: 'vue-web', features: [] }, owner);
+      projectId = project.id;
+      await assets.plan(slug, 'official.theme', '1.1.0', owner);
+      const where = eq(assetInstallations.projectId, project.id);
+      // Legacy registration fixture: the registry now offers 1.1.0.
+      await database.db.update(assetInstallations).set({ version: '1.0.0' }).where(where);
+      await expect(assets.upgradePlan(slug, 'official.theme', '1.0.0', '1.1.0', outsider)).rejects.toMatchObject({ status: 404 });
+      const attempts = await Promise.allSettled([
+        assets.upgradePlan(slug, 'official.theme', '1.0.0', '1.1.0', owner),
+        assets.upgradePlan(slug, 'official.theme', '1.0.0', '1.1.0', owner),
+      ]);
+      expect(attempts.filter((result) => result.status === 'fulfilled')).toHaveLength(1);
+      expect(attempts.filter((result) => result.status === 'rejected')).toHaveLength(1);
+      expect((await assets.list(slug, owner))[0]).toMatchObject({ version: '1.1.0', status: 'planned' });
+      await expect(assets.upgradePlan(slug, 'official.theme', '1.0.0', '1.1.0', owner)).rejects.toMatchObject({ status: 409 });
+      await database.db.update(assetInstallations).set({ version: '1.0.0', status: 'applied' }).where(where);
+      await expect(assets.upgradePlan(slug, 'official.theme', '1.0.0', '1.1.0', owner)).rejects.toMatchObject({ status: 409 });
+    } finally {
+      try {
+        if (projectId) await database.db.delete(projectTable).where(eq(projectTable.id, projectId));
+        const userId = await projects.findUserId(owner);
+        if (userId) await database.db.delete(users).where(eq(users.id, userId));
+      } finally { await database.onModuleDestroy(); }
+    }
+  }, 30_000);
+
   it('provisions a first-login account idempotently without granting project membership', async () => {
     requireDisposableTestDatabase(process.env);
     const database = new DatabaseService();
