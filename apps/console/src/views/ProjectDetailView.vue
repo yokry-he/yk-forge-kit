@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { parseAssetVerificationReceipt, type AssetVerificationReceipt, type ProjectAssetRecord, type ProjectMembersResponse, type ProjectRecord } from '@forgekit/contracts';
 import { listAssets } from '@forgekit/asset-core';
@@ -23,6 +23,12 @@ const receiptText = ref('');
 const inspectedReceipt = ref<AssetVerificationReceipt | null>(null);
 const receiptError = ref('');
 const members = ref<ProjectMembersResponse | null>(null);
+const accessVerified = ref(false);
+const accessError = ref('');
+const accessChecking = ref(false);
+let viewEpoch = 0;
+let accessRefreshInFlight = false;
+let accessRefreshTimer: ReturnType<typeof setInterval> | null = null;
 const membersLoading = ref(false);
 const membersError = ref('');
 const memberFeedback = ref('');
@@ -65,30 +71,72 @@ function inspectReceipt(): void {
 }
 
 async function refreshAssets(slug: string): Promise<void> {
+  const epoch = viewEpoch;
   assetsLoading.value = true;
   assetsError.value = '';
-  try { assets.value = await listProjectAssets(slug); }
-  catch (reason) { assetsError.value = reason instanceof Error ? reason.message : '资产计划加载失败。'; }
-  finally { assetsLoading.value = false; }
+  try { const next = await listProjectAssets(slug); if (epoch === viewEpoch) assets.value = next; }
+  catch (reason) { if (epoch === viewEpoch) assetsError.value = reason instanceof Error ? reason.message : '资产计划加载失败。'; }
+  finally { if (epoch === viewEpoch) assetsLoading.value = false; }
 }
 
 async function refreshMembers(slug: string): Promise<boolean> {
+  const epoch = viewEpoch;
   membersLoading.value = true;
   membersError.value = '';
   try {
-    members.value = await listProjectMembers(slug);
+    const latest = await listProjectMembers(slug);
+    if (epoch !== viewEpoch) return false;
+    members.value = latest;
     memberRoleDrafts.value = {};
-    invitations.value = members.value.currentRole === 'owner' ? await listInvitations(slug) : [];
+    if (latest.currentRole !== 'owner') issuedInvite.value = null;
+    const nextInvitations = latest.currentRole === 'owner' ? await listInvitations(slug) : [];
+    if (epoch !== viewEpoch) return false;
+    invitations.value = nextInvitations;
     return true;
   }
   catch (reason) {
+    if (epoch !== viewEpoch) return false;
     members.value = null;
     invitations.value = [];
+    issuedInvite.value = null;
     memberRoleDrafts.value = {};
     membersError.value = reason instanceof Error ? reason.message : '成员列表加载失败。';
     return false;
   }
-  finally { membersLoading.value = false; }
+  finally { if (epoch === viewEpoch) membersLoading.value = false; }
+}
+
+/** Recheck actual server access when returning to the tab; stale roles are never authoritative. */
+async function refreshAccess(): Promise<void> {
+  if (!project.value || loading.value || accessRefreshInFlight || document.hidden) return;
+  const slug = project.value.slug;
+  const epoch = viewEpoch;
+  accessRefreshInFlight = true;
+  accessChecking.value = true;
+  accessVerified.value = false;
+  accessError.value = '';
+  try {
+    await getProject(slug);
+    if (epoch !== viewEpoch) return;
+    if (!(await refreshMembers(slug))) throw new Error(membersError.value || '无法刷新项目成员权限。');
+    if (epoch !== viewEpoch) return;
+    accessVerified.value = true;
+  } catch (reason) {
+    if (epoch !== viewEpoch) return;
+    accessError.value = reason instanceof Error ? reason.message : '无法验证项目权限。';
+    // Access denial is not a recoverable stale display: remove project and member data.
+    if (reason instanceof Error && 'status' in reason && (reason.status === 403 || reason.status === 404)) {
+      project.value = null;
+      members.value = null;
+      assets.value = [];
+      invitations.value = [];
+      issuedInvite.value = null;
+      error.value = '项目不存在或当前账户已失去访问权限。';
+    }
+  } finally {
+    if (epoch === viewEpoch) accessChecking.value = false;
+    accessRefreshInFlight = false;
+  }
 }
 
 async function createInvite(): Promise<void> {
@@ -156,7 +204,10 @@ async function planAsset(assetId: string): Promise<void> {
 }
 
 async function refresh(): Promise<void> {
+  const epoch = ++viewEpoch;
   loading.value = true;
+  accessVerified.value = false;
+  accessError.value = '';
   error.value = '';
   project.value = null;
   assets.value = [];
@@ -169,13 +220,28 @@ async function refresh(): Promise<void> {
   issuedInvite.value = null;
   inviteError.value = '';
   try {
-    project.value = await getProject(String(route.params.slug));
+    const latest = await getProject(String(route.params.slug));
+    if (epoch !== viewEpoch) return;
+    project.value = latest;
     await Promise.all([refreshAssets(project.value.slug), refreshMembers(project.value.slug)]);
+    if (epoch === viewEpoch && members.value) accessVerified.value = true;
   }
-  catch (reason) { error.value = reason instanceof Error ? reason.message : '项目读取失败。'; }
-  finally { loading.value = false; }
+  catch (reason) { if (epoch === viewEpoch) error.value = reason instanceof Error ? reason.message : '项目读取失败。'; }
+  finally { if (epoch === viewEpoch) loading.value = false; }
 }
-onMounted(refresh);
+function onVisibilityOrFocus(): void { if (!document.hidden) void refreshAccess(); }
+onMounted(() => {
+  void refresh();
+  window.addEventListener('focus', onVisibilityOrFocus);
+  document.addEventListener('visibilitychange', onVisibilityOrFocus);
+  accessRefreshTimer = setInterval(onVisibilityOrFocus, 60_000);
+});
+onUnmounted(() => {
+  window.removeEventListener('focus', onVisibilityOrFocus);
+  document.removeEventListener('visibilitychange', onVisibilityOrFocus);
+  if (accessRefreshTimer) clearInterval(accessRefreshTimer);
+  viewEpoch++;
+});
 watch(() => route.params.slug, refresh);
 </script>
 
@@ -186,6 +252,7 @@ watch(() => route.params.slug, refresh);
     <p class="intro"><RouterLink class="inline-link" to="/projects">← 返回项目列表</RouterLink></p>
     <section v-if="loading" class="state-card" role="status">正在读取项目配置…</section>
     <section v-else-if="error" class="state-card" role="alert"><strong>无法读取项目</strong><p>{{ error }}</p><button class="subtle-button" @click="refresh">重试</button></section>
+    <section v-if="project && !accessVerified" class="state-card" :role="accessError ? 'alert' : 'status'">{{ accessError || '正在核对项目访问权限…' }} <button v-if="accessError && !accessChecking" class="subtle-button" @click="refreshAccess">重试验证</button></section>
     <section v-else-if="project" class="panel project-detail-panel">
       <div class="project-card-top"><span class="project-mark">V</span><span class="asset-tag verified">已保存元数据</span></div>
       <h2>{{ project.name }}</h2>
@@ -197,7 +264,7 @@ watch(() => route.params.slug, refresh);
       </div>
       <div class="coming">此页面展示数据库中的项目配置，不代表已经在本机生成源码。源码创建仍需使用 CLI。</div>
     </section>
-    <section v-if="project" class="project-assets-panel">
+    <section v-if="project && accessVerified" class="project-assets-panel">
       <div class="section-toolbar"><span>项目资产计划</span><button class="subtle-button" :disabled="assetsLoading" @click="refreshAssets(project.slug)">刷新</button></div>
       <p class="asset-help">这里登记准备集成的公共资产及其版本。<strong>登记不等于安装成功</strong>；实际文件修改仍需通过 CLI 执行并校验。</p>
       <p v-if="assetsError" class="form-error" role="alert">{{ assetsError }}</p>
@@ -239,7 +306,7 @@ watch(() => route.params.slug, refresh);
         </div>
       </div>
     </section>
-    <section v-if="project" class="project-assets-panel member-panel">
+    <section v-if="project && accessVerified" class="project-assets-panel member-panel">
       <div class="section-toolbar"><span>项目成员</span><button class="subtle-button" :disabled="membersLoading" @click="refreshMembers(project.slug)">刷新</button></div>
       <p class="asset-help">成员关系来自服务端授权记录。Owner 可以调整已有 Editor/Viewer 的角色，不能通过此界面降级 Owner。</p>
       <p v-if="membersError" class="form-error" role="alert">{{ membersError }}</p>
