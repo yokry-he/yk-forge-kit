@@ -110,6 +110,11 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('OIDC signed-token 
       expect(account.id).toBeTruthy();
       expect(enrolled.headers.get('content-type')).toContain('application/json');
       expect((await (await enroll()).json() as { id: string }).id).toBe(account.id);
+      expect((await fetch(`${base}/api/v1/auth/account`, { method: 'PATCH', headers: { ...headers(viewerToken), 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: 'Alice', role: 'owner' }) })).status).toBe(400);
+      expect((await fetch(`${base}/api/v1/auth/account`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: 'Alice' }) })).status).toBe(401);
+      const renamed = await fetch(`${base}/api/v1/auth/account`, { method: 'PATCH', headers: { ...headers(viewerToken), 'Content-Type': 'application/json' }, body: JSON.stringify({ displayName: 'Alice' }) });
+      expect(renamed.status).toBe(200);
+      expect((await renamed.json() as { id: string; displayName: string })).toMatchObject({ id: account.id, displayName: 'Alice' });
 
       const ownerProjects = await get('/api/v1/projects', ownerToken);
       expect(ownerProjects.status).toBe(200);

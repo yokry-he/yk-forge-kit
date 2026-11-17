@@ -13,6 +13,7 @@
 - 项目与资产 API 使用 `Authorization: Bearer` 发送 Access Token；令牌不拼接到 URL、路由参数或日志。
 - 用户中心在展示浏览器会话的同时请求 `/api/v1/auth/whoami`，展示独立的 API 身份验证状态，并核对服务端验证的 Subject 与当前会话一致；验证失败时可重试，但不把浏览器会话当成服务端授权结果。
 - 首次进入已登录的用户中心时，验证通过后通过幂等 `POST /api/v1/auth/account` 建立与 OIDC issuer + subject 绑定的 ForgeKit 账户；这一操作不会加入任何项目。重复操作返回同一账户，项目访问仍由成员关系决定。
+- 登录后可通过 `PATCH /api/v1/auth/account` 更新当前用户的 ForgeKit 展示名；只接受 `displayName`，服务端从经过验证的 Bearer 令牌定位账户，拒绝传入用户 ID、角色及其他字段。展示名不会同步到身份提供方，也不会影响任何项目权限。
 
 ## 配置
 

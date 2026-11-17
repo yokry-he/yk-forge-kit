@@ -4,7 +4,7 @@ import { listProjectAssets, planProjectAsset } from '../src/api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../src/api/project-members';
 import { issueInvitation, listInvitations, redeemInvitation, revokeInvitation } from '../src/api/invitations';
 import { getAccessToken } from '../src/auth/session';
-import { initializeCurrentAccount, verifyCurrentIdentity } from '../src/api/identity';
+import { initializeCurrentAccount, updateCurrentAccountDisplayName, verifyCurrentIdentity } from '../src/api/identity';
 
 vi.mock('../src/auth/session', () => ({ getAccessToken: vi.fn(async () => null) }));
 
@@ -60,6 +60,18 @@ describe('project API client', () => {
     expect((await initializeCurrentAccount()).id).toBe('user-1');
     expect(fetch).toHaveBeenCalledWith('/api/v1/auth/account', expect.objectContaining({ method: 'POST' }));
     const [, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(new Headers(init.headers).get('Authorization')).toBe('Bearer signed.access.token');
+  });
+
+  it('updates only the current account display name without a user ID', async () => {
+    vi.mocked(getAccessToken).mockResolvedValueOnce('signed.access.token');
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'user-1', displayName: 'Yokry' }) });
+    vi.stubGlobal('fetch', fetch);
+    expect((await updateCurrentAccountDisplayName('Yokry')).displayName).toBe('Yokry');
+    const [path, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/api/v1/auth/account');
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBe('{"displayName":"Yokry"}');
     expect(new Headers(init.headers).get('Authorization')).toBe('Bearer signed.access.token');
   });
 
