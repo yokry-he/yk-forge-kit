@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { emptyAssetLock, fingerprint, listAssets, parseAssetLock, planAssetInstall, planAssetUpgrade, planAssetUninstall, resolveAssets } from '../src/index';
+import { emptyAssetLock, fingerprint, getAssetVersionStatus, listAssets, parseAssetLock, planAssetInstall, planAssetUpgrade, planAssetUninstall, resolveAssets } from '../src/index';
 
 describe('assets', () => {
   it('lists built-in manifests and resolves duplicates deterministically', () => {
@@ -9,6 +9,12 @@ describe('assets', () => {
   });
   it('rejects unknown assets', () => {
     expect(() => resolveAssets(['official.unknown'], 'vue-web')).toThrow('未知资产');
+  });
+  it('classifies recorded versions without claiming a local installation was verified', () => {
+    expect(getAssetVersionStatus('official.theme', '1.1.0')).toBe('current');
+    expect(getAssetVersionStatus('official.theme', '1.0.0')).toBe('upgrade-available');
+    expect(getAssetVersionStatus('official.theme', '2.0.0')).toBe('unsupported');
+    expect(getAssetVersionStatus('unknown', '1.0.0')).toBe('unsupported');
   });
   it('plans a non-destructive theme installation and persists lock hashes', () => {
     const base = { 'src/style.css': 'body { margin: 0; }\n', 'src/forgekit/theme.css': null };

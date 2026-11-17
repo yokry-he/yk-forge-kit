@@ -55,6 +55,16 @@ const THEME: AssetManifest = {
 };
 const BUILT_INS: Readonly<Record<AssetId, AssetManifest>> = { 'official.theme': THEME };
 
+export type AssetVersionStatus = 'current' | 'upgrade-available' | 'unsupported';
+
+/** Registry metadata only; actual installed files are verified exclusively by the CLI lock planner. */
+export function getAssetVersionStatus(assetId: string, recordedVersion: string): AssetVersionStatus {
+  const asset = BUILT_INS[assetId as AssetId];
+  if (!asset || !recordedVersion) return 'unsupported';
+  if (recordedVersion === asset.version) return 'current';
+  return assetId === 'official.theme' && recordedVersion === '1.0.0' ? 'upgrade-available' : 'unsupported';
+}
+
 export function listAssets(): AssetManifest[] {
   return Object.values(BUILT_INS).map((item) => ({ ...item, dependencies: [...item.dependencies], target: [...item.target], provides: [...item.provides] }));
 }
