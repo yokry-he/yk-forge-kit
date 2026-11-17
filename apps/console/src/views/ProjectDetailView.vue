@@ -2,7 +2,7 @@
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { parseAssetVerificationReceipt, type AssetVerificationReceipt, type ProjectAssetRecord, type ProjectMembersResponse, type ProjectRecord } from '@forgekit/contracts';
-import { listAssets } from '@forgekit/asset-core';
+import { getAssetVersionStatus, listAssets } from '@forgekit/asset-core';
 import { getProject } from '../api/projects';
 import { listProjectAssets, planProjectAsset } from '../api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../api/project-members';
@@ -47,9 +47,9 @@ function quoteShell(value: string): string {
   return `'${value.replace(/'/g, "'\\''")}'`;
 }
 
-function assetCliCommand(action: 'plan' | 'add' | 'verify', assetId: string): string {
+function assetCliCommand(action: 'plan' | 'add' | 'verify' | 'upgrade' | 'remove', assetId: string, mode?: 'dry-run' | 'yes'): string {
   const directory = localDirectory.value.trim() || `./${project.value?.slug ?? 'my-project'}`;
-  return `node packages/cli/dist/index.js asset ${action} ${quoteShell(assetId)} --dir ${quoteShell(directory)}`;
+  return `node packages/cli/dist/index.js asset ${action} ${quoteShell(assetId)} --dir ${quoteShell(directory)}${mode === 'dry-run' ? ' --dry-run' : mode === 'yes' ? ' --yes' : ''}`;
 }
 
 async function copyCommand(command: string, key: string): Promise<void> {
@@ -272,7 +272,7 @@ watch(() => route.params.slug, refresh);
       <div v-if="assetsLoading" class="state-card" role="status">正在加载资产计划…</div>
       <div v-else-if="!assets.length" class="state-card compact-state">尚未登记额外资产安装计划。</div>
       <div v-else class="project-assets-list">
-        <div v-for="item in assets" :key="item.id"><strong>{{ item.assetId }}</strong><small>v{{ item.version }}</small><span class="asset-tag" :class="{ verified: item.status === 'applied' }">{{ item.status === 'planned' ? '待执行' : '已确认安装' }}</span></div>
+        <div v-for="item in assets" :key="item.id"><strong>{{ item.assetId }}</strong><small>登记版本 v{{ item.version }}</small><span class="asset-tag" :class="{ verified: getAssetVersionStatus(item.assetId, item.version) === 'current' }">{{ getAssetVersionStatus(item.assetId, item.version) === 'current' ? '当前 Registry 版本' : getAssetVersionStatus(item.assetId, item.version) === 'upgrade-available' ? '有可升级版本' : '版本不受支持' }}</span><span class="asset-tag">{{ item.status === 'planned' ? '仅登记计划' : '历史安装标记' }}</span></div>
       </div>
       <h3>可选公共资产</h3>
       <div v-for="item in catalog" :key="item.id" class="asset-option-row">
@@ -287,10 +287,21 @@ watch(() => route.params.slug, refresh);
         <input id="project-source-dir" v-model="localDirectory" :placeholder="`./${project.slug}`" spellcheck="false" />
         <div v-for="item in pendingAssets" :key="item.id" class="handoff-item">
           <strong>{{ item.assetId }} <small>v{{ item.version }}</small></strong>
-          <div v-for="action in (['plan', 'add', 'verify'] as const)" :key="action" class="handoff-command">
+          <div v-for="action in (getAssetVersionStatus(item.assetId, item.version) === 'current' ? ['plan', 'add', 'verify'] as const : [] as const)" :key="action" class="handoff-command">
             <span>{{ { plan: '预览', add: '执行', verify: '校验' }[action] }}</span>
             <code>{{ assetCliCommand(action, item.assetId) }}</code>
             <button class="subtle-button" @click="copyCommand(assetCliCommand(action, item.assetId), `${item.assetId}:${action}`)">{{ copied === `${item.assetId}:${action}` ? '已复制' : '复制' }}</button>
+          </div>
+          <div class="asset-lifecycle-handoff">
+            <h3>本地版本维护</h3>
+            <p v-if="getAssetVersionStatus(item.assetId, item.version) === 'upgrade-available'" class="asset-help">Registry 已提供新版本。请先确认本地锁文件仍是旧版且未修改受管理文件，再预览升级。</p>
+            <p v-else-if="getAssetVersionStatus(item.assetId, item.version) === 'current'" class="asset-help">登记的是当前 Registry 版本。只有本地锁文件存在且内容匹配时，CLI 才会判定为已安装。</p>
+            <p v-else class="asset-help">该登记版本没有受支持的自动升级路径，请人工核对锁文件和来源。</p>
+            <template v-if="getAssetVersionStatus(item.assetId, item.version) === 'upgrade-available'">
+              <div v-for="mode in (['dry-run', 'yes'] as const)" :key="mode" class="handoff-command"><span>{{ mode === 'dry-run' ? '升级预览' : '升级执行' }}</span><code>{{ assetCliCommand('upgrade', item.assetId, mode) }}</code><button class="subtle-button" @click="copyCommand(assetCliCommand('upgrade', item.assetId, mode), `${item.assetId}:upgrade:${mode}`)">{{ copied === `${item.assetId}:upgrade:${mode}` ? '已复制' : '复制' }}</button></div>
+            </template>
+            <div v-for="mode in (['dry-run', 'yes'] as const)" :key="mode" class="handoff-command"><span>{{ mode === 'dry-run' ? '卸载预览' : '卸载执行' }}</span><code>{{ assetCliCommand('remove', item.assetId, mode) }}</code><button class="subtle-button" @click="copyCommand(assetCliCommand('remove', item.assetId, mode), `${item.assetId}:remove:${mode}`)">{{ copied === `${item.assetId}:remove:${mode}` ? '已复制' : '复制' }}</button></div>
+            <p class="asset-help">先运行 --dry-run 并检查 git diff，再决定是否执行 --yes。浏览器不会修改源码；CLI 会拒绝覆盖已漂移的文件。数据库登记版本不会随着本地命令自动更新。</p>
           </div>
         </div>
         <small role="status">{{ copied === '复制失败，请手动选择命令' ? copied : '建议先查看 git diff，确认文件变更后再提交。' }}</small>
