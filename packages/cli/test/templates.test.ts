@@ -48,11 +48,12 @@ describe.skipIf(process.env.FORGEKIT_TEMPLATE_SMOKE !== '1')('generated project 
       const name = `smoke-${template.id}`;
       expect(run('create', name, '--template', template.id, '--dir', root).status).toBe(0);
       const dir = join(root, name);
-      const pnpm = (...args: string[]) => spawnSync('corepack', ['pnpm', ...args], { cwd: dir, encoding: 'utf8', env: { ...process.env, CI: 'true' } });
+      // spawnSync kills the child after the timeout, so a hung install/build fails instead of blocking the runner.
+      const pnpm = (...args: string[]) => spawnSync('corepack', ['pnpm', ...args], { cwd: dir, encoding: 'utf8', timeout: 240_000, killSignal: 'SIGKILL', env: { ...process.env, CI: 'true' } });
       const install = pnpm('install', '--no-frozen-lockfile');
-      expect(install.status, install.stdout + install.stderr).toBe(0);
+      expect(install.status, `${install.error ?? ''}\n${install.stdout}${install.stderr}`).toBe(0);
       const build = pnpm('run', 'build');
-      expect(build.status, build.stdout + build.stderr).toBe(0);
-    }, 300_000);
+      expect(build.status, `${build.error ?? ''}\n${build.stdout}${build.stderr}`).toBe(0);
+    }, 600_000);
   }
 });

@@ -16,7 +16,10 @@ export interface ProjectRecord {
   id: string;
   slug: string;
   name: string;
-  /** Template ID from the @forgekit/project-core registry, e.g. 'vue-web'. */
+  /**
+   * Template ID from the @forgekit/project-core registry, e.g. 'vue-web'. Deliberately a plain string:
+   * persisted records may outlive a template, so narrow it with `isProjectTemplateId` before planning.
+   */
   template: string;
   features: Array<'theme' | 'router' | 'pinia'>;
   createdAt: string;

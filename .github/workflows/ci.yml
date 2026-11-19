@@ -110,6 +110,7 @@ jobs:
 
   template-smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     env:
       FORGEKIT_TEMPLATE_SMOKE: '1'
     steps:
