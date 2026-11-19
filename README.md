@@ -13,6 +13,14 @@ YKForgeKit 是面向开发者的一体化项目创建、资产组合、跨端构
 - 资产模式：共享运行时包 + 可定制业务源码
 - 设计参考：[SiteForge](https://github.com/yokry-he/yk-site-generator)，但独立开发与演进
 
+### 产品规划（草案）
+
+- [产品愿景](docs/zh-CN/plan/00-product-vision.md)
+- [能力地图（MVP / V1 / V2+）](docs/zh-CN/plan/01-capability-map.md)
+- [技术架构规划](docs/zh-CN/plan/02-technical-architecture.md)
+- [路线图与近期待办](docs/zh-CN/plan/03-roadmap.md)
+- [待决策事项、风险与假设](docs/zh-CN/plan/04-open-questions.md)
+
 ### 项目文档
 
 - [工程规则（AI/贡献者）](AGENTS.md)
@@ -36,5 +44,7 @@ YKForgeKit is a planned developer platform for project creation, composable asse
 - Frontend direction: Vue 3 + TypeScript
 - Asset strategy: shared runtime packages plus editable business-feature source code
 - Visual and interaction reference: [SiteForge](https://github.com/yokry-he/yk-site-generator), developed independently
+
+**Product plan (draft, Chinese):** see [docs/zh-CN/plan/](docs/zh-CN/plan/00-product-vision.md) for vision, capability map, technical architecture, roadmap, and open questions.
 
 **Documentation status:** Simplified Chinese is currently the source of truth. English documentation will be added as the architecture stabilizes; core user-facing guides will be bilingual before public release. See the Chinese [documentation policy](docs/zh-CN/documentation.md).
