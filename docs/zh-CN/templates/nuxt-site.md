@@ -15,7 +15,7 @@ corepack pnpm dev
 ## 功能与目录
 
 - Nuxt 4 + Vue 3 + 严格 TypeScript，`app/` 源码目录；支持 SSR 和 SSG。
-- 首页、关于、联系、博客列表、文章详情和错误页；响应式导航与网格布局，键盘焦点样式。
+- 首页、关于、联系、博客列表、文章详情和错误页；未知路径由 `[...slug].vue` 进入页面级 404，避免静态错误页启动时触发路由初始化错误；响应式导航与网格布局，键盘焦点样式。
 - 每页 SEO meta、Open Graph、canonical；文章输出 `BlogPosting` JSON-LD。
 - `content/blog/*.md` 经 marked 渲染，按日期倒序排列，包含标签筛选、阅读时长和上一篇 / 下一篇。
 - `/sitemap.xml` 同时包含固定页面和全部文章；构建时扫描文件名并明确登记预渲染路由，较旧文章也会生成。
@@ -46,7 +46,9 @@ tags:
   - "随笔"
 ```
 
-文件名只允许小写字母、数字及中划线。`title` 和有效的 `YYYY-MM-DD` 日期必填；`description`、`tags` 可省略。frontmatter 解析器只支持 `title`、`description`、`date` 单行字段，以及 `tags` 的逗号分隔列表或上述多行列表；支持字段和标签的成对引号，不支持完整 YAML、多行文本字段、嵌套结构或标签内逗号。格式错误会带文章名抛错并使构建失败；不支持的行还会标明行号，不会被静默忽略。
+文件名只允许小写字母、数字及中划线。`title` 和有效的 `YYYY-MM-DD` 日期必填，缺失或为空会报错；整个 frontmatter 缺失也会报错。省略 `description` 时默认为空字符串，省略或留空 `tags` 时默认为空数组。frontmatter 解析器只支持 `title`、`description`、`date` 单行字段，以及 `tags` 的内联数组、逗号分隔字符串（如 `tags: a, "b c"`）、单个标签或上述多行列表；支持字段和标签的成对引号与 CRLF / BOM 文件，不支持完整 YAML、多行文本字段、嵌套结构或标签内逗号。格式错误会带文章名抛错并使构建失败；不支持的行还会标明行号，不会被静默忽略。
+
+解析逻辑位于 `app/utils/frontmatter.ts` 的纯函数 `parseFrontmatter(path, raw)`，返回文章字段、正文、由文件名推导的 slug 和阅读时长；`app/composables/useBlog.ts` 负责加载文件、调用 marked 渲染及排序。阅读时长按每分钟 200 个中文字或英文 / 数字词估算，向上取整且至少为 1 分钟，不计 frontmatter。
 
 新增或删除文件后重启开发服务器；发布前重新构建，文章、站点地图和静态页面会一同更新。Markdown 仅用于仓库维护者提供的可信内容；marked 不清洗 HTML，接入外部投稿时须先增加清洗处理。
 
@@ -81,10 +83,14 @@ corepack pnpm generate
 
 将 `.output/public/` 中的内容部署到 Nginx 或静态托管服务；首页为 `index.html`，文章为 `blog/<slug>/index.html`，站点地图为 `sitemap.xml`。静态托管不提供 Nitro 服务端接口，新增服务端功能后应选择 SSR 或单独提供后端。
 
+静态托管须将不存在的地址以 **HTTP 404** 返回生成的 `404.html`，客户端加载后显示模板的自定义错误页；不要把所有路径都重写为状态 200 的首页。Nginx 可在站点 `server` 中配置 `error_page 404 /404.html;`，并在 `location /` 中使用 `try_files $uri $uri/ =404;`。错误页的“返回首页”按钮支持恢复站内导航。
+
 ## 边界与验证
 
 联系表单只校验输入并通过 mailto 打开邮件客户端，没有消息接收服务。公司、团队、统计数字和联系方式均为示例，上线前须替换。
 
-单元测试覆盖注册信息、关键文件和名称替换；CLI 测试核对落盘内容。CI 的 `template-smoke` 会安装真实依赖、运行 `build`（含 Nuxt 类型检查）和 `generate`，检查首页、全部示例文章、新增文章的 Markdown / frontmatter / JSON-LD，以及 sitemap 产物。尚未进行浏览器交互及多断点人工验收。
+单元测试覆盖注册信息、关键文件和名称替换，并直接转译、执行生成的纯解析器模块，验证标签格式、引号、缺失字段、错误行、CRLF / BOM、slug 及阅读时长；CLI 测试核对落盘内容。CI 的 `template-smoke` 会安装真实依赖、运行 `build`（含 Nuxt 类型检查）和 `generate`，检查首页、全部示例文章、新增文章的 Markdown / frontmatter / JSON-LD，以及 sitemap 产物。
+
+B06 后续验收已用 CLI 生成项目并在 Chromium 中检查 SSR 与静态托管产物，断点为 1366×900 和 390×844，覆盖四个固定页面、三篇示例文章、不存在的普通路径及文章路径。已验证内部链接 HTTP 200 与导航、手机无横向溢出、代码块对比度至少 4.5:1、SEO / 文章 JSON-LD、自定义 404 的 HTTP 状态与返回首页；零应用控制台错误、页面异常和失败请求。预期 404 文档产生的浏览器资源诊断单独记录，不计为应用错误。该浏览器验收是本次执行的外部脚本检查，尚未纳入仓库 CI。
 
 本文为简体中文权威文档；英文版尚待补齐，对外发布前需完成对应翻译。
