@@ -75,3 +75,7 @@ corepack pnpm --filter @forgekit/api exec vitest run test/keycloak-oidc.mysql.te
 - 已增加使用临时自签名 HTTPS JWKS、测试签名 JWT 和真实 HTTP API 的鉴权端到端测试：覆盖签名、Audience、有效期、项目范围授权及邀请兑换。证书/私钥在测试时临时生成，不提交至仓库。
 - 已增加真实 Keycloak 的授权码 + PKCE 登录及 API 鉴权端到端测试（见上节）。仍需在真实浏览器中联调控制台的登录回调与前端会话，以及与生产 OIDC 提供方的对接。
 - 增加迁移升级兼容及备份恢复演练；新建空测试库验证不能代表已有业务库的数据兼容性。
+
+## B07 数据仓库回归
+
+`db:test:integration` 同时构建 contracts/db，顺序运行原有迁移测试和 `packages/db/test/build-repositories.mysql.test.ts`，CI 的 mysql-integration Job 使用相同入口。新增测试覆盖预 B07 已有项目升级及迁移重放、双连接池并发构建编号与状态竞争、日志分块序号/续传、预览摘要/有效期/撤销、同项目组合外键和级联清理。详细边界见 [构建数据模型](./build-data-model.md)。默认单元测试仍跳过真实数据库用例。

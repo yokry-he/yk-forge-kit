@@ -31,3 +31,5 @@ export function createDatabaseClient(connectionString: string): DatabaseClient {
     async close() { await pool.end(); },
   };
 }
+
+export * from './build-repository';

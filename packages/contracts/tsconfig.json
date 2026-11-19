@@ -1,5 +1,17 @@
 {
   "extends": "../../tsconfig.base.json",
-  "compilerOptions": { "lib": ["ES2022"], "types": [] },
-  "include": ["src/**/*.ts"]
+  "compilerOptions": {
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [],
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": [
+    "src/**/*.ts"
+  ]
 }

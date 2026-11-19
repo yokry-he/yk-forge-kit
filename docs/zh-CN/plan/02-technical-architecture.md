@@ -91,7 +91,7 @@ flowchart TB
 | [packages/asset-core](../../../packages/asset-core) | 已实现：Registry/Resolver/Installer Planner、official.theme、锁文件、漂移检测 | 资产协议 | 推广到多 target；新增 uni-app/tauri target 资产；AI 提案复用 Installer Planner 的计划/确认模式 |
 | [packages/cli](../../../packages/cli) | 已实现：create / asset list/plan/add/upgrade/remove/verify | 本地 CLI | 新增本地构建/部署、设备授权登录（V1） |
 | [packages/identity-core](../../../packages/identity-core) | 已实现：OIDC 验证 + 纯授权策略（owner/editor/viewer） | 身份与授权 | 新增权限：`build:run`、`deploy:*`、`secret:write`、`log:read` 等；组织/团队（V1） |
-| [packages/db](../../../packages/db) | 已实现：MySQL 8 + Drizzle，迁移 0000–0007 | 数据访问 | 新增表：environments、deploy_targets、builds、deployments、releases、secrets、log_streams 等；迁移 0008+ |
+| [packages/db](../../../packages/db) | 已实现：MySQL 8 + Drizzle，迁移 0000–0008；B07 构建/日志/预览数据基础 | 数据访问 | 后续新增 releases、secrets、log_streams 等，并按 B12–B15 扩展部署模型 |
 | `apps/worker` | 待建 | 队列消费/调度 | 新建：BullMQ 消费者、构建任务状态机、Runner 调度、日志流回传 |
 | `apps/agent` | 待建 | 轻量部署 Agent（V1） | 新建：单二进制，出站 WebSocket/HTTPS，mTLS + 一次性注册令牌 |
 | `adapters/deploy-ssh` | 待建 | SSH 发布器 | 新建：原子切换 current 软链接、Caddy 配置、健康检查、回滚 |
@@ -263,22 +263,26 @@ sequenceDiagram
 
 > 说明：以上流程为规划目标；当前仓库仅实现项目/资产/成员/邀请等控制面能力，构建、预览、部署、日志均未实现。
 
-## 5. 数据模型扩展草案
+## 5. 数据模型：B07 基础与后续扩展
 
-> 现有表：`projects`、`users`、`external_identities`、`project_memberships`、`project_member_audit`、`project_invitations`、`project_invitation_audit`、`invitation_rate_buckets`、`asset_installations`（迁移 0000–0007）。以下为新增草案，字段为关键字段，具体以迁移为准。
+> 现有表：`projects`、`users`、`external_identities`、`project_memberships`、`project_member_audit`、`project_invitations`、`project_invitation_audit`、`invitation_rate_buckets`、`asset_installations`（迁移 0000–0007）。B07 已通过迁移 0008 新增 environments、deploy_targets、builds、build_log_chunks、deployments、preview_links，具体字段、状态与并发规则见 [构建数据模型](../build-data-model.md) 和 [ADR-0007](../../adr/0007-build-data-foundation.md)。仅实现数据和契约，未实现 Worker、API、日志流或预览服务。以下未来字段仍为草案，不能视为已交付。
 
 | 表 | 关键字段 | 说明 |
 | --- | --- | --- |
-| `environments` | id, project_id, name(dev/staging/prod), created_at | 环境定义 |
-| `deploy_targets` | id, project_id, environment_id, kind(ssh/aliyun/tencent/agent), host, port, username, credential_ref, fingerprint, status, created_at | 部署目标（主机/云资源） |
-| `builds` | id, project_id, status(queued/running/succeeded/failed/canceled), template, target, commit_ref, artifact_ref, started_at, finished_at, log_ref | 构建记录 |
-| `deployments` | id, project_id, environment_id, deploy_target_id, build_id, status(pending/running/succeeded/failed/rolled_back), release_id, started_at, finished_at, log_ref | 部署记录 |
+| `environments`（B07） | id, project_id, name(preview/production 等), created_at, updated_at | 项目内名称唯一；不含变量/密钥 |
+| `deploy_targets`（B07） | id, project_id, kind(ssh), name, host, port, username, created_by, created_at, updated_at | 最小主机记录；不存密钥或指纹 |
+| `builds`（B07） | id, project_id, number, template, source_ref, status(queued/running/succeeded/failed/canceled/timed_out), triggered_by, queued_at, started_at, finished_at, exit_code, error_message, artifact_key/size/sha256, log_storage_key, runner_info, created_at, updated_at | 项目内编号唯一；仓库校验状态转换 |
+| `build_log_chunks`（B07） | build_id, seq, stream, content, ts | MySQL 分块为 MVP 权威构建日志；按序号续传，单块上限 16 KiB |
+| `preview_links`（B07） | id, build_id, token_hash, expires_at, revoked_at, created_by, last_accessed_at, created_at | 仅摘要；有效期 5 分钟至 7 天，默认 24 小时 |
+| `deployments`（B07） | id, project_id, environment_id, deploy_target_id, build_id, status(pending/running/succeeded/failed/canceled/rolled_back), started_at, finished_at, created_at, updated_at | 最小部署记录；同项目组合外键 |
 | `releases` | id, project_id, environment_id, build_id, version, artifact_ref, deployed_at, rolled_back_at | 发布版本（用于回滚） |
 | `secrets` | id, project_id, environment_id, key, ciphertext, kms_key_ref, created_by, created_at, updated_at | 环境变量/密钥（信封加密，只写不读） |
 | `log_streams` | id, project_id, source(build/deploy/app), ref_id, storage_kind, retention_until, created_at | 日志流元数据（实际日志可存 Loki/SLS/CLS 或 MySQL 分区表） |
 | `audit_events`（可选扩展） | id, actor_id, action, resource_type, resource_id, metadata, created_at | 统一审计（部署/回滚/密钥读写） |
 
-**索引建议**：`builds(project_id, status)`、`deployments(project_id, environment_id, status)`、`releases(project_id, environment_id, deployed_at)`、`secrets(project_id, environment_id, key)` 唯一。
+B07 的 deploy_targets 仅含项目、ssh 类型、名称、可空主机字段、创建者和时间；deployments 仅含同项目构建/环境/目标关联、状态和时间，不含 release_id/log_ref。部署关系采用组合外键防止跨项目关联。releases、secrets、log_streams 和统一审计尚未新增。
+
+**已实现索引**：`builds(project_id, status)`、`deployments(project_id, environment_id, status)`。**后续索引建议**：`releases(project_id, environment_id, deployed_at)`、`secrets(project_id, environment_id, key)` 唯一。
 
 ## 6. 安全模型
 
@@ -301,6 +305,8 @@ sequenceDiagram
 - **部署形态**：MVP 支持单租户自用部署，私有化交付版本规划在 V2+。控制面可部署在用户自己的一台阿里云/腾讯云主机 + 现有 MySQL；Artifact Store 可用 MinIO；不依赖平台托管云资源。
 
 ## 8. 需要新 ADR 的决策列表
+
+B07 数据基础已记录于 [ADR-0007](../../adr/0007-build-data-foundation.md)。下表编号为历史建议，不预留编号；实际分配以 `docs/adr/` 为准。
 
 | 编号（建议） | 决策 | 说明 |
 | --- | --- | --- |

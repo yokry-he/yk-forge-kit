@@ -11,7 +11,7 @@
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm build && pnpm -r --if-present test",
     "db:migrations:check": "pnpm --filter @forgekit/db exec drizzle-kit check",
-    "db:test:integration": "pnpm --filter @forgekit/db build && pnpm --filter @forgekit/db exec vitest run test/integration.mysql.test.ts"
+    "db:test:integration": "pnpm --filter @forgekit/contracts build && pnpm --filter @forgekit/db build && pnpm --filter @forgekit/db exec vitest run test/integration.mysql.test.ts && pnpm --filter @forgekit/db exec vitest run test/build-repositories.mysql.test.ts"
   },
   "engines": { "node": ">=22" }
 }
