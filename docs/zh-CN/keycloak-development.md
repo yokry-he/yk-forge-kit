@@ -47,3 +47,7 @@ VITE_OIDC_DEV_ALLOW_HTTP_LOOPBACK=true
 - 开发服务器不得通过反向代理向公网开放。Keycloak `start-dev` 不具备生产安全保障。
 - 若本地已有同名 realm，`--import-realm` 不会覆盖修改；需要通过 Keycloak 管理界面管理，或在确认可以丢弃**本地测试数据**后重建容器。
 - 停止：`docker compose -p forgekit-oidc-dev --env-file .env.oidc.dev -f compose.oidc.dev.yml down`。这不会停止原有 MySQL。
+
+## 自动化端到端测试
+
+同一 realm 配置由 `apps/api/test/keycloak-oidc.mysql.test.ts` 在 CI（`keycloak-integration` Job）中自动验证：真实授权码 + PKCE 登录、令牌 audience 与签名校验、项目范围授权。运行方式见 [MySQL 集成测试](./mysql-integration-testing.md#真实-keycloak-端到端测试b01)。
