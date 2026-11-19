@@ -2,6 +2,7 @@
   "name": "forgekit",
   "description": "YKForgeKit monorepo — 面向开发者、项目经理与普通用户的一体化项目创建、资产组合、跨端构建与发布平台",
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "packageManager": "pnpm@10.18.3",
   "scripts": {

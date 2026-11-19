@@ -2,6 +2,7 @@
   "name": "@forgekit/console",
   "description": "YKForgeKit Web 控制台（Vue 3）",
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "scripts": { "dev": "vite", "build": "vue-tsc --noEmit && vite build", "typecheck": "vue-tsc --noEmit", "test": "vitest run" },
