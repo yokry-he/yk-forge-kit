@@ -51,3 +51,58 @@ jobs:
       - run: corepack pnpm build
       - run: corepack pnpm --filter @forgekit/api exec vitest run test/mysql-project-flow.test.ts
       - run: corepack pnpm --filter @forgekit/api exec vitest run test/oidc-http.mysql.test.ts
+
+  keycloak-integration:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_test_only
+          MYSQL_DATABASE: forgekit_test
+          MYSQL_USER: forgekit_test
+          MYSQL_PASSWORD: ci_user_test_only
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=30
+    env:
+      FORGEKIT_DB_INTEGRATION: '1'
+      DATABASE_URL: mysql://forgekit_test:ci_user_test_only@127.0.0.1:3306/forgekit_test
+      FORGEKIT_KEYCLOAK_E2E: '1'
+      FORGEKIT_KEYCLOAK_URL: http://127.0.0.1:18080
+      # Disposable, CI-only Keycloak admin; the container is destroyed with the runner.
+      FORGEKIT_KEYCLOAK_ADMIN_USER: ci_admin
+      FORGEKIT_KEYCLOAK_ADMIN_PASSWORD: ci_admin_test_only
+    steps:
+      - uses: actions/checkout@v4
+      - name: Start disposable Keycloak with the development realm
+        run: |
+          docker run -d --name keycloak -p 127.0.0.1:18080:18080 \
+            -e KC_BOOTSTRAP_ADMIN_USERNAME="$FORGEKIT_KEYCLOAK_ADMIN_USER" \
+            -e KC_BOOTSTRAP_ADMIN_PASSWORD="$FORGEKIT_KEYCLOAK_ADMIN_PASSWORD" \
+            -e KC_HOSTNAME=http://127.0.0.1:18080 \
+            -v "$PWD/infra/keycloak/forgekit-dev-realm.json:/opt/keycloak/data/import/forgekit-dev-realm.json:ro" \
+            quay.io/keycloak/keycloak:26.8.2 start-dev --import-realm --http-port=18080
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm db:test:integration
+      - run: corepack pnpm build
+      - name: Wait for Keycloak realm
+        run: |
+          for i in $(seq 1 90); do
+            curl -fsS http://127.0.0.1:18080/realms/forgekit-dev/.well-known/openid-configuration >/dev/null && exit 0
+            sleep 2
+          done
+          docker logs keycloak | tail -50
+          exit 1
+      - run: corepack pnpm --filter @forgekit/api exec vitest run test/keycloak-oidc.mysql.test.ts
+      - name: Keycloak logs on failure
+        if: failure()
+        run: docker logs keycloak | tail -100
