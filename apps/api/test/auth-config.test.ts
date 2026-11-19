@@ -37,6 +37,18 @@ describe('authentication configuration safety', () => {
     await expect(guard.canActivate(context as never)).rejects.toBeInstanceOf(UnauthorizedException);
     expect(() => requireProjectAuth({ headers: {} })).toThrow(UnauthorizedException);
   });
+  it('defaults production to OIDC and only accepts HTTPS identity providers there', () => {
+    const https = { OIDC_ISSUER: 'https://idp.example.test/realms/prod', OIDC_API_AUDIENCE: 'forgekit-api',
+      OIDC_JWKS_URL: 'https://idp.example.test/realms/prod/protocol/openid-connect/certs' };
+    expect(resolveAuthConfig({ NODE_ENV: 'production', API_HOST: '0.0.0.0', ...https }).mode).toBe('oidc');
+    expect(() => resolveAuthConfig({ NODE_ENV: 'production', API_HOST: '0.0.0.0' })).toThrow();
+    expect(() => resolveAuthConfig({ NODE_ENV: 'production', API_HOST: '0.0.0.0', AUTH_MODE: 'local', ...https })).toThrow();
+    const http = { OIDC_ISSUER: 'http://idp.example.test/realms/prod', OIDC_API_AUDIENCE: 'forgekit-api',
+      OIDC_JWKS_URL: 'http://idp.example.test/realms/prod/protocol/openid-connect/certs' };
+    expect(() => resolveAuthConfig({ NODE_ENV: 'production', ...http })).toThrow();
+    expect(() => resolveAuthConfig({ NODE_ENV: 'production', ...http, OIDC_DEV_ALLOW_HTTP_LOOPBACK: 'true' })).toThrow();
+  });
+
   it('requires OIDC settings in production and rejects unknown modes', () => {
     expect(() => resolveAuthConfig({ NODE_ENV: 'production' })).toThrow();
     expect(() => resolveAuthConfig({ AUTH_MODE: 'off' })).toThrow();

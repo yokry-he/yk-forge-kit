@@ -1,6 +1,6 @@
 # OIDC 令牌验证基础（尚未启用登录）
 
-状态：开发阶段认证与项目级成员授权基础已接入 NestJS，Vue 端已新增登录/回调客户端；**尚未实现旧项目认领或真实身份提供方端到端验证**。详见 `docs/zh-CN/web-oidc-login.md`。
+状态：开发阶段认证与项目级成员授权基础已接入 NestJS，Vue 端已新增登录/回调客户端；**旧项目认领已通过运维命令实现（见 [旧项目认领](./legacy-project-claim.md)），真实 Keycloak 端到端测试已在 CI 中运行**。详见 `docs/zh-CN/web-oidc-login.md`。
 
 ## 为什么先做验证器
 
@@ -48,7 +48,7 @@ OIDC_JWKS_URL=https://idp.example.com/realms/forgekit/protocol/openid-connect/ce
 - 列表：只返回当前身份所属的项目（最多 50 条）。
 - 详情：非成员返回 404；成员按 `project:read` 策略授权。
 - 资产记录查询与计划登记：分别检查 `asset:read`、`asset:plan`；Viewer 不能登记计划。
-- 旧项目如果没有成员关系，OIDC 身份不能访问。**不得通过自动认领将旧项目交给首次登录者**，迁移前必须确认归属。
+- 旧项目如果没有成员关系，OIDC 身份不能访问。**不得通过自动认领将旧项目交给首次登录者**，迁移前必须确认归属，然后由运维人员使用[旧项目认领命令](./legacy-project-claim.md)显式认领。
 
 项目成员列表及角色调整已接入：`GET /api/v1/projects/:slug/members` 和 `PATCH /api/v1/projects/:slug/members/:userId`。仅 Owner 能调整已有 Editor/Viewer，且由服务端事务锁定目标行并写入审计。详情见 `docs/zh-CN/project-members.md`。
 

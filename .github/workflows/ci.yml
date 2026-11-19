@@ -51,6 +51,7 @@ jobs:
       - run: corepack pnpm build
       - run: corepack pnpm --filter @forgekit/api exec vitest run test/mysql-project-flow.test.ts
       - run: corepack pnpm --filter @forgekit/api exec vitest run test/oidc-http.mysql.test.ts
+      - run: corepack pnpm --filter @forgekit/api exec vitest run test/project-claim.mysql.test.ts
 
   keycloak-integration:
     runs-on: ubuntu-latest
