@@ -18,6 +18,15 @@ import { ProjectsService } from '../src/projects.service';
  */
 const enabled = process.env.FORGEKIT_DB_INTEGRATION === '1' && process.env.FORGEKIT_KEYCLOAK_E2E === '1';
 const keycloakUrl = (process.env.FORGEKIT_KEYCLOAK_URL ?? 'http://127.0.0.1:18080').replace(/\/$/, '');
+
+/** Admin credentials may only ever be sent to a disposable loopback Keycloak. */
+function assertLoopbackKeycloak(url: string): void {
+  const parsed = new URL(url);
+  if (parsed.protocol !== 'http:' || !['127.0.0.1', 'localhost'].includes(parsed.hostname) || parsed.username || parsed.password ||
+      (parsed.pathname !== '/' && parsed.pathname !== '') || parsed.search || parsed.hash) {
+    throw new Error('FORGEKIT_KEYCLOAK_URL 只允许本机回环的一次性 Keycloak，例如 http://127.0.0.1:18080。');
+  }
+}
 const realm = 'forgekit-dev';
 const issuer = `${keycloakUrl}/realms/${realm}`;
 const clientId = 'forgekit-web';
@@ -48,8 +57,9 @@ async function adminToken(): Promise<string> {
   const user = process.env.FORGEKIT_KEYCLOAK_ADMIN_USER;
   const password = process.env.FORGEKIT_KEYCLOAK_ADMIN_PASSWORD;
   if (!user || !password) throw new Error('需要 FORGEKIT_KEYCLOAK_ADMIN_USER / FORGEKIT_KEYCLOAK_ADMIN_PASSWORD（仅限一次性测试 Keycloak）。');
+  assertLoopbackKeycloak(keycloakUrl);
   const response = await fetch(`${keycloakUrl}/realms/master/protocol/openid-connect/token`, {
-    method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    method: 'POST', redirect: 'error', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({ grant_type: 'password', client_id: 'admin-cli', username: user, password }),
   });
   if (!response.ok) throw new Error(`Keycloak 管理员令牌获取失败：${response.status}`);
@@ -69,7 +79,8 @@ async function createUser(admin: string, username: string, password: string): Pr
 }
 
 async function deleteUser(admin: string, id: string): Promise<void> {
-  await fetch(`${keycloakUrl}/admin/realms/${realm}/users/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${admin}` } });
+  const response = await fetch(`${keycloakUrl}/admin/realms/${realm}/users/${id}`, { method: 'DELETE', redirect: 'error', headers: { Authorization: `Bearer ${admin}` } });
+  if (response.status !== 204 && response.status !== 404) throw new Error(`删除 Keycloak 测试用户失败：${response.status}`);
 }
 
 /** Browser-equivalent authorization code + PKCE S256 login against the real realm client. */
@@ -169,20 +180,26 @@ describe.skipIf(!enabled)('real Keycloak OIDC to NestJS HTTP and MySQL', () => {
       expect((await fetch(`${base}/api/v1/projects/${slug}/invitations`, { method: 'POST', headers: auth(member.accessToken, true),
         body: JSON.stringify({ role: 'editor' }) })).status).toBe(403);
     } finally {
-      try {
-        if (api && api.exitCode === null && api.signalCode === null) {
-          api.kill('SIGTERM');
-          await Promise.race([once(api, 'exit'), new Promise((done) => setTimeout(done, 2000))]);
-          if (api.exitCode === null && api.signalCode === null) api.kill('SIGKILL');
-        }
-        await database.db.delete(projectTable).where(eq(projectTable.slug, slug));
-        for (const subject of subjects) {
+      // Run every cleanup step independently; report failures without masking the original test error.
+      const cleanupErrors: unknown[] = [];
+      const attempt = async (step: () => Promise<unknown>) => { try { await step(); } catch (error) { cleanupErrors.push(error); } };
+      if (api && api.exitCode === null && api.signalCode === null) {
+        api.kill('SIGTERM');
+        await Promise.race([once(api, 'exit'), new Promise((done) => setTimeout(done, 2000))]);
+        if (api.exitCode === null && api.signalCode === null) api.kill('SIGKILL');
+      }
+      await attempt(() => database.db.delete(projectTable).where(eq(projectTable.slug, slug)));
+      for (const subject of subjects) {
+        await attempt(async () => {
           const id = await projects.findUserId({ mode: 'oidc', issuer, subject });
           if (id) await database.db.delete(users).where(eq(users.id, id));
-        }
-        for (const id of keycloakUsers) await deleteUser(admin, id);
-      } finally {
-        await database.onModuleDestroy();
+        });
+      }
+      for (const id of keycloakUsers) await attempt(() => deleteUser(admin, id));
+      await attempt(() => database.onModuleDestroy());
+      if (cleanupErrors.length > 0) {
+        console.error('Keycloak E2E 清理失败：', cleanupErrors);
+        throw new AggregateError(cleanupErrors, 'Keycloak E2E 清理失败，请手动检查一次性测试环境。');
       }
     }
   }, 60_000);

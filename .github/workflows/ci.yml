@@ -97,7 +97,7 @@ jobs:
       - name: Wait for Keycloak realm
         run: |
           for i in $(seq 1 90); do
-            curl -fsS http://127.0.0.1:18080/realms/forgekit-dev/.well-known/openid-configuration >/dev/null && exit 0
+            curl -fsS --connect-timeout 2 --max-time 5 http://127.0.0.1:18080/realms/forgekit-dev/.well-known/openid-configuration >/dev/null && exit 0
             sleep 2
           done
           docker logs keycloak | tail -50
