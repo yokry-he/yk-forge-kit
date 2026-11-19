@@ -1,6 +1,7 @@
 import type { ProjectFeatureOption, ProjectTemplateDefinition, ProjectTemplateId, ProjectTemplateMetadata } from './types.js';
 import { renderVueAdmin } from './vue-admin.js';
 import { renderVueWeb } from './vue-web.js';
+import { renderNuxtSite } from './nuxt-site.js';
 
 const featureCatalog = {
   theme: { id: 'theme', label: '主题系统', detail: '深色视觉风格与语义设计变量（official.theme 资产）' },
@@ -36,6 +37,20 @@ const templates: ProjectTemplateDefinition[] = [
     assetTarget: null,
     commands: ['pnpm install', 'pnpm dev'],
     render: renderVueAdmin,
+  },
+  {
+    id: 'nuxt-site',
+    name: 'Nuxt 企业官网 / 博客',
+    description: '基于 Nuxt 4 的响应式内容站，支持 SSR / SSG、Markdown 博客、SEO 元信息、文章 JSON-LD 与站点地图。',
+    kind: 'content-site',
+    targets: ['web'],
+    stack: ['Nuxt 4', 'Vue 3', 'TypeScript', 'marked'],
+    features: [],
+    defaultFeatures: [],
+    builtIn: ['SSR / SSG', 'SEO 元信息与 canonical', '文章 JSON-LD', '含文章的 sitemap.xml', '响应式导航', 'Markdown 博客与标签筛选'],
+    assetTarget: null,
+    commands: ['pnpm install', 'pnpm dev'],
+    render: renderNuxtSite,
   },
 ];
 

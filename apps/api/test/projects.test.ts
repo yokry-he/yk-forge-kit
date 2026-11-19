@@ -1,8 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { BadRequestException } from '@nestjs/common';
 import { parseCreateProject } from '../src/projects.controller';
+import { listProjectTemplates } from '@forgekit/project-core';
 
 describe('HTTP project payload validation', () => {
+  it('accepts every registered template with its default features', () => {
+    for (const template of listProjectTemplates()) {
+      const input = { name: 'new-app', template: template.id, features: template.defaultFeatures };
+      expect(parseCreateProject(input)).toEqual(input);
+    }
+  });
+
   it('normalizes feature order', () => {
     expect(parseCreateProject({ name: 'new-app', template: 'vue-web', features: ['pinia', 'theme'] }))
       .toEqual({ name: 'new-app', template: 'vue-web', features: ['theme', 'pinia'] });

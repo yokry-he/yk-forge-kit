@@ -110,7 +110,7 @@ jobs:
 
   template-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 35
     env:
       FORGEKIT_TEMPLATE_SMOKE: '1'
     steps:
@@ -121,5 +121,5 @@ jobs:
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm build
-      - name: Generate, install and build every project template
+      - name: Generate, install, build and check static output of project templates
         run: corepack pnpm --filter @forgekit/cli exec vitest run test/templates.test.ts

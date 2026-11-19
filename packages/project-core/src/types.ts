@@ -2,7 +2,7 @@
 export type ProjectFeature = 'theme' | 'router' | 'pinia';
 
 /** Registered template IDs. Add an ID here together with its definition in the registry. */
-export type ProjectTemplateId = 'vue-web' | 'vue-admin';
+export type ProjectTemplateId = 'vue-web' | 'vue-admin' | 'nuxt-site';
 
 /** Delivery targets, aligned with the `targets` field in @forgekit/contracts. */
 export type ProjectTarget = 'web' | 'h5' | 'mobile' | 'miniapp' | 'desktop';

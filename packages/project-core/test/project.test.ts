@@ -99,3 +99,36 @@ describe('vue-admin template', () => {
     expect(createProjectPlan({ name: 'ops', template: 'vue-admin', features: [] }).files).toContain('src/layouts/AdminLayout.vue');
   });
 });
+
+describe('nuxt-site template', () => {
+  const files = renderProjectFiles({ name: 'company-blog', template: 'nuxt-site', features: [] });
+
+  it('registers a content site for all registry consumers', () => {
+    expect(isProjectTemplateId('nuxt-site')).toBe(true);
+    expect(getProjectTemplate('nuxt-site')).toMatchObject({ kind: 'content-site', targets: ['web'], features: [], assetTarget: null });
+    expect(() => createProjectPlan({ name: 'site', template: 'nuxt-site', features: ['theme'] })).toThrow();
+  });
+
+  it('replaces the project name in package metadata, site config and README', () => {
+    expect(JSON.parse(files['package.json']!).name).toBe('company-blog');
+    expect(files['nuxt.config.ts']).toContain("siteName: 'company-blog'");
+    expect(files['README.md']).toContain('# company-blog');
+    expect(Object.values(files).some(contents => contents.includes('__PROJECT_NAME__'))).toBe(false);
+    const other = renderProjectFiles({ name: 'other-site', template: 'nuxt-site', features: [] });
+    expect(other['nuxt.config.ts']).toContain("siteName: 'other-site'");
+  });
+
+  it('ships Nuxt 4 app sources, blog content, SEO and SSR / SSG scripts', () => {
+    for (const path of ['app/app.vue', 'app/layouts/default.vue', 'app/pages/index.vue', 'app/pages/about.vue',
+      'app/pages/contact.vue', 'app/pages/blog/index.vue', 'app/pages/blog/[slug].vue', 'app/error.vue',
+      'app/composables/useBlog.ts', 'content/blog/hello-world.md', 'public/robots.txt', 'server/routes/sitemap.xml.ts', 'tsconfig.json']) {
+      expect(files[path], path).toBeDefined();
+    }
+    const pkg = JSON.parse(files['package.json']!);
+    expect(pkg.dependencies).toMatchObject({ nuxt: '^4.1.0', marked: '^16.0.0' });
+    expect(pkg.scripts).toMatchObject({ build: 'nuxt typecheck && nuxt build', generate: 'nuxt generate', typecheck: 'nuxt typecheck' });
+    expect(files['app/composables/useBlog.ts']).toContain("~~/content/blog/*.md");
+    expect(files['app/pages/blog/[slug].vue']).toContain('application/ld+json');
+    expect(files['server/routes/sitemap.xml.ts']).toContain('config.blogSlugs.map');
+  });
+});
