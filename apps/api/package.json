@@ -1,5 +1,6 @@
 {
   "name": "@forgekit/api",
+  "description": "YKForgeKit API 服务（NestJS）",
   "version": "0.0.0",
   "private": true,
   "scripts": {

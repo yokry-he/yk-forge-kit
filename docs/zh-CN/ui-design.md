@@ -1,12 +1,12 @@
-# ForgeKit UI / UX 设计规范（初版）
+# YKForgeKit UI / UX 设计规范（初版）
 
-设计参考：[SiteForge](https://github.com/yokry-he/yk-site-generator)。ForgeKit 为独立产品，仅继承视觉语言与有价值的交互模式。
+设计参考：[SiteForge](https://github.com/yokry-he/yk-site-generator)。YKForgeKit 为独立产品，仅继承视觉语言与有价值的交互模式。
 
 ## 已核实的 SiteForge 基础
 
 SiteForge Web 使用 Vue 3、TypeScript、Vite、Vue Router、Tailwind CSS，采用语义化 CSS 变量与六套主题。默认深色背景约 `#09090b`，品牌色为紫色 `#8b5cf6` 与青色 `#22d3ee`。主题包括深色、明亮、纸质、薄荷、天空和樱花。
 
-## ForgeKit 设计原则
+## YKForgeKit 设计原则
 
 - 使用语义化 Design Tokens，不在业务组件中大面积硬编码品牌色。
 - 优先清晰的信息层级、操作反馈、响应式布局、键盘导航和可访问性。

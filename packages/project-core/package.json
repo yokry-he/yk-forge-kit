@@ -1,5 +1,6 @@
 {
   "name": "@forgekit/project-core",
+  "description": "YKForgeKit 项目创建与模板渲染核心",
   "version": "0.0.0",
   "private": true,
   "type": "module",

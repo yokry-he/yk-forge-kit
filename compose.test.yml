@@ -1,4 +1,4 @@
-# Ephemeral, localhost-only MySQL 8.0 for ForgeKit integration tests.
+# Ephemeral, localhost-only MySQL 8.0 for YKForgeKit integration tests.
 # No named volumes: database data is discarded when the container is removed.
 services:
   mysql-test:

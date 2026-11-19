@@ -55,7 +55,7 @@ describe('project API client', () => {
 
   it('initializes a provider-neutral account through an authenticated POST', async () => {
     vi.mocked(getAccessToken).mockResolvedValueOnce('signed.access.token');
-    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'user-1', displayName: 'ForgeKit 用户', createdAt: '2026-11-17' }) });
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ id: 'user-1', displayName: 'YKForgeKit 用户', createdAt: '2026-11-17' }) });
     vi.stubGlobal('fetch', fetch);
     expect((await initializeCurrentAccount()).id).toBe('user-1');
     expect(fetch).toHaveBeenCalledWith('/api/v1/auth/account', expect.objectContaining({ method: 'POST' }));

@@ -109,9 +109,9 @@ async function redeem(): Promise<void> {
         <div v-else-if="authSession" class="account-info">
           <strong>{{ authSession.displayName }}</strong>
           <small>Subject：{{ authSession.subject }}</small>
-          <p v-if="identityState === 'checking'" role="status">正在向 ForgeKit API 验证身份…</p>
+          <p v-if="identityState === 'checking'" role="status">正在向 YKForgeKit API 验证身份…</p>
           <div v-else-if="identityState === 'verified'" role="status">
-            <p>✓ ForgeKit API 已验证当前身份，账户已同步</p>
+            <p>✓ YKForgeKit API 已验证当前身份，账户已同步</p>
             <small v-if="accountProfile">账户 ID：{{ accountProfile.id }}</small>
           </div>
           <div v-else-if="identityState === 'error'" role="alert">
@@ -126,8 +126,8 @@ async function redeem(): Promise<void> {
       <RouterLink class="inline-link" to="/projects">返回工作空间 →</RouterLink>
     </section>
     <section v-if="oidcEnabled && identityState === 'verified' && accountProfile" class="panel auth-panel">
-      <h2>ForgeKit 个人资料</h2>
-      <p>这里的展示名仅用于 ForgeKit 项目成员列表，不会修改身份提供方的账号信息或访问权限。</p>
+      <h2>YKForgeKit 个人资料</h2>
+      <p>这里的展示名仅用于 YKForgeKit 项目成员列表，不会修改身份提供方的账号信息或访问权限。</p>
       <template v-if="editingProfile">
         <label for="account-display-name">展示名（最多 60 个字符）</label>
         <input id="account-display-name" v-model="displayNameDraft" type="text" maxlength="120" autocomplete="nickname" />

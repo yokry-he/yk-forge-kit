@@ -77,7 +77,7 @@ async function copy(text: string): Promise<void> {
         <label for="project-dir">本地项目路径</label>
         <input id="project-dir" v-model="directory" spellcheck="false" />
         <div class="asset-actions"><button @click="copy(cliCommand)">复制预览命令</button><button class="primary-action" @click="copy(installCommand)">复制安装命令</button></div>
-        <p class="asset-feedback" role="status">{{ message || '命令需要在 ForgeKit 仓库根目录构建 CLI 后执行；浏览器不会直接修改本地文件。' }}</p>
+        <p class="asset-feedback" role="status">{{ message || '命令需要在 YKForgeKit 仓库根目录构建 CLI 后执行；浏览器不会直接修改本地文件。' }}</p>
         <div class="lifecycle-tools">
           <h3>已安装资产维护 <small>CLI 操作</small></h3>
           <p>如项目已安装此资产，可检查可用升级或卸载变更。确认后才在对应命令中添加 <code>--yes</code> 执行。</p>

@@ -10,7 +10,7 @@
 
 ## 决策
 
-1. ForgeKit 使用用户现有 MySQL 服务，不创建新数据库容器。
+1. YKForgeKit 使用用户现有 MySQL 服务，不创建新数据库容器。
 2. 数据访问封装到独立的 @forgekit/db，业务模块避免依赖具体数据库驱动。
 3. 第一阶段采用 mysql2 与 Drizzle ORM；Schema 和迁移版本化。
 4. 连接凭证通过环境配置，API 存活与数据库就绪状态分离。

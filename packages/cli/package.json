@@ -1,5 +1,6 @@
 {
   "name": "@forgekit/cli",
+  "description": "YKForgeKit 本地命令行工具",
   "version": "0.0.0",
   "private": true,
   "type": "module",

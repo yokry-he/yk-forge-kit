@@ -48,7 +48,7 @@ export class IdentityAccountsService {
     const userId = randomUUID();
     try {
       await this.database.db.transaction(async (tx) => {
-        await tx.insert(users).values({ id: userId, displayName: 'ForgeKit 用户' });
+        await tx.insert(users).values({ id: userId, displayName: 'YKForgeKit 用户' });
         await tx.insert(externalIdentities).values({ userId, issuer: auth.issuer, subject: auth.subject });
       });
       return userId;
@@ -78,7 +78,7 @@ export class IdentityAccountsService {
 
   async updateDisplayName(auth: OidcAuth, displayName: string) {
     const id = await this.findUserId(auth);
-    if (!id) throw new NotFoundException('请先初始化 ForgeKit 账户。');
+    if (!id) throw new NotFoundException('请先初始化 YKForgeKit 账户。');
     await this.database.db.update(users).set({ displayName }).where(eq(users.id, id));
     const profile = await this.getProfile(auth);
     if (!profile) throw new InternalServerErrorException('更新后无法读取账户档案。');

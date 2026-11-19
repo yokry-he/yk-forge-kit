@@ -1,4 +1,4 @@
-# ForgeKit 第一版技术架构蓝图
+# YKForgeKit 第一版技术架构蓝图
 
 > 状态：Proposed（提案，待确认后转为 Accepted）  
 > 日期：2026-11-15  

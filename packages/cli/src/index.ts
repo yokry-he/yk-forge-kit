@@ -192,9 +192,9 @@ async function createProject(args: string[]): Promise<void> {
 
 const [command] = process.argv.slice(2);
 if (command === 'version' || command === '--version') {
-  console.log('ForgeKit CLI 0.0.0');
+  console.log('YKForgeKit CLI 0.0.0');
 } else if (command === 'help' || command === '--help' || !command) {
-  console.log('ForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset verify <id> [--dir project-directory] [--json]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
+  console.log('YKForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset verify <id> [--dir project-directory] [--json]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
 } else if (command === 'create') {
   createProject(process.argv.slice(3)).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : '项目创建失败');
