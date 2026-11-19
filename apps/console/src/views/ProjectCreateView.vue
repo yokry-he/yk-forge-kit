@@ -1,27 +1,31 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
-import { createProjectPlan, type ProjectFeature } from '@forgekit/project-core';
+import { createProjectPlan, listProjectTemplates, type ProjectFeature, type ProjectTemplateId } from '@forgekit/project-core';
 import { RouterLink } from 'vue-router';
 import { saveProject } from '../api/projects';
 
 const step = ref(1);
 const name = ref('my-forge-app');
-const features = ref<ProjectFeature[]>(['theme']);
+const templates = listProjectTemplates();
+const templateId = ref<ProjectTemplateId>(templates[0]!.id);
+const template = computed(() => templates.find((item) => item.id === templateId.value) ?? templates[0]!);
+const features = ref<ProjectFeature[]>([...template.value.defaultFeatures]);
 const copyStatus = ref('');
 const saving = ref(false);
 const saveError = ref('');
 const savedSlug = ref('');
-watch([name, features], () => { savedSlug.value = ''; saveError.value = ''; });
-const options: Array<{ id: ProjectFeature; label: string; detail: string }> = [
-  { id: 'theme', label: '主题系统', detail: '深色视觉风格与语义设计变量' },
-  { id: 'router', label: '页面路由', detail: 'Vue Router 和首页路由' },
-  { id: 'pinia', label: '状态管理', detail: 'Pinia 全局状态容器' },
-];
+watch([name, features, templateId], () => { savedSlug.value = ''; saveError.value = ''; });
+const options = computed(() => template.value.features);
+function selectTemplate(id: ProjectTemplateId): void {
+  if (id === templateId.value) return;
+  templateId.value = id;
+  features.value = [...template.value.defaultFeatures];
+}
 const plan = computed(() => {
-  try { return createProjectPlan({ name: name.value.trim(), template: 'vue-web', features: features.value }); }
+  try { return createProjectPlan({ name: name.value.trim(), template: templateId.value, features: features.value }); }
   catch { return null; }
 });
-const command = computed(() => plan.value ? `node packages/cli/dist/index.js create ${plan.value.options.name} --features ${plan.value.options.features.join(',') || 'none'}` : '');
+const command = computed(() => plan.value ? `node packages/cli/dist/index.js create ${plan.value.options.name} --template ${plan.value.options.template} --features ${plan.value.options.features.join(',') || 'none'}` : '');
 function toggle(id: ProjectFeature): void {
   savedSlug.value = '';
   features.value = features.value.includes(id) ? features.value.filter((x) => x !== id) : [...features.value, id];
@@ -58,12 +62,18 @@ async function copy(): Promise<void> {
           <input id="name" v-model="name" autocomplete="off" spellcheck="false" aria-describedby="name-help" />
           <small id="name-help">小写字母开头，可包含数字与中划线，最多 60 位。</small>
           <label>项目模板</label>
-          <div class="template"><div class="vue-mark">V</div><div><strong>Vue Web 应用</strong><small>Vue 3 · TypeScript · Vite</small></div><span>✓ 已选择</span></div>
-          <div class="coming">计划支持：H5 / 移动 App / 小程序 / 桌面应用。当前仅 Vue Web 可创建。</div>
+          <div class="template-list" role="radiogroup" aria-label="项目模板">
+            <button v-for="item in templates" :key="item.id" type="button" class="template" role="radio" :aria-checked="item.id === templateId" :class="{ selected: item.id === templateId }" @click="selectTemplate(item.id)">
+              <div class="vue-mark">V</div><div><strong>{{ item.name }}</strong><small>{{ item.stack.join(' · ') }}</small><small>{{ item.description }}</small></div><span v-if="item.id === templateId">✓ 已选择</span>
+            </button>
+          </div>
+          <div class="coming">计划支持：内容站 / 官网（Nuxt）、小程序与移动 App（uni-app）、桌面应用（Tauri 2）。</div>
         </section>
 
         <section v-else-if="step === 2" class="panel">
           <h2>选择基础能力</h2><p>按需集成，生成后仍可在源码中修改。</p>
+          <p v-if="template.builtIn.length" class="built-in">模板内置：{{ template.builtIn.join('、') }}</p>
+          <p v-if="!options.length" class="coming">该模板没有可选能力。</p>
           <label v-for="item in options" :key="item.id" class="choice" :class="{ checked: features.includes(item.id) }">
             <input type="checkbox" :checked="features.includes(item.id)" @change="toggle(item.id)" />
             <span><strong>{{ item.label }}</strong><small>{{ item.detail }}</small></span>
@@ -75,7 +85,7 @@ async function copy(): Promise<void> {
           <h2>确认项目配置</h2><p>可先将配置保存至 MySQL。保存记录不会自动生成本机源码。</p>
           <div class="summary">
             <div><span>名称</span><strong>{{ name }}</strong></div>
-            <div><span>模板</span><strong>Vue 3 / Vite</strong></div>
+            <div><span>模板</span><strong>{{ template.name }}</strong></div>
             <div><span>能力</span><strong>{{ features.join('、') || '无' }}</strong></div>
             <div><span>文件数</span><strong>{{ plan?.files.length }}</strong></div>
           </div>
