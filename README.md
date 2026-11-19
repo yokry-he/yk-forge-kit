@@ -29,6 +29,7 @@ YKForgeKit 是面向开发者的一体化项目创建、资产组合、跨端构
 - [测试与质量门禁](docs/zh-CN/testing.md)
 - [UI / UX 规范](docs/zh-CN/ui-design.md)
 - [项目模板注册表](docs/zh-CN/project-templates.md)
+- [构建队列与 Worker（B08 空构建）](docs/zh-CN/worker-build-queue.md)
 - [文档与翻译策略](docs/zh-CN/documentation.md)
 - [架构决策记录](docs/adr/0001-engineering-foundations.md)（产品定位与跨端技术栈见 [ADR-0005](docs/adr/0005-product-positioning-and-cross-platform-stack.md)）
 - [仓库保护配置建议](docs/zh-CN/repository-governance.md)

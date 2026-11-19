@@ -77,3 +77,17 @@ it('validates the minimal environment, SSH target and deployment contracts', () 
   expect(DeploymentSchema.parse(deployment).status).toBe('pending');
   expect(DeploymentSchema.safeParse({ ...deployment, status: 'unknown' }).success).toBe(false);
 });
+
+it('shares a strict identifier-only build queue contract and bounded API cursors', async () => {
+  const { BUILD_QUEUE_NAME, BUILD_JOB_NAME, BuildJobPayloadSchema, BuildCreateRequestSchema,
+    BuildListQuerySchema, BuildLogsQuerySchema } = await import('../src/index');
+  expect(BUILD_QUEUE_NAME).toBe('builds'); expect(BUILD_JOB_NAME).toBe('build');
+  expect(BuildJobPayloadSchema.parse({ buildId: id })).toEqual({ buildId: id });
+  for (const payload of [{ buildId: 'wrong' }, { buildId: id, command: 'sh' }, {}]) {
+    expect(BuildJobPayloadSchema.safeParse(payload).success).toBe(false);
+  }
+  expect(BuildCreateRequestSchema.safeParse({ sourceRef: 'snapshot', triggeredBy: id }).success).toBe(false);
+  expect(BuildListQuerySchema.parse({ limit: '2' })).toEqual({ limit: 2 });
+  expect(BuildLogsQuerySchema.parse({})).toEqual({ seq: 0, limit: 500 });
+  expect(BuildLogsQuerySchema.safeParse({ seq: '-1' }).success).toBe(false);
+});

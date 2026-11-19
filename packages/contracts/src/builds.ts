@@ -90,3 +90,19 @@ export const DeploymentSchema = z.strictObject({
   startedAt: time.nullable(), finishedAt: time.nullable(),
 });
 export type Deployment = z.infer<typeof DeploymentSchema>;
+
+/** B08 queue messages carry identifiers only; MySQL is authoritative. */
+export const BUILD_QUEUE_NAME = 'builds';
+export const BUILD_JOB_NAME = 'build';
+export const BuildJobPayloadSchema = z.strictObject({ buildId: id });
+export type BuildJobPayload = z.infer<typeof BuildJobPayloadSchema>;
+export const BuildCreateRequestSchema = z.strictObject({ sourceRef: key });
+export const BuildListQuerySchema = z.strictObject({
+  beforeNumber: z.coerce.number().int().min(1).max(4294967295).optional(),
+  limit: z.coerce.number().int().min(1).max(1000).default(50),
+});
+export const BuildLogsQuerySchema = z.strictObject({
+  seq: z.coerce.number().int().min(0).max(4294967295).default(0),
+  limit: z.coerce.number().int().min(1).max(1000).default(500),
+});
+export const BuildIdSchema = id;

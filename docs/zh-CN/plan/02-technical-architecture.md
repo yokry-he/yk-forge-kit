@@ -76,7 +76,7 @@ flowchart TB
   Browser -. 访问预览 .-> Preview
 ```
 
-> 说明：图中 `apps/worker`、Runner、Artifact Store、Preview Gateway、Deploy Adapters、部署 Agent 均为**规划中**，当前仓库尚未实现；现状仅 [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、`packages/*` 与本地 CLI 存在。
+> 说明：图中 `apps/worker` 的 BullMQ 空构建编排与构建 API 已由 [B08](../worker-build-queue.md) 实现；Docker Runner、Artifact Store、Preview Gateway、Deploy Adapters、部署 Agent 仍为**规划中**；现状包含 [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、`packages/*` 与本地 CLI 存在。
 
 ## 2. 与现有 monorepo 的映射
 
@@ -92,7 +92,7 @@ flowchart TB
 | [packages/cli](../../../packages/cli) | 已实现：create / asset list/plan/add/upgrade/remove/verify | 本地 CLI | 新增本地构建/部署、设备授权登录（V1） |
 | [packages/identity-core](../../../packages/identity-core) | 已实现：OIDC 验证 + 纯授权策略（owner/editor/viewer） | 身份与授权 | 新增权限：`build:run`、`deploy:*`、`secret:write`、`log:read` 等；组织/团队（V1） |
 | [packages/db](../../../packages/db) | 已实现：MySQL 8 + Drizzle，迁移 0000–0008；B07 构建/日志/预览数据基础 | 数据访问 | 后续新增 releases、secrets、log_streams 等，并按 B12–B15 扩展部署模型 |
-| `apps/worker` | 待建 | 队列消费/调度 | 新建：BullMQ 消费者、构建任务状态机、Runner 调度、日志流回传 |
+| `apps/worker` | B08 已有 BullMQ + NoopRunner + 状态机 | 队列消费/调度 | B09 Docker Runner 与存储实现、B10 实时日志 |
 | `apps/agent` | 待建 | 轻量部署 Agent（V1） | 新建：单二进制，出站 WebSocket/HTTPS，mTLS + 一次性注册令牌 |
 | `adapters/deploy-ssh` | 待建 | SSH 发布器 | 新建：原子切换 current 软链接、Caddy 配置、健康检查、回滚 |
 | `adapters/deploy-aliyun` | 待建 | 阿里云 API 适配（V1） | 新建：实例列表、云助手、安全组、DNS、证书 |
@@ -261,11 +261,11 @@ sequenceDiagram
   API-->>U: 在线日志（SSE）
 ```
 
-> 说明：以上流程为规划目标；当前仓库仅实现项目/资产/成员/邀请等控制面能力，构建、预览、部署、日志均未实现。
+> 说明：以上流程为规划目标；当前仓库已实现项目/资产/成员/邀请与 B08 空构建队列、状态/日志查询；真实构建、预览、部署、实时日志仍未实现。
 
 ## 5. 数据模型：B07 基础与后续扩展
 
-> 现有表：`projects`、`users`、`external_identities`、`project_memberships`、`project_member_audit`、`project_invitations`、`project_invitation_audit`、`invitation_rate_buckets`、`asset_installations`（迁移 0000–0007）。B07 已通过迁移 0008 新增 environments、deploy_targets、builds、build_log_chunks、deployments、preview_links，具体字段、状态与并发规则见 [构建数据模型](../build-data-model.md) 和 [ADR-0007](../../adr/0007-build-data-foundation.md)。仅实现数据和契约，未实现 Worker、API、日志流或预览服务。以下未来字段仍为草案，不能视为已交付。
+> 现有表：`projects`、`users`、`external_identities`、`project_memberships`、`project_member_audit`、`project_invitations`、`project_invitation_audit`、`invitation_rate_buckets`、`asset_installations`（迁移 0000–0007）。B07 已通过迁移 0008 新增 environments、deploy_targets、builds、build_log_chunks、deployments、preview_links，具体字段、状态与并发规则见 [构建数据模型](../build-data-model.md) 和 [ADR-0007](../../adr/0007-build-data-foundation.md)。B07 仅实现数据和契约；B08 已提供空构建 Worker、API 与持久化日志查询，尚无 Docker Runner、实时日志流或预览服务。以下未来字段仍为草案，不能视为已交付。
 
 | 表 | 关键字段 | 说明 |
 | --- | --- | --- |

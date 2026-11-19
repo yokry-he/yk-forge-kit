@@ -181,3 +181,13 @@ export const previewLinks = mysqlTable('preview_links', {
   index('preview_links_build_expiry_idx').on(t.buildId, t.expiresAt),
   index('preview_links_expiry_idx').on(t.expiresAt),
 ]);
+
+/** Append-only build control audit. Status updates and audit commit together. */
+export const buildAudit = mysqlTable('build_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  buildId: varchar('build_id', { length: 36 }).notNull().references(() => builds.id, { onDelete: 'cascade' }),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: varchar('action', { length: 16 }).$type<'triggered' | 'canceled'>().notNull(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+}, (t) => [index('build_audit_project_time_idx').on(t.projectId, t.createdAt)]);

@@ -6,7 +6,7 @@
   "private": true,
   "packageManager": "pnpm@10.18.3",
   "scripts": {
-    "dev": "pnpm --filter @forgekit/api^... --filter @forgekit/console^... build && pnpm --parallel --filter @forgekit/console --filter @forgekit/api dev",
+    "dev": "pnpm --filter @forgekit/api^... --filter @forgekit/console^... --filter @forgekit/worker^... build && pnpm --parallel --filter @forgekit/console --filter @forgekit/api --filter @forgekit/worker dev",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm build && pnpm -r --if-present test",
