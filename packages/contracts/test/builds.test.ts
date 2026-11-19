@@ -59,7 +59,7 @@ it('defaults preview TTL to 24h and accepts only integer TTLs between 5m and 7d'
 });
 it('exposes plaintext only in the one-time create response and never exposes the digest', () => {
   expect(PreviewLinkSchema.parse(preview)).toEqual(preview);
-  expect(PreviewLinkCreateResponseSchema.parse({ previewLink: preview, token: 'a'.repeat(43) }).token).toHaveLength(43);
+  expect(PreviewLinkCreateResponseSchema.parse({ previewLink: preview, token: 'a'.repeat(43), url: 'https://credential.preview.example/' }).token).toHaveLength(43);
   expect(PreviewLinkSchema.safeParse({ ...preview, tokenHash: 'a'.repeat(64) }).success).toBe(false);
   expect(PreviewLinkSchema.safeParse({ ...preview, token: 'a'.repeat(43) }).success).toBe(false);
   expect(PreviewLinkCreateResponseSchema.safeParse({ previewLink: preview, token: 'short' }).success).toBe(false);

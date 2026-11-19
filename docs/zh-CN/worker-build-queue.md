@@ -1,6 +1,6 @@
 # 构建队列与 Worker（B08）
 
-已实现构建队列闭环、状态查询、取消、MySQL 分块日志读取与审计。默认 NoopRunner 不执行源码、不产生文件；[B09 Docker Runner/ArtifactStore](./docker-build-runner.md) 可通过配置启用，支持模板静态构建。[B10 SSE/控制台构建页面](./build-console.md) 已实现，预览由 B11 提供。中文为权威，英文未翻译，公开发布前须补齐。决策见 [ADR-0008](../adr/0008-worker-build-queue.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，持久化语义见 [B07 数据模型](./build-data-model.md)。
+已实现构建队列闭环、状态查询、取消、MySQL 分块日志读取与审计。默认 NoopRunner 不执行源码、不产生文件；[B09 Docker Runner/ArtifactStore](./docker-build-runner.md) 可通过配置启用，支持模板静态构建。[B10 SSE/控制台构建页面](./build-console.md) 已实现，[B11 静态预览](./preview-links.md) 已提供。中文为权威，英文未翻译，公开发布前须补齐。决策见 [ADR-0008](../adr/0008-worker-build-queue.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，持久化语义见 [B07 数据模型](./build-data-model.md)。
 
 ## 架构与契约
 
@@ -10,7 +10,7 @@
 - MySQL 是状态和日志权威，任务只传 ID。消费者对终态/已删除构建无操作；业务失败/超时作为已处理任务结束，BullMQ 的 completed 表示编排完成，**不表示构建 succeeded**。
 - 自动入队最多 3 次基础设施重试，指数退避起始 1 秒；保留最近 1000 个 completed/failed 任务。即使 Redis 历史被清理，同 ID 再次到达也由数据库终态保护；业务重试需新建构建记录。
 - `BuildRunner.run(build, logs, signal)` 返回 `{ exitCode, artifact?, runnerInfo? }`；0 成功，其余失败；异常记录脱敏的通用错误码。NoopRunner 不读源码、不运行 shell。`BuildLogSink.write` 每次等待 B07 append，序号从 1 分配，单块 16 KiB；日志写入失败使构建失败，不静默丢日志。
-- B09 提供 LocalFsArtifactStore，真实 Runner 返回的制品元数据在 running→succeeded 时写入 B07 字段。NoopRunner 仍不填写 artifact 字段；读取能力供后续 B11 使用。
+- B09 提供 LocalFsArtifactStore，真实 Runner 返回的制品元数据在 running→succeeded 时写入 B07 字段。NoopRunner 仍不填写 artifact 字段；读取能力供 B11 独立预览进程使用。
 
 ```mermaid
 stateDiagram-v2

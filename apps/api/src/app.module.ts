@@ -1,3 +1,6 @@
+import { PreviewLinksController } from './preview-links.controller';
+import { PreviewLinksService } from './preview-links.service';
+import { PreviewArtifactsService } from './preview-artifacts.service';
 import { BuildStreamsController } from './build-streams.controller';
 import { BuildStreamsService } from './build-streams.service';
 import { BuildStreamTickets } from './build-stream-tickets';
@@ -23,7 +26,7 @@ import { InvitationRateLimiter } from './invitation-rate-limiter';
 import { IdentityAccountsService } from './identity-accounts.service';
 
 @Module({
-  controllers: [BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
-  providers: [BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
+  controllers: [PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
+  providers: [PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
 })
 export class AppModule {}

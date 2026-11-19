@@ -8,7 +8,7 @@
 ## 0. 阅读须知
 
 - **现状基线**：仓库为 pnpm monorepo（Node 22+、TypeScript），已实现 [apps/console](../../../apps/console)、[apps/api](../../../apps/api)、[packages/contracts](../../../packages/contracts)、[packages/project-core](../../../packages/project-core)、[packages/asset-core](../../../packages/asset-core)、[packages/cli](../../../packages/cli)、[packages/identity-core](../../../packages/identity-core)、[packages/db](../../../packages/db)，规划基线记录为 115 个单元测试通过；CI 已配置 MySQL 8 集成测试，真实 Keycloak 端到端验证仍待完成。当前 `project-core` 仅有 `vue-web` 一个模板，`asset-core` 仅内置 `official.theme` 一个资产，`AUTH_MODE` 支持 `local`/`oidc`。
-- **实施范围**：以下按阶段列出交付范围、实施顺序与验收条件。云端构建、产物预览、部署、在线日志、AI、计费、组织与多端模板均待实现。现有创建向导（`/projects/new`）在浏览器预览文件计划，通过 API 登记项目配置。本地工程文件由 `forgekit create` 生成。
+- **实施范围**：以下按阶段列出交付范围、实施顺序与验收条件。B08–B11 已实现模板构建、实时构建日志及静态产物预览；部署、应用在线日志、AI、计费、组织与多端模板仍按后续阶段推进。现有创建向导（`/projects/new`）在浏览器预览文件计划，通过 API 登记项目配置。本地工程文件由 `forgekit create` 生成。
 - **估算口径**：所有工期均为“单人 + AI 协作”的粗估，含设计、编码、测试、文档，不含外部等待（如 ICP 备案、云账号审批、平台审核）。实际以迭代中复盘为准。
 - **总体风险**：范围过大是最大风险（见各阶段“主要风险”与 [04-open-questions.md](./04-open-questions.md)）。本路线图的核心策略是**先收窄到 Web 类项目闭环**，再逐步扩展多端与运维能力。
 
@@ -238,9 +238,9 @@ gantt
 | B06 | 新增 nuxt-site 内容站模板 | 博客/个人站/官网 SSG 模板 | [packages/project-core](../../../packages/project-core)（模板）、[packages/contracts](../../../packages/contracts) | 生成工程可 SSG 构建，元数据正确 | B04 | M |
 | B07 | contracts + db 数据模型与迁移 | `environments`、`deploy_targets`、`builds`、`deployments` | [packages/contracts](../../../packages/contracts)、[packages/db](../../../packages/db)（迁移 0008+） | 空库/已有库幂等迁移，结构评审通过 | B01 | M |
 | B08 | worker 骨架 + BullMQ + 构建状态机 | 已实现 [空构建编排与 API](../worker-build-queue.md)，真实 Runner 留待 B09 | `apps/worker`、[packages/contracts](../../../packages/contracts)、[apps/api](../../../apps/api) | 空构建任务状态机正确流转，状态可查询 | B07 | M |
-| B09 | Docker 隔离 Runner（Web 构建） | 已实现 [Docker Runner 与本地制品](../docker-build-runner.md)；模板取材，安装默认禁网/可接 registry 代理，构建禁网 | `apps/worker`（Runner/Artifact Store）、project-core 模板构建元数据 | 非 root/资源限制/只读镜像；提供安全制品读取接口，HTTP 下载/预览留 B11；生产出网白名单需宿主落实 | B08 | L |
+| B09 | Docker 隔离 Runner（Web 构建） | 已实现 [Docker Runner 与本地制品](../docker-build-runner.md)；模板取材，安装默认禁网/可接 registry 代理，构建禁网 | `apps/worker`（Runner/Artifact Store）、project-core 模板构建元数据 | 非 root/资源限制/只读镜像；提供安全制品读取接口，HTTP 预览由 B11 提供；生产出网白名单需宿主落实 | B08 | L |
 | B10 | 构建日志实时流 API + 控制台构建页 | SSE 实时日志与控制台页面 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、[packages/contracts](../../../packages/contracts) | 构建日志实时可见，页面可触发/查看构建 | B09 | M |
-| B11 | 静态预览服务 | 按项目和构建号访问的预览链接（令牌、过期） | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、存储抽象 | 预览链接可访问，过期失效 | B09 | M |
+| B11 | 静态预览服务 | 已实现 [独立 host 静态预览](../preview-links.md)，成功构建的令牌链接、过期与撤销 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、存储抽象 | 预览链接可访问，过期失效 | B09 | M |
 | B12 | 部署目标管理（SSH 主机） | 平台生成密钥对、连通性检查、指纹固定、加密存储 | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 添加主机成功，指纹固定，密钥加密存储 | B07 | M |
 | B13 | SSH 发布器 | `releases/current` 原子切换、Caddy 配置、健康检查与回滚 | `adapters/deploy-ssh`、[apps/api](../../../apps/api)、`apps/worker` | 部署成功可访问；健康检查失败自动回滚；一键回滚 | B12、B09 | L |
 | B14 | 环境变量/密钥管理 | 信封加密、只写不读、按环境、审计 | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 注入生效，不可读回明文，审计可查 | B07 | M |

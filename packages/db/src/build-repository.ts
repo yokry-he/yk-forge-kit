@@ -1,12 +1,12 @@
-import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, gt, isNull, lt } from 'drizzle-orm';
+import { randomUUID, timingSafeEqual } from 'node:crypto';
+import { and, asc, desc, eq, gt, isNull, lt, or } from 'drizzle-orm';
 import {
   BuildSchema, BuildStatusSchema, canTransition, BuildLogEventSchema,
   PreviewLinkCreateRequestSchema, Sha256Schema,
   type BuildStatus, type BuildLogEvent, type RunnerInfo,
 } from '@forgekit/contracts';
 import type { DatabaseClient } from './index';
-import { builds, buildLogChunks, previewLinks, projects, buildAudit } from './schema';
+import { builds, buildLogChunks, previewLinks, projects, buildAudit, previewLinkAudit } from './schema';
 
 type Database = DatabaseClient['db'];
 type BuildRow = typeof builds.$inferSelect;
@@ -164,36 +164,57 @@ const publicPreviewColumns = {
 export class PreviewLinkRepository {
   constructor(private readonly db: Database) {}
 
-  async create(input: { buildId: string; tokenHash: string; createdBy: string; ttlSeconds?: number }) {
+  async create(input: { buildId: string; tokenHash: string; createdBy: string; ttlSeconds?: number }, audit?: { projectId: string; actorUserId: string }) {
     Sha256Schema.parse(input.tokenHash);
     const { ttlSeconds } = PreviewLinkCreateRequestSchema.parse({ ttlSeconds: input.ttlSeconds });
     const now = new Date();
     const row = { id: randomUUID(), buildId: input.buildId, createdBy: input.createdBy,
       createdAt: now, expiresAt: new Date(now.getTime() + ttlSeconds * 1000),
       revokedAt: null, lastAccessedAt: null };
-    await this.db.insert(previewLinks).values({ ...row, tokenHash: input.tokenHash });
+    await this.db.transaction(async (tx) => {
+      if (audit) {
+        const [build] = await tx.select().from(builds).where(eq(builds.id, input.buildId)).limit(1).for('update');
+        if (!build || build.projectId !== audit.projectId || build.status !== 'succeeded' || !build.artifactKey) throw new BuildTransitionError();
+      }
+      await tx.insert(previewLinks).values({ ...row, tokenHash: input.tokenHash });
+      if (audit) await tx.insert(previewLinkAudit).values({ ...audit, previewLinkId: row.id, buildId: row.buildId, action: 'created' });
+    });
     return row;
   }
 
   /** Does not touch access time: call recordAccess only when the gateway serves an artifact. */
   async findValidByHash(tokenHash: string) {
     Sha256Schema.parse(tokenHash);
-    const [row] = await this.db.select(publicPreviewColumns).from(previewLinks)
+    const [row] = await this.db.select({ ...publicPreviewColumns, tokenHash: previewLinks.tokenHash }).from(previewLinks)
       .where(and(eq(previewLinks.tokenHash, tokenHash), isNull(previewLinks.revokedAt), gt(previewLinks.expiresAt, new Date())))
       .limit(1);
-    return row ?? null;
+    // A fixed-size digest comparison, including misses; never compare plaintext tokens.
+    const equal = timingSafeEqual(Buffer.from(tokenHash, 'hex'), Buffer.from(row?.tokenHash ?? '0'.repeat(64), 'hex'));
+    if (!row || !equal) return null;
+    const { tokenHash: _digest, ...metadata } = row;
+    return metadata;
   }
 
-  async recordAccess(id: string): Promise<boolean> {
+  async listActive(buildId: string) {
+    return this.db.select(publicPreviewColumns).from(previewLinks)
+      .where(and(eq(previewLinks.buildId, buildId), isNull(previewLinks.revokedAt), gt(previewLinks.expiresAt, new Date())))
+      .orderBy(desc(previewLinks.createdAt), desc(previewLinks.id));
+  }
+
+  async recordAccess(id: string, throttleMs = 0): Promise<boolean> {
     const [result] = await this.db.update(previewLinks).set({ lastAccessedAt: new Date() })
-      .where(and(eq(previewLinks.id, id), isNull(previewLinks.revokedAt), gt(previewLinks.expiresAt, new Date())));
+      .where(and(eq(previewLinks.id, id), isNull(previewLinks.revokedAt), gt(previewLinks.expiresAt, new Date()),
+        or(isNull(previewLinks.lastAccessedAt), lt(previewLinks.lastAccessedAt, new Date(Date.now() - throttleMs)))));
     return result.affectedRows === 1;
   }
 
   /** Idempotent; buildId scopes the operation after the caller authorizes project/build access. */
-  async revoke(buildId: string, id: string): Promise<boolean> {
-    const [result] = await this.db.update(previewLinks).set({ revokedAt: new Date() })
-      .where(and(eq(previewLinks.id, id), eq(previewLinks.buildId, buildId), isNull(previewLinks.revokedAt)));
-    return result.affectedRows === 1;
+  async revoke(buildId: string, id: string, audit?: { projectId: string; actorUserId: string }): Promise<boolean> {
+    return this.db.transaction(async (tx) => {
+      const [result] = await tx.update(previewLinks).set({ revokedAt: new Date() })
+        .where(and(eq(previewLinks.id, id), eq(previewLinks.buildId, buildId), isNull(previewLinks.revokedAt)));
+      if (result.affectedRows === 1 && audit) await tx.insert(previewLinkAudit).values({ ...audit, buildId, previewLinkId: id, action: 'revoked' });
+      return result.affectedRows === 1;
+    });
   }
 }

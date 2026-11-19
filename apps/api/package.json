@@ -10,7 +10,9 @@
     "test": "vitest run",
     "start": "node dist/main.js",
     "claim:project": "node dist/claim-project-cli.js",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "preview:start": "node dist/preview-main.js",
+    "preview:dev": "tsx watch src/preview-main.ts"
   },
   "dependencies": {
     "@forgekit/contracts": "workspace:*",
@@ -26,7 +28,8 @@
     "dotenv": "^16.6.0",
     "rxjs": "^7.8.0",
     "bullmq": "^5.0.0",
-    "ioredis": "5.11.1"
+    "ioredis": "5.11.1",
+    "@forgekit/artifact-store": "workspace:*"
   },
   "devDependencies": { "@types/node": "^22.0.0", "tsx": "^4.20.0", "typescript": "^5.9.0", "vitest": "^3.2.0" }
 }
