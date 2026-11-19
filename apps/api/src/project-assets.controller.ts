@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
+import { Inject, BadRequestException, Body, Controller, Get, Param, Patch, Post, Req, UseGuards } from '@nestjs/common';
 import { AssetError, resolveAssets, type AssetManifest } from '@forgekit/asset-core';
 import { ProjectAssetsService } from './project-assets.service';
 import { ProjectApiGuard } from './project-api.guard';
@@ -7,7 +7,7 @@ import { requireProjectAuth, type ProjectAuthRequest } from './project-auth-cont
 @Controller('api/v1/projects/:slug/assets')
 @UseGuards(ProjectApiGuard)
 export class ProjectAssetsController {
-  constructor(private readonly assets: ProjectAssetsService) {}
+  constructor(@Inject(ProjectAssetsService) private readonly assets: ProjectAssetsService) {}
 
   @Get()
   list(@Param('slug') slug: string, @Req() request: ProjectAuthRequest) {

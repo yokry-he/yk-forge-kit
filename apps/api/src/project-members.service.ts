@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { projectMemberAudit, projectMemberships, users } from '@forgekit/db';
 import { canManageMembership, type ProjectRole } from '@forgekit/identity-core';
@@ -8,7 +8,7 @@ import { ProjectsService } from './projects.service';
 
 @Injectable()
 export class ProjectMembersService {
-  constructor(private readonly database: DatabaseService, private readonly projects: ProjectsService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService, @Inject(ProjectsService) private readonly projects: ProjectsService) {}
 
   private async currentUserId(auth: ProjectAuthContext): Promise<string | null> {
     if (auth.mode === 'local') return null;

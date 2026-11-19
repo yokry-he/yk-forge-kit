@@ -18,6 +18,8 @@ corepack pnpm dev
 - Web 控制台：`http://localhost:5173`
 - API 健康检查：`http://localhost:3001/api/v1/health`
 
+API 开发模式使用 `tsx watch`。新增 NestJS 构造器依赖时，请用 `@Inject(服务类)` 显式声明注入对象，因为 tsx 不会生成类型元数据。
+
 单独运行：
 
 ```bash

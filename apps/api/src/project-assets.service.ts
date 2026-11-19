@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, ConflictException, Injectable, NotFoundException } from '@nestjs/common';
 import { getAssetVersionStatus } from '@forgekit/asset-core';
 import { and, eq } from 'drizzle-orm';
 import { assetInstallations } from '@forgekit/db';
@@ -8,7 +8,7 @@ import type { ProjectAuthContext } from './project-auth-context';
 
 @Injectable()
 export class ProjectAssetsService {
-  constructor(private readonly database: DatabaseService, private readonly projects: ProjectsService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService, @Inject(ProjectsService) private readonly projects: ProjectsService) {}
 
   async list(slug: string, auth: ProjectAuthContext) {
     const project = await this.projects.findBySlug(slug, auth, 'asset:read');

@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Inject, HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { eq, sql } from 'drizzle-orm';
 import { invitationRateBuckets } from '@forgekit/db';
 import { DatabaseService } from './database.service';
@@ -19,7 +19,7 @@ export function invitationBucketKey(type: QuotaType, issuer: string, subject: st
 
 @Injectable()
 export class InvitationRateLimiter {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async consume(type: QuotaType, issuer: string, subject: string): Promise<void> {
     const key = invitationBucketKey(type, issuer, subject);

@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
+import { Inject, BadRequestException, Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { normalizeProjectOptions, ProjectValidationError, type ProjectOptions } from '@forgekit/project-core';
 import { ProjectsService } from './projects.service';
 import { ProjectApiGuard } from './project-api.guard';
@@ -7,7 +7,7 @@ import { requireProjectAuth, type ProjectAuthRequest } from './project-auth-cont
 @Controller('api/v1/projects')
 @UseGuards(ProjectApiGuard)
 export class ProjectsController {
-  constructor(private readonly projects: ProjectsService) {}
+  constructor(@Inject(ProjectsService) private readonly projects: ProjectsService) {}
 
   @Get()
   list(@Req() request: ProjectAuthRequest) {

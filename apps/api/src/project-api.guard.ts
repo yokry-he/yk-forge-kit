@@ -1,4 +1,4 @@
-import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
+import { Inject, CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { resolveAuthConfig } from './auth.config';
 import { AuthService } from './auth.service';
 import type { ProjectAuthRequest } from './project-auth-context';
@@ -6,7 +6,7 @@ import type { ProjectAuthRequest } from './project-auth-context';
 @Injectable()
 export class ProjectApiGuard implements CanActivate {
   private readonly mode = resolveAuthConfig(process.env).mode;
-  constructor(private readonly auth: AuthService) {}
+  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     const request = context.switchToHttp().getRequest<ProjectAuthRequest>();

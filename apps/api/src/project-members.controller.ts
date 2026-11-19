@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Patch, Req, UseGuards } from '@nestjs/common';
+import { Inject, BadRequestException, Body, Controller, Get, Param, Patch, Req, UseGuards } from '@nestjs/common';
 import { ProjectApiGuard } from './project-api.guard';
 import { requireProjectAuth, type ProjectAuthRequest } from './project-auth-context';
 import { ProjectMembersService } from './project-members.service';
@@ -6,7 +6,7 @@ import { ProjectMembersService } from './project-members.service';
 @Controller('api/v1/projects/:slug/members')
 @UseGuards(ProjectApiGuard)
 export class ProjectMembersController {
-  constructor(private readonly members: ProjectMembersService) {}
+  constructor(@Inject(ProjectMembersService) private readonly members: ProjectMembersService) {}
 
   @Get()
   list(@Param('slug') slug: string, @Req() request: ProjectAuthRequest) {

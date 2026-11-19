@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
+import { Inject, BadRequestException, ConflictException, Injectable, InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { and, eq, sql } from 'drizzle-orm';
 import { externalIdentities, users } from '@forgekit/db';
 import { DatabaseService } from './database.service';
@@ -34,7 +34,7 @@ function hasMysqlCode(error: unknown, code: string): boolean {
 
 @Injectable()
 export class IdentityAccountsService {
-  constructor(private readonly database: DatabaseService) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService) {}
 
   async findUserId(auth: OidcAuth): Promise<string | null> {
     const [identity] = await this.database.db.select({ userId: externalIdentities.userId })
