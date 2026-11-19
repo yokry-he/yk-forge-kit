@@ -9,6 +9,7 @@
     "build": "tsc -p tsconfig.build.json",
     "test": "vitest run",
     "start": "node dist/main.js",
+    "claim:project": "node dist/claim-project-cli.js",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
