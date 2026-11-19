@@ -65,6 +65,13 @@ export class ProjectsService {
     return row.project;
   }
 
+  async findById(id: string, auth: ProjectAuthContext, permission: ProjectPermission = 'project:read') {
+    const [project] = await this.database.db.select({ slug: projects.slug }).from(projects)
+      .where(eq(projects.id, id)).limit(1);
+    if (!project) throw new NotFoundException('项目不存在或无权访问。');
+    return this.findBySlug(project.slug, auth, permission);
+  }
+
   async findUserId(auth: Extract<ProjectAuthContext, { mode: 'oidc' }>): Promise<string | null> {
     return this.identities.findUserId(auth);
   }

@@ -1,0 +1,89 @@
+import { Queue, Worker } from 'bullmq';
+import { BUILD_JOB_NAME, BUILD_QUEUE_NAME, type BuildJobPayload } from '@forgekit/contracts';
+import { BuildLogRepository, BuildRepository, BuildTransitionError, type DatabaseClient } from '@forgekit/db';
+import { BuildProcessor } from './processor';
+import { NoopRunner, type BuildRunner } from './runner';
+import type { resolveWorkerConfig } from './config';
+
+type Log = (event: Record<string, unknown>) => void;
+export async function startWorker(client: DatabaseClient, config: ReturnType<typeof resolveWorkerConfig>,
+  log: Log = (event) => console.log(JSON.stringify(event)), runner: BuildRunner = new NoopRunner()) {
+  const builds = new BuildRepository(client.db);
+  const processor = new BuildProcessor(builds, new BuildLogRepository(client.db), runner, config.timeoutMs);
+  const queue = new Queue<BuildJobPayload>(BUILD_QUEUE_NAME, { connection: { ...config.connection, maxRetriesPerRequest: 1 } });
+  const worker = new Worker<BuildJobPayload>(BUILD_QUEUE_NAME, (job) => processor.process(job.data, job.id), {
+    connection: { ...config.connection, maxRetriesPerRequest: null }, concurrency: config.concurrency,
+    autorun: false, maxStalledCount: 1,
+  });
+  worker.on('error', () => log({ event: 'worker_error' }));
+  queue.on('error', () => log({ event: 'queue_error' }));
+  worker.on('failed', (job) => log({ event: 'job_failed', buildId: job?.id }));
+  worker.on('completed', (job) => log({ event: 'job_processed', buildId: job.id }));
+  let heartbeat: ReturnType<typeof setTimeout> | undefined;
+  let closing = false;
+  let healthTask: Promise<void> | undefined;
+  const reconcile = async () => {
+    // A permanently failed/lost Redis job cannot be redelivered by stalled recovery.
+    // Allow timeout + two default lease periods before inspecting abandoned DB rows.
+    for (const row of await builds.listRunningBefore(new Date(Date.now() - config.timeoutMs - 60000))) {
+      const job = await queue.getJob(row.id);
+      const state = await job?.getState();
+      if (!job || state === 'failed' || state === 'completed') {
+        try { await builds.updateStatus(row.id, 'running', 'failed', { errorMessage: 'worker_lost: queue job unavailable' }); }
+        catch (error) { if (!(error instanceof BuildTransitionError)) throw error; }
+      }
+    }
+    for (const row of await builds.listQueuedBefore(new Date(Date.now() - 30000))) {
+      const job = await queue.getJob(row.id);
+      if (job) {
+        const state = await job.getState();
+        if (state === 'failed' || state === 'completed') {
+          try { await builds.updateStatus(row.id, 'queued', 'failed', { errorMessage: 'queue_job_ended_before_start' }); }
+          catch (error) { if (!(error instanceof BuildTransitionError)) throw error; }
+        }
+      } else {
+        await queue.add(BUILD_JOB_NAME, { buildId: row.id }, { jobId: row.id, attempts: 3,
+          backoff: { type: 'exponential', delay: 1000 }, removeOnComplete: 1000, removeOnFail: 1000 });
+      }
+    }
+  };
+  let startupTimer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await Promise.race([(async () => {
+      await client.ping();
+      await queue.waitUntilReady();
+      await worker.waitUntilReady();
+      await reconcile();
+    })(), new Promise<never>((_resolve, reject) => {
+      startupTimer = setTimeout(() => reject(new Error('worker_startup_timeout')), 10000);
+    })]);
+  } catch (error) {
+    await Promise.allSettled([worker.close(true), queue.close()]);
+    throw error;
+  } finally { clearTimeout(startupTimer); }
+  const running = worker.run().catch(() => log({ event: 'worker_run_error' }));
+  const tick = async () => {
+    try {
+      if (!worker.isRunning()) throw new Error('consumer_not_running');
+      await client.ping();
+      await queue.getJobCounts('waiting', 'active');
+      await reconcile();
+      log({ event: 'worker_heartbeat', status: 'ok', concurrency: config.concurrency });
+    } catch { log({ event: 'worker_heartbeat', status: 'unavailable' }); }
+    if (!closing) heartbeat = setTimeout(schedule, config.heartbeatMs);
+  };
+  function schedule() { healthTask = tick(); }
+  log({ event: 'worker_ready', queue: BUILD_QUEUE_NAME, runner: 'noop', concurrency: config.concurrency });
+  heartbeat = setTimeout(schedule, config.heartbeatMs);
+  return {
+    async close() {
+      closing = true;
+      clearTimeout(heartbeat);
+      processor.shutdown();
+      await healthTask;
+      await worker.close();
+      await running;
+      await queue.close();
+    },
+  };
+}

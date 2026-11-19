@@ -24,6 +24,15 @@ jobs:
   mysql-integration:
     runs-on: ubuntu-latest
     services:
+      redis:
+        image: redis:7
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=3s
+          --health-timeout=3s
+          --health-retries=30
       mysql:
         image: mysql:8.0
         env:
@@ -40,6 +49,8 @@ jobs:
           --health-retries=30
     env:
       FORGEKIT_DB_INTEGRATION: '1'
+      FORGEKIT_WORKER_INTEGRATION: '1'
+      REDIS_URL: redis://127.0.0.1:6379/15
       DATABASE_URL: mysql://forgekit_test:ci_user_test_only@127.0.0.1:3306/forgekit_test
     steps:
       - uses: actions/checkout@v4
@@ -52,6 +63,8 @@ jobs:
       - name: MySQL migrations and repositories (including B07)
         run: corepack pnpm db:test:integration
       - run: corepack pnpm build
+      - name: B08 API producer, worker, persisted logs and restart recovery
+        run: corepack pnpm --filter @forgekit/api exec vitest run test/build-queue.integration.test.ts
       - run: corepack pnpm --filter @forgekit/api exec vitest run test/mysql-project-flow.test.ts
       - run: corepack pnpm --filter @forgekit/api exec vitest run test/oidc-http.mysql.test.ts
       - run: corepack pnpm --filter @forgekit/api exec vitest run test/project-claim.mysql.test.ts

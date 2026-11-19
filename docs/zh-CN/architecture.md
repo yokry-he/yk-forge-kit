@@ -29,4 +29,4 @@
 
 ## B07 数据基础
 
-迁移 0008 已新增构建、日志分块、预览链接及最小部署关联表，见 [构建数据模型](./build-data-model.md) 与 [ADR-0007](../adr/0007-build-data-foundation.md)。目前只交付 contracts/db 及仓库测试；Worker、Runner、SSE、预览和部署服务按 B08–B15 后续实现。
+迁移 0008 已新增构建、日志分块、预览链接及最小部署关联表，见 [构建数据模型](./build-data-model.md) 与 [ADR-0007](../adr/0007-build-data-foundation.md)。B07 交付 contracts/db 及仓库测试；B08 已交付 [构建 API 与空构建 Worker](./worker-build-queue.md)，Docker Runner、SSE、预览和部署服务按 B09–B15 后续实现。

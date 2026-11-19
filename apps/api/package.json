@@ -24,7 +24,8 @@
     "drizzle-orm": "^0.44.5",
     "reflect-metadata": "^0.2.2",
     "dotenv": "^16.6.0",
-    "rxjs": "^7.8.0"
+    "rxjs": "^7.8.0",
+    "bullmq": "^5.0.0"
   },
   "devDependencies": { "@types/node": "^22.0.0", "tsx": "^4.20.0", "typescript": "^5.9.0", "vitest": "^3.2.0" }
 }

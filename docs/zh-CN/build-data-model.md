@@ -1,6 +1,6 @@
 # 构建、日志与静态预览数据基础（B07）
 
-状态：已提供数据表、共享 Zod 契约、数据仓库及测试。没有新增 API、Worker、Runner、对象存储、SSE、预览网关或部署执行能力；分别由 B08–B15 交付。决策见 [ADR-0007](../adr/0007-build-data-foundation.md)。当前中文为权威版本，英文未翻译，对外发布前须补齐。
+状态：B07 已提供数据表、共享 Zod 契约、数据仓库及测试；B08 已新增 [队列 Worker、构建 API 与查询/取消能力](./worker-build-queue.md)。Docker Runner、对象存储、SSE、预览网关或部署执行能力仍由 B09–B15 交付。决策见 [ADR-0007](../adr/0007-build-data-foundation.md)。当前中文为权威版本，英文未翻译，对外发布前须补齐。
 
 ## 表与边界
 
@@ -50,6 +50,12 @@
 `PreviewLinkCreateRequestSchema` 的 ttlSeconds 默认为 86400（24 小时），仅接受 300–604800（5 分钟至 7 天）的整数。`PreviewLinkRepository.create` 接收 buildId、createdBy、tokenHash 和可选 ttlSeconds，计算到期时间，不接收原始令牌。B11 负责生成 32 字节密码学随机令牌（base64url 43 字符），SHA-256 后调用仓库；仅创建响应 `PreviewLinkCreateResponse` 返回一次明文 token。公开的 `PreviewLink` 元数据不包含 token 或 tokenHash，严格 Schema 拒绝额外字段。
 
 `findValidByHash` 同时要求摘要匹配、未撤销、`expires_at > 当前时间`；过期时刻本身无效，未知摘要返回 null。查询不刷新访问时间；网关成功服务产物时调用带有效期条件的 `recordAccess`。`revoke(buildId, id)` 按构建范围撤销且不覆盖首次撤销时间，返回是否发生变更。撤销后查找/更新访问时间均无效。B11 必须在业务层校验项目权限、构建成功及产物可读；B07 只有持久化能力，尚不可通过 URL 访问预览。
+
+## B08 增量
+
+迁移 0009 增加 `build_audit`（项目、构建、操作者 ID、triggered/canceled、时间），创建构建与 triggered、取消状态与 canceled 分别在同一仓库事务提交。`create(input, true)` 开启触发审计，`updateStatus` 的第五参数为取消操作者；非取消转换不允许带取消操作者。build_audit 随项目/构建级联删除，不保存源码或凭证。
+
+`listQueuedBefore` / `listRunningBefore` 是 worker 的有界恢复扫描（默认 100 条，最多 1000 条），按开始/排队时间和 ID 排序，转换仍须走状态守卫。恢复规则及双写窗口见 [Worker 指南](./worker-build-queue.md)。B08 不更改 B07 的终态不可重开和日志序号语义。
 
 ## 验证与迁移
 

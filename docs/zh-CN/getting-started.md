@@ -92,3 +92,5 @@ node packages/cli/dist/index.js asset remove official.theme --dir /path/to/my-ap
 API 允许的开发前端 Origin 默认为 `http://localhost:5173`，可通过 `CONSOLE_ORIGIN` 配置；API 端口可由 `PORT` 调整，若修改端口需同时修改 Vite 代理设置。
 
 此版本没有认证、数据库或用户代码执行能力，不能作为生产系统部署。
+
+构建队列开发：根 `pnpm dev` 同时启动 worker；没有 DATABASE_URL 或 REDIS_URL 时 worker dev 打印 disabled。使用真实队列需要 Redis 7 和完成迁移的 MySQL，详见 [构建队列与 Worker](./worker-build-queue.md)。当前空构建不执行用户源码。

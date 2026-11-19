@@ -6,7 +6,7 @@ import {
   type BuildStatus, type BuildLogEvent, type RunnerInfo,
 } from '@forgekit/contracts';
 import type { DatabaseClient } from './index';
-import { builds, buildLogChunks, previewLinks, projects } from './schema';
+import { builds, buildLogChunks, previewLinks, projects, buildAudit } from './schema';
 
 type Database = DatabaseClient['db'];
 type BuildRow = typeof builds.$inferSelect;
@@ -29,7 +29,7 @@ function pageSize(limit: number): number {
 export class BuildRepository {
   constructor(private readonly db: Database) {}
 
-  async create(input: { projectId: string; template: string; sourceRef: string; triggeredBy: string }): Promise<BuildRow> {
+  async create(input: { projectId: string; template: string; sourceRef: string; triggeredBy: string }, audit = false): Promise<BuildRow> {
     const now = new Date();
     const row: BuildRow = {
       ...input, id: randomUUID(), number: 1, status: 'queued', queuedAt: now, startedAt: null,
@@ -48,6 +48,8 @@ export class BuildRepository {
       row.number = (last?.number ?? 0) + 1;
       if (row.number > 4294967295) throw new RangeError('构建编号已耗尽。');
       await tx.insert(builds).values(row);
+      if (audit) await tx.insert(buildAudit).values({ projectId: row.projectId, buildId: row.id,
+        actorUserId: row.triggeredBy, action: 'triggered' });
       return row;
     }, { isolationLevel: 'read committed' });
   }
@@ -66,10 +68,25 @@ export class BuildRepository {
       .orderBy(desc(builds.number)).limit(pageSize(options.limit ?? 50));
   }
 
+  /** Reconcile a DB commit interrupted before enqueue; bounded scan, stable oldest-first order. */
+  async listQueuedBefore(before: Date, limit = 100): Promise<BuildRow[]> {
+    return this.db.select().from(builds).where(and(eq(builds.status, 'queued'), lt(builds.queuedAt, before)))
+      .orderBy(asc(builds.queuedAt), asc(builds.id)).limit(pageSize(limit));
+  }
+
+  async listRunningBefore(before: Date, limit = 100): Promise<BuildRow[]> {
+    return this.db.select().from(builds).where(and(eq(builds.status, 'running'), lt(builds.startedAt, before)))
+      .orderBy(asc(builds.startedAt), asc(builds.id)).limit(pageSize(limit));
+  }
+
   async updateStatus(id: string, from: BuildStatus, to: BuildStatus, patch: {
     exitCode?: number; errorMessage?: string; artifactKey?: string; artifactSize?: number;
     artifactSha256?: string; logStorageKey?: string; runnerInfo?: RunnerInfo;
-  } = {}): Promise<BuildRow> {
+  } = {}, cancelActorId?: string): Promise<BuildRow> {
+    if (cancelActorId !== undefined) {
+      BuildSchema.shape.triggeredBy.parse(cancelActorId);
+      if (to !== 'canceled') throw new BuildTransitionError();
+    }
     BuildStatusSchema.parse(from);
     BuildStatusSchema.parse(to);
     if (!canTransition(from, to)) throw new BuildTransitionError();
@@ -88,6 +105,8 @@ export class BuildRepository {
         startedAt: to === 'running' ? now : current.startedAt,
         finishedAt: to === 'running' ? null : now };
       await tx.update(builds).set(row).where(eq(builds.id, id));
+      if (cancelActorId) await tx.insert(buildAudit).values({ projectId: row.projectId, buildId: id,
+        actorUserId: cancelActorId, action: 'canceled' });
       return row;
     });
   }

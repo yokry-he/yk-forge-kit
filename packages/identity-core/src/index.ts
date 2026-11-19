@@ -5,12 +5,13 @@ export type ProjectRole = 'owner' | 'editor' | 'viewer';
 export type ProjectPermission =
   | 'project:read' | 'project:update' | 'project:delete'
   | 'asset:read' | 'asset:plan'
-  | 'member:read' | 'member:manage';
+  | 'member:read' | 'member:manage'
+  | 'build:read' | 'build:run' | 'build:cancel';
 
 const permissions: Readonly<Record<ProjectRole, ReadonlySet<ProjectPermission>>> = {
-  owner: new Set(['project:read', 'project:update', 'project:delete', 'asset:read', 'asset:plan', 'member:read', 'member:manage']),
-  editor: new Set(['project:read', 'project:update', 'asset:read', 'asset:plan', 'member:read']),
-  viewer: new Set(['project:read', 'asset:read', 'member:read']),
+  owner: new Set(['project:read', 'project:update', 'project:delete', 'asset:read', 'asset:plan', 'member:read', 'member:manage', 'build:read', 'build:run', 'build:cancel']),
+  editor: new Set(['project:read', 'project:update', 'asset:read', 'asset:plan', 'member:read', 'build:read', 'build:run', 'build:cancel']),
+  viewer: new Set(['project:read', 'asset:read', 'member:read', 'build:read']),
 };
 
 /** Unknown roles, missing memberships and unrecognized permissions always deny. */

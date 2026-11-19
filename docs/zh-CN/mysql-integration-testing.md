@@ -81,3 +81,7 @@ corepack pnpm --filter @forgekit/api exec vitest run test/keycloak-oidc.mysql.te
 `db:test:integration` 通过 `pnpm --filter @forgekit/db... build` 按依赖顺序构建 contracts/db，顺序运行原有迁移测试和 `packages/db/test/build-repositories.mysql.test.ts`，CI 的 mysql-integration Job 使用相同入口。新增测试覆盖预 B07 已有项目升级及迁移重放、双连接池同项目并发编号、不同项目首次构建/不同构建首次日志的并发写入、状态竞争、日志分块序号/续传、预览摘要/有效期/撤销、同项目组合外键和级联清理。详细边界见 [构建数据模型](./build-data-model.md)。默认单元测试仍跳过真实数据库用例。
 
 2026-11-19 审查修复验证：在 `/tmp` 新建独立数据目录，使用本地 MySQL 8.0.45（默认 `REPEATABLE READ`）通过上述 3 项数据库测试及 5 项相关 API 集成测试，无需 Docker。另在临时源码副本中分别移除构建编号、日志序号事务的 `READ COMMITTED` 配置，两次均由跨父记录并发回归检出 `ER_LOCK_DEADLOCK`；工作区源码未受该验证影响。临时实例仅按本次启动的子进程 PID 停止，CI 继续使用 Docker 环境。
+
+## B08 Redis + Worker 集成
+
+`compose.test.yml` 同时提供 Redis 7（回环 36379），`.env.test.example` 增加 `FORGEKIT_WORKER_INTEGRATION=1` 和专用 Redis DB 15。数据库迁移/构建后运行 `corepack pnpm --filter @forgekit/api exec vitest run test/build-queue.integration.test.ts`，覆盖 API service 触发、真实队列消费、日志/审计持久化和恢复。CI mysql-integration Job 使用 Redis 7 服务显式运行同一用例；默认测试仍跳过。配置和完整边界见 [Worker 指南](./worker-build-queue.md)。
