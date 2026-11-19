@@ -15,6 +15,8 @@ jobs:
           node-version: '22'
       - run: corepack enable
       - run: corepack pnpm install --frozen-lockfile
+      - name: Startup without prebuilt workspace packages
+        run: corepack pnpm test:startup
       - run: corepack pnpm typecheck
       - run: corepack pnpm db:migrations:check
       - run: corepack pnpm test

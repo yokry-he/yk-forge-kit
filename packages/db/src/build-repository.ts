@@ -42,14 +42,14 @@ export class BuildRepository {
       const [project] = await tx.select({ id: projects.id }).from(projects)
         .where(eq(projects.id, input.projectId)).for('update');
       if (!project) throw new BuildNotFoundError();
-      // A locking/current read avoids a stale repeatable-read snapshot after waiting for the parent lock.
+      // READ COMMITTED avoids shared index-gap locks between different projects' first builds.
       const [last] = await tx.select({ number: builds.number }).from(builds)
         .where(eq(builds.projectId, input.projectId)).orderBy(desc(builds.number)).limit(1).for('update');
       row.number = (last?.number ?? 0) + 1;
       if (row.number > 4294967295) throw new RangeError('构建编号已耗尽。');
       await tx.insert(builds).values(row);
       return row;
-    });
+    }, { isolationLevel: 'read committed' });
   }
 
   async get(id: string): Promise<BuildRow | null> {
@@ -103,13 +103,14 @@ export class BuildLogRepository {
     return this.db.transaction(async (tx) => {
       const [build] = await tx.select({ id: builds.id }).from(builds).where(eq(builds.id, input.buildId)).for('update');
       if (!build) throw new BuildNotFoundError();
+      // Keep per-build serialization without locking shared index gaps for other builds' first chunks.
       const [last] = await tx.select({ seq: buildLogChunks.seq }).from(buildLogChunks)
         .where(eq(buildLogChunks.buildId, input.buildId)).orderBy(desc(buildLogChunks.seq)).limit(1).for('update');
       row.seq = (last?.seq ?? 0) + 1;
       if (row.seq > 4294967295) throw new RangeError('日志序号已耗尽。');
       await tx.insert(buildLogChunks).values(row);
       return row;
-    });
+    }, { isolationLevel: 'read committed' });
   }
 
   async listSince(buildId: string, seq = 0, limit = 500) {

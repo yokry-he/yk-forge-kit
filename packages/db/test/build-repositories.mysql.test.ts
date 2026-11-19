@@ -14,6 +14,53 @@ const digest = () => createHash('sha256').update(randomBytes(32)).digest('hex');
 function wire<T>(value: T): unknown { return JSON.parse(JSON.stringify(value)); }
 
 describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B07 MySQL repositories', () => {
+  it('does not deadlock on concurrent first writes across different projects and builds', async () => {
+    const url = requireDisposableTestDatabase(process.env);
+    const clients = [createDatabaseClient(url), createDatabaseClient(url)];
+    const client = clients[0]!;
+    const repositories = clients.map(({ db }) => new BuildRepository(db));
+    const logRepositories = clients.map(({ db }) => new BuildLogRepository(db));
+    const userId = randomUUID();
+    const projectIds = Array.from({ length: 20 }, () => randomUUID());
+    // Wait for every writer, including failures, before assertions or fixture cleanup.
+    async function successful<T>(writes: Promise<T>[]): Promise<T[]> {
+      const results = await Promise.allSettled(writes);
+      expect(results.filter((result) => result.status === 'rejected')).toEqual([]);
+      return results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
+    }
+    try {
+      await migrate(client.db, { migrationsFolder: resolve(process.cwd(), 'drizzle') });
+      await client.db.insert(users).values({ id: userId, displayName: '跨父记录并发测试' });
+      await client.db.insert(projects).values(projectIds.map((id) => ({
+        id, slug: `b07-cross-parent-${id}`, name: 'Cross-parent concurrency', features: [],
+      })));
+      for (let number = 1; number <= 3; number++) {
+        // All parents are different: parent-row locks alone cannot prevent shared gap deadlocks.
+        const created = await successful(projectIds.map((projectId, index) => repositories[index % 2]!.create({
+          projectId, triggeredBy: userId, template: 'vue-web', sourceRef: `sources/cross-parent-${number}.tar`,
+        })));
+        expect(created.map((build) => build.number)).toEqual(projectIds.map(() => number));
+        for (let seq = 1; seq <= 2; seq++) {
+          const chunks = await successful(created.map((build, index) => logRepositories[index % 2]!.append({
+            buildId: build.id, stream: 'stdout', content: `chunk ${seq}`,
+          })));
+          expect(chunks.map((chunk) => chunk.seq)).toEqual(created.map(() => seq));
+        }
+        for (const build of created) {
+          expect((await logRepositories[0]!.listSince(build.id)).map((chunk) => chunk.seq)).toEqual([1, 2]);
+        }
+      }
+      for (const projectId of projectIds) {
+        expect((await repositories[0]!.listByProject(projectId)).map((build) => build.number)).toEqual([3, 2, 1]);
+      }
+    } finally {
+      try {
+        await client.db.delete(projects).where(inArray(projects.id, projectIds));
+        await client.db.delete(users).where(eq(users.id, userId));
+      } finally { await Promise.all(clients.map((client) => client.close())); }
+    }
+  }, 60_000);
+
   it('serializes build numbers, status updates and logs; enforces preview lifecycle and project FKs', async () => {
     const url = requireDisposableTestDatabase(process.env);
     const client = createDatabaseClient(url);

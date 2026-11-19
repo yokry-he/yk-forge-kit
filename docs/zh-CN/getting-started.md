@@ -20,6 +20,8 @@ corepack pnpm dev
 
 API 开发模式使用 `tsx watch`。新增 NestJS 构造器依赖时，请用 `@Inject(服务类)` 显式声明注入对象，因为 tsx 不会生成类型元数据。
 
+根目录 `dev` 会先按依赖顺序构建 API 与控制台的全部依赖包（包括 db、contracts），干净检出可直接执行。`corepack pnpm --filter @forgekit/db db:check` 同样会先构建 db 及其依赖。单独启动 API 前，应先执行 `corepack pnpm --filter @forgekit/api^... build`。
+
 单独运行：
 
 ```bash
@@ -34,7 +36,10 @@ corepack pnpm --filter @forgekit/cli dev -- version
 corepack pnpm typecheck
 corepack pnpm test
 corepack pnpm build
+corepack pnpm test:startup
 ```
+
+`test:startup` 在临时目录复制无 `dist` 的工作区并复用已安装的第三方依赖，验证根目录 `dev` 的 API 健康接口及 `db:check` 的模块加载；后者在无数据库配置时应明确报告缺少 `DATABASE_URL`。该检查不连接数据库，不删除当前工作区的编译产物，CI 在其他构建之前运行。中文为当前权威文档，英文对应指南尚待对外发布前补齐。
 
 ## 创建一个 Vue 项目
 

@@ -11,7 +11,7 @@
     "build": "tsc",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "db:check": "pnpm build && node dist/check.js",
+    "db:check": "pnpm --filter @forgekit/db... build && node dist/check.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate"
   },
