@@ -69,6 +69,7 @@ export const PreviewLinkCreateResponseSchema = z.strictObject({
   previewLink: PreviewLinkSchema,
   // B11 generates 32 cryptographically random bytes, encoded as unpadded base64url.
   token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
+  url: z.url(),
 });
 export type PreviewLinkCreateResponse = z.infer<typeof PreviewLinkCreateResponseSchema>;
 

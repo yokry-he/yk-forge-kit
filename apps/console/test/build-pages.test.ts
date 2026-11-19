@@ -13,6 +13,8 @@ import type {
 } from '@forgekit/contracts';
 import BuildListPage from '../src/views/BuildListPage.vue';
 import BuildDetailPage from '../src/views/BuildDetailPage.vue';
+import PreviewLinkPanel from '../src/components/builds/PreviewLinkPanel.vue';
+import { listPreviewLinks } from '../src/api/preview-links';
 import { useBuildProjectAccess } from '../src/composables/useBuildProjectAccess';
 import { useBuildLogStream } from '../src/composables/useBuildLogStream';
 import {
@@ -46,6 +48,8 @@ vi.mock('../src/api/projects', () => {
     getProject: vi.fn(),
   };
 });
+
+vi.mock('../src/api/preview-links', () => ({ listPreviewLinks: vi.fn().mockResolvedValue([]), createPreviewLink: vi.fn(), revokePreviewLink: vi.fn() }));
 
 vi.mock('../src/api/project-members', () => ({
   listProjectMembers: vi.fn(),
@@ -500,6 +504,7 @@ describe('BuildListPage request ownership', () => {
 describe('BuildDetailPage', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(listPreviewLinks).mockResolvedValue([]);
     setAccessMock();
     setLogStreamMock();
     vi.mocked(getBuild).mockResolvedValue(runningBuild);
@@ -509,6 +514,16 @@ describe('BuildDetailPage', () => {
 
   afterEach(() => {
     vi.useRealTimers();
+  });
+
+  it('仅成功构建挂载预览面板，并传入项目、构建及管理权限', async () => {
+    const router = await createTestRouter();
+    const wrapper = await mountDetail(router);
+    expect(wrapper.findComponent(PreviewLinkPanel).exists()).toBe(false);
+    vi.mocked(getBuild).mockResolvedValue({ ...runningBuild, status: 'succeeded' });
+    await wrapper.findAll('button').find(button => button.text() === '刷新构建')!.trigger('click');
+    await flushPromises();
+    expect(wrapper.findComponent(PreviewLinkPanel).props()).toEqual({ projectId: project.id, buildId: runningBuild.id, canManage: true });
   });
 
   it('直接访问构建详情，slug 解析为项目 UUID', async () => {

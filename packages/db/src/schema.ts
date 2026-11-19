@@ -191,3 +191,14 @@ export const buildAudit = mysqlTable('build_audit', {
   action: varchar('action', { length: 16 }).$type<'triggered' | 'canceled'>().notNull(),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
 }, (t) => [index('build_audit_project_time_idx').on(t.projectId, t.createdAt)]);
+
+/** Link lifecycle audit excludes bearer tokens, URLs and digests. */
+export const previewLinkAudit = mysqlTable('preview_link_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  buildId: varchar('build_id', { length: 36 }).notNull().references(() => builds.id, { onDelete: 'cascade' }),
+  previewLinkId: varchar('preview_link_id', { length: 36 }).notNull(),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: varchar('action', { length: 16 }).$type<'created' | 'revoked'>().notNull(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+}, (t) => [index('preview_link_audit_project_time_idx').on(t.projectId, t.createdAt)]);

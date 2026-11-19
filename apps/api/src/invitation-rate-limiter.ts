@@ -4,8 +4,10 @@ import { eq, sql } from 'drizzle-orm';
 import { invitationRateBuckets } from '@forgekit/db';
 import { DatabaseService } from './database.service';
 
-type QuotaType = 'create' | 'redeem' | 'build-trigger' | 'build-cancel';
+type QuotaType = 'create' | 'redeem' | 'build-trigger' | 'build-cancel' | 'preview-create' | 'preview-revoke';
 const LIMITS: Record<QuotaType, { attempts: number; windowMs: number }> = {
+  'preview-create': { attempts: 30, windowMs: 60 * 60 * 1000 },
+  'preview-revoke': { attempts: 60, windowMs: 60 * 60 * 1000 },
   'build-trigger': { attempts: 30, windowMs: 60 * 60 * 1000 },
   'build-cancel': { attempts: 60, windowMs: 60 * 60 * 1000 },
   create: { attempts: 10, windowMs: 60 * 60 * 1000 },

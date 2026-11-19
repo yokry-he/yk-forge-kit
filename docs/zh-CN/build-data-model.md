@@ -1,6 +1,6 @@
 # 构建、日志与静态预览数据基础（B07）
 
-状态：B07 已提供数据表、共享 Zod 契约、数据仓库及测试；B08 已新增 [队列 Worker、构建 API 与查询/取消能力](./worker-build-queue.md)；B09 已提供 [Docker Runner、本地制品和受限日志](./docker-build-runner.md)。B10 已提供 [SSE 实时日志与控制台构建页](./build-console.md)。云对象存储、预览网关或部署执行能力尚未实现。决策见 [ADR-0007](../adr/0007-build-data-foundation.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)。当前中文为权威版本，英文未翻译，对外发布前须补齐。
+状态：B07 已提供数据表、共享 Zod 契约、数据仓库及测试；B08 已新增 [队列 Worker、构建 API 与查询/取消能力](./worker-build-queue.md)；B09 已提供 [Docker Runner、本地制品和受限日志](./docker-build-runner.md)。B10 已提供 [SSE 实时日志与控制台构建页](./build-console.md)。B11 已提供 [静态预览网关与链接管理](./preview-links.md)。云对象存储与部署执行能力尚未实现。决策见 [ADR-0007](../adr/0007-build-data-foundation.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)。当前中文为权威版本，英文未翻译，对外发布前须补齐。
 
 ## 表与边界
 
@@ -67,3 +67,7 @@ B09 Docker Runner 已提供两阶段合计日志字节上限、脱敏、未换�
 CI 的 mysql-integration Job 使用同一入口，固定开启 `FORGEKIT_DB_INTEGRATION=1`；测试沿用回环地址、3306/33306、forgekit_test 库和账号的强校验，不连接业务库。迁移工具通过 journal 记账实现重放无操作，SQL 文件本身不使用 IF NOT EXISTS。MySQL DDL 不能事务回滚；失败后须检查部分落表，不能盲目重跑。
 
 本次是增量加表，已有接口与旧表保持兼容。上线前先备份并在副本演练。需要回退时先停用调用新表的服务，优先前向修复；只有确认可丢弃新增数据后才能按 deployments → preview_links/build_log_chunks → builds/deploy_targets/environments 的依赖顺序删除新增表，并恢复一致的迁移记账。不能仅删除迁移文件或回退应用来撤销已执行的 DDL。
+
+## B11 预览审计增量
+
+迁移 `0010_b11_preview_link_audit` 新增 `preview_link_audit`，记录项目、构建、链接 ID、操作者、动作与时间；创建/撤销和审计同事务提交，不含令牌/URL/摘要。B07 `preview_links` 字段不变，新增有效链接查询、摘要安全比较和访问时间的数据库节流。管理权限、接口与运行方式见 [静态预览](./preview-links.md)。

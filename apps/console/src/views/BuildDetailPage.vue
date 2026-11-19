@@ -9,6 +9,7 @@ import { useBuildProjectAccess } from '../composables/useBuildProjectAccess';
 import BuildStatusBadge from '../components/builds/BuildStatusBadge.vue';
 import BuildTriggerForm from '../components/builds/BuildTriggerForm.vue';
 import BuildLogViewer from '../components/builds/BuildLogViewer.vue';
+import PreviewLinkPanel from '../components/builds/PreviewLinkPanel.vue';
 
 const route = useRoute();
 const router = useRouter();
@@ -347,6 +348,9 @@ onUnmounted(() => {
           </div>
         </section>
 
+        <PreviewLinkPanel v-if="build.status === 'succeeded' && oidcEnabled"
+          :key="`preview:${project.id}:${build.id}`" :project-id="project.id" :build-id="build.id" :can-manage="canRun"
+          @unauthorized="handleUnauthorized" @forbidden="refreshAccess" />
         <BuildLogViewer
           :key="`${project.id}:${build.id}`"
           :project-id="project.id"

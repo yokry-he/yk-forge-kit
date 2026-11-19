@@ -85,3 +85,7 @@ corepack pnpm --filter @forgekit/api exec vitest run test/keycloak-oidc.mysql.te
 ## B08 Redis + Worker 集成
 
 `compose.test.yml` 同时提供 Redis 7（回环 36379），`.env.test.example` 增加 `FORGEKIT_WORKER_INTEGRATION=1` 和专用 Redis DB 15。数据库迁移/构建后运行 `corepack pnpm --filter @forgekit/api exec vitest run test/build-queue.integration.test.ts`，覆盖 API service 触发、真实队列消费、日志/审计持久化和恢复。CI mysql-integration Job 使用 Redis 7 服务显式运行同一用例；默认测试仍跳过。配置和完整边界见 [Worker 指南](./worker-build-queue.md)。
+
+## B11 静态预览端到端
+
+在上述一次性 MySQL 环境中额外设置 `FORGEKIT_PREVIEW_INTEGRATION=1`，运行 `corepack pnpm --filter @forgekit/api exec vitest run test/preview-links.integration.test.ts`。测试沿用数据库安全 gate，仅使用 fixture 静态制品，不需要 Docker 或 Redis。覆盖真实 API 权限/TTL、原子审计、摘要持久化、独立 host HTTP index/asset 读取、访问节流、过期/撤销、审计失败回滚及成员移除。CI mysql-integration Job 已接入；默认单元测试跳过该用例。详细配置见 [预览指南](./preview-links.md)。

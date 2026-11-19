@@ -50,6 +50,7 @@ jobs:
     env:
       FORGEKIT_DB_INTEGRATION: '1'
       FORGEKIT_WORKER_INTEGRATION: '1'
+      FORGEKIT_PREVIEW_INTEGRATION: '1'
       REDIS_URL: redis://127.0.0.1:6379/15
       DATABASE_URL: mysql://forgekit_test:ci_user_test_only@127.0.0.1:3306/forgekit_test
     steps:
@@ -63,6 +64,8 @@ jobs:
       - name: MySQL migrations and repositories (including B07)
         run: corepack pnpm db:test:integration
       - run: corepack pnpm build
+      - name: B11 preview links, real persistence and fixture artifact HTTP end-to-end
+        run: corepack pnpm --filter @forgekit/api exec vitest run test/preview-links.integration.test.ts
       - name: B08 API producer, worker, persisted logs and restart recovery
         run: corepack pnpm --filter @forgekit/api exec vitest run test/build-queue.integration.test.ts
       - run: corepack pnpm --filter @forgekit/api exec vitest run test/mysql-project-flow.test.ts

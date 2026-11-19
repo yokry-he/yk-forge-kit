@@ -1,6 +1,6 @@
 # ADR-0009：构建与预览安全模型
 
-- 状态：Accepted（B09 构建实现；预览约束由 B11 实现）
+- 状态：Accepted（B09 构建与 B11 静态预览已实现）
 - 日期：2026-11-19
 - English title: Build and preview security model
 
@@ -30,18 +30,24 @@
 7. 仓库只有项目登记元数据，没有源码文件表/上传快照/Git 获取实现。Docker Runner 仅接受 `template:<模板ID>`，且须与构建记录和项目模板一致；通过 project-core 渲染项目 slug、features。此引用代表当前版本模板重建，不是用户本地源码或不可变快照；其余 sourceRef 拒绝，不能当宿主路径或 shell 片段。模板元数据指定 build/generate 和输出路径，缺省探测 `dist`、`.output/public`；Nuxt 使用 generate。
 8. 制品在所有构建容器删除后，由可信 Worker 拷贝到 `ArtifactStore`。MVP 的 LocalFs 实现以 `<build UUID>/<随机 UUID>` 发布独立目录，临时目录复制完成后 rename，拒绝链接、路径穿越与特殊文件，默认总量 100 MiB、10000 条目、最多 64 层；需存在常规 `index.html`。B07 `updateStatus` 在 running→succeeded 同事务保存 key、文件总字节数和 SHA-256（排序文件清单的摘要，非 tar 摘要）。读取接口按 key + 相对路径打开流，授权仍由 B11 调用方负责；不公开存储根，不跟随链接。存储根及祖先只允许可信服务修改，容器不可写；此条件和停容器后复制避免本地 TOCTOU 攻击。失败阶段不发布半成品；数据库提交/取消竞争仍可能遗留无引用目录，后续保留期清理需与 DB 对账，B09 不实现自动 GC。
 
-## 预览决策（B11 实现约束）
+## 预览决策（B11 已实现）
 
 预览服务使用独立 origin/host，优先选择与控制台/API 不同的可注册域，并为不同项目/构建隔离 host，避免同源脚本、localStorage、Service Worker 相互读取。主应用 Cookie 必须 host-only（建议 `__Host-`、Secure、HttpOnly、SameSite），禁止设置覆盖预览 host 的 Domain；预览端不发送/转发主应用 Cookie，也不设置主应用 Cookie。控制台/API CORS 不允许预览 origin 携凭证访问。Host 路由必须严格匹配，不信任请求中的任意转发头。
 
 生成令牌使用加密安全的 32 随机字节（256 bit），无填充 base64url；只在创建响应交付明文，持久化 SHA-256。沿用 B07 的 5 分钟至 7 天 TTL、默认 24 小时，逐请求检查未过期、未撤销、构建成功及制品存在，并执行项目权限校验以创建/撤销令牌。API、网关、代理、访问分析、错误跟踪不能记录令牌、完整带令牌 URL 或 Authorization，配置 query/path 脱敏；返回 `Referrer-Policy: no-referrer`、`Cache-Control: no-store`，避免通过 Referer 或公共 CDN 缓存扩散。链接本身是 bearer 凭证，接收者仍能复制或主动外传，不能将其当保密内容的强访问控制。
 
-仅服务校验后的静态文件，严格 MIME，返回 `X-Content-Type-Options: nosniff` 和 CSP。初始策略以 `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` 为基线。Nuxt 的内联 hydration 等需要逐页 hash/nonce 或明确评估兼容策略，不为方便默认开放任意脚本/外部连接；控制台若需 iframe 嵌入须另行收紧允许的 frame-ancestors。预览脚本始终视为不可信，CSP 是纵深防御，不把预览 XSS 与主应用同源。路径需解码一次后交给 ArtifactStore 校验，不将令牌当文件路径。B09 不实现上述 HTTP 网关、令牌生成或预览 UI。
+仅服务校验后的静态文件，严格 MIME，返回 `X-Content-Type-Options: nosniff` 和 CSP。初始策略以 `default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'; frame-ancestors 'none'` 为基线。Nuxt 的内联 hydration 等需要逐页 hash/nonce 或明确评估兼容策略，不为方便默认开放任意脚本/外部连接；控制台若需 iframe 嵌入须另行收紧允许的 frame-ancestors。预览脚本始终视为不可信，CSP 是纵深防御，不把预览 XSS 与主应用同源。路径需解码一次后交给 ArtifactStore 校验，不将令牌当文件路径。B11 已实现上述 HTTP 网关、令牌生成与预览 UI，运行边界见 [静态预览指南](../zh-CN/preview-links.md)。
+
+### B11 实施说明
+
+采用 `apps/api/src/preview-main.ts` 独立 Node HTTP **进程**（独立监听、无 Nest/API 路由或应用 Cookie 中间件），复用 API 包依赖但不在主 API origin 服务制品。`FORGEKIT_PREVIEW_BASE_URL` 指定基础 origin，链接使用一个 52 字符小写 base32 凭证标签作为子域名；该编码完整保留 256 位随机数，返回的 token 字段仍是 B07 约定的无填充 base64url，数据库只存后者的 SHA-256。每链接隔离 host 比按构建隔离更细，支持单层通配 DNS/TLS；Host 中的标签同样需要脱敏；它也出现在 DNS/SNI 中，TLS 不能单独隐藏这一凭证暴露面，部署者必须控制对应日志与可见范围。基础域与主应用禁止同 host 或父子关系，生产部署优先不同可注册域。
+
+选择 host 根路径方案避免给制品引入 token 路径前缀：Vue history、Nuxt generate 以及绝对/相对资源路径沿用模板原有 base，无需修改构建产物。Nuxt 内联脚本按实际页面生成 CSP SHA-256 hash，HTML 缓冲上限 8 MiB；补充 `worker-src 'none'` 避免已撤销链接遗留 Service Worker。有效性逐请求查询，访问时间通过数据库条件最多每分钟写一次。API 返回元数据沿用 B07（链接 ID、时间，无令牌前缀），创建响应增加 `url`；新增 0010 迁移保存原子创建/撤销审计。无扩大原有安全权限或放开脚本策略。
 
 ## 取舍、演进与验证
 
 Docker 不能消除共享内核逃逸风险；后续可配置 `FORGEKIT_BUILD_RUNTIME=runsc`，由专用宿主安装注册 gVisor；Kata 也通过 runtime 适配，需重跑网络/文件系统/资源限制/清理测试后启用。当前不开启自动 runtime 安装、不承诺已验证 gVisor/Kata。
 
-工作目录的 bind mount 没有 Docker 通用大小上限，必须配置宿主独立文件系统/项目配额与并发容量告警，tmpfs 限制和制品上限不能限制安装期间写盘。保留本地目录制品使 B11 可直接按文件读取；OSS/S3 实现仅替换 ArtifactStore，不把云 SDK 引入构建编排。首次外部复用时再评估适配器独立包，不因规划提前抽取。
+工作目录的 bind mount 没有 Docker 通用大小上限，必须配置宿主独立文件系统/项目配额与并发容量告警，tmpfs 限制和制品上限不能限制安装期间写盘。保留本地目录制品使 B11 可直接按文件读取；OSS/S3 实现仅替换 ArtifactStore，不把云 SDK 引入构建编排。B11 的网关已形成第二个真实消费者，因此将 B09 ArtifactStore 抽到 `packages/artifact-store`；Worker 保留兼容导出，网关仅使用读取接口。
 
 单元测试覆盖参数、脱敏、日志上限、链接/路径/大小、超时/取消与清理；独立 Docker CI 构建 Vue 和 Nuxt，检查制品与容器内实际禁网。运行方式、风险、回滚见 [Docker Runner 指南](../zh-CN/docker-build-runner.md)。Docker 安全选项依据 [Docker 官方 run 文档](https://docs.docker.com/reference/cli/docker/container/run/)，Corepack 缓存依据 [Node Corepack 文档](https://github.com/nodejs/node/blob/main/deps/corepack/README.md)。

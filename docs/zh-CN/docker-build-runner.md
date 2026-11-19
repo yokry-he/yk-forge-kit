@@ -1,6 +1,6 @@
 # Docker 构建 Runner 与本地制品（B09）
 
-已实现模板工程的隔离安装/静态构建、逐行日志、受限本地制品存储与读取能力。默认仍使用 NoopRunner；B10 [实时日志与控制台构建页](./build-console.md) 已实现；B11 带令牌的预览 HTTP 服务尚未实现。中文为当前权威，英文待翻译，对外发布前需补齐对应指南。安全与后续预览边界见 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，队列/授权见 [B08](./worker-build-queue.md)。
+已实现模板工程的隔离安装/静态构建、逐行日志、受限本地制品存储与读取能力。默认仍使用 NoopRunner；B10 [实时日志与控制台构建页](./build-console.md) 已实现；[B11 带令牌的独立预览 HTTP 服务](./preview-links.md) 已实现。中文为当前权威，英文待翻译，对外发布前需补齐对应指南。安全与后续预览边界见 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，队列/授权见 [B08](./worker-build-queue.md)。
 
 ## 设计与源码来源
 
@@ -81,13 +81,13 @@ WORKER_CONCURRENCY 默认 2，按宿主能力调小。Docker 与制品存储错�
 
 ## 制品接口与存储边界
 
-`ArtifactStore.put(buildId, directory, signal)` 返回 `{key,size,sha256}`；`open(key, relativePath)` 返回 `{size,body: AsyncIterable<Uint8Array>}`，调用者须消费或销毁流以关闭文件；`remove(key)` 删除指定制品。接口不携带本地绝对输出路径到 DB，不绑定云 SDK，后续可实现 S3/OSS 的相同能力。B11 在首次跨服务复用时可抽取独立适配器包；本项留在 worker 能力边界内。
+`ArtifactStore.put(buildId, directory, signal)` 返回 `{key,size,sha256}`；`open(key, relativePath)` 返回 `{size,body: AsyncIterable<Uint8Array>}`，调用者须消费或销毁流以关闭文件；`remove(key)` 删除指定制品。接口不携带本地绝对输出路径到 DB，不绑定云 SDK，后续可实现 S3/OSS 的相同能力。B11 已因 Worker/网关的真实共享将其抽到 `packages/artifact-store`，Worker 原路径保留兼容导出。`open` 另提供可选 `close()`，未消费或 HEAD 响应须关闭文件。
 
 本地 key 为 `<构建UUID>/<发布UUID>`，先复制至临时目录再原子 rename，不覆盖既有制品。size 是所有常规文件的字节和，sha256 是按路径排序的每文件 `[相对路径,字节数,文件sha256]` JSON 加 LF 的清单摘要（不含空目录），不是 tar 包摘要。复制与读取逐层 lstat 检查、最终文件 O_NOFOLLOW，拒绝符号链接、硬链接数大于 1、特殊文件和路径穿越；默认最多 10000 条目、64 层。拒绝绝对路径、反斜杠、空段、`.`/`..`、控制字符、冒号和 `%`，HTTP 调用方须只解码一次，禁止双解码和目录列表。存储根及其祖先必须由可信服务独占修改。
 
 根目录与子目录均通过 `opendir` 逐项遍历，文件和目录共享条目预算，遇到首个超限条目立即失败并关闭目录句柄、清理临时制品；不先读取或排序整个目录的文件名。仅对预算内的文件清单排序以生成稳定摘要，避免恶意大目录在检查上限前耗尽可信 Worker 内存。
 
-本地制品是复制后的独立文件，不与 workspace/node_modules 共享硬链接。B11 需先按项目/令牌授权，再从 DB 取得 key 并读取指定相对路径，不允许从请求直接指定任意存储 key。制品留存、配额与自动 GC 尚未实现；管理员应按 DB 引用清理，不能只按目录时间删除运行中或已引用产物。
+本地制品是复制后的独立文件，不与 workspace/node_modules 共享硬链接。B11 先按项目/令牌授权，再从 DB 取得 key 并读取指定相对路径，不允许从请求直接指定任意存储 key。制品留存、配额与自动 GC 尚未实现；管理员应按 DB 引用清理，不能只按目录时间删除运行中或已引用产物。
 
 ## 验证、风险与回退
 

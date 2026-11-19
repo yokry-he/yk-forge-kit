@@ -25,6 +25,8 @@ export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T
       ? body.message : `请求失败（HTTP ${response.status}）。`;
     throw new ProjectApiError(response.status === 401 ? '需要登录或当前会话已失效，请重新登录。' : message, response.status);
   }
+  // No Content / Reset Content responses have no JSON body (including DELETE).
+  if (response.status === 204 || response.status === 205) return undefined as T;
   return response.json() as Promise<T>;
 }
 
