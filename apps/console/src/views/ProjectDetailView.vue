@@ -276,6 +276,7 @@ watch(() => route.params.slug, refresh);
     <section v-else-if="project" class="panel project-detail-panel">
       <div class="project-card-top"><span class="project-mark">V</span><span class="asset-tag verified">已保存元数据</span></div>
       <h2>{{ project.name }}</h2>
+      <RouterLink v-if="accessVerified" class="inline-link" :to="{ name: 'project-builds', params: { slug: project.slug } }">查看构建</RouterLink>
       <div class="summary">
         <div><span>项目 ID</span><strong>{{ project.id }}</strong></div>
         <div><span>模板</span><strong>{{ project.template }}</strong></div>

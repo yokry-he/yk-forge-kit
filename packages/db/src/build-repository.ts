@@ -139,6 +139,13 @@ export class BuildLogRepository {
     }, { isolationLevel: 'read committed' });
   }
 
+  /** One statement captures a stable high-water mark; appenders never reuse sequence IDs. */
+  async highestSeq(buildId: string): Promise<number> {
+    const [row] = await this.db.select({ seq: buildLogChunks.seq }).from(buildLogChunks)
+      .where(eq(buildLogChunks.buildId, buildId)).orderBy(desc(buildLogChunks.seq)).limit(1);
+    return row?.seq ?? 0;
+  }
+
   async listSince(buildId: string, seq = 0, limit = 500) {
     if (!Number.isInteger(seq) || seq < 0) throw new RangeError('日志游标必须是非负整数。');
     return this.db.select().from(buildLogChunks)

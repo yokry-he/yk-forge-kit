@@ -1,6 +1,6 @@
 # 构建队列与 Worker（B08）
 
-已实现构建队列闭环、状态查询、取消、MySQL 分块日志读取与审计。默认 NoopRunner 不执行源码、不产生文件；[B09 Docker Runner/ArtifactStore](./docker-build-runner.md) 可通过配置启用，支持模板静态构建。SSE/控制台构建页面由 B10 提供，预览由 B11 提供。中文为权威，英文未翻译，公开发布前须补齐。决策见 [ADR-0008](../adr/0008-worker-build-queue.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，持久化语义见 [B07 数据模型](./build-data-model.md)。
+已实现构建队列闭环、状态查询、取消、MySQL 分块日志读取与审计。默认 NoopRunner 不执行源码、不产生文件；[B09 Docker Runner/ArtifactStore](./docker-build-runner.md) 可通过配置启用，支持模板静态构建。[B10 SSE/控制台构建页面](./build-console.md) 已实现，预览由 B11 提供。中文为权威，英文未翻译，公开发布前须补齐。决策见 [ADR-0008](../adr/0008-worker-build-queue.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，持久化语义见 [B07 数据模型](./build-data-model.md)。
 
 ## 架构与契约
 

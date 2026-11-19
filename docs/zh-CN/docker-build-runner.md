@@ -1,6 +1,6 @@
 # Docker 构建 Runner 与本地制品（B09）
 
-已实现模板工程的隔离安装/静态构建、逐行日志、受限本地制品存储与读取能力。默认仍使用 NoopRunner；B10 实时日志/控制台构建页、B11 带令牌的预览 HTTP 服务尚未实现。中文为当前权威，英文待翻译，对外发布前需补齐对应指南。安全与后续预览边界见 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，队列/授权见 [B08](./worker-build-queue.md)。
+已实现模板工程的隔离安装/静态构建、逐行日志、受限本地制品存储与读取能力。默认仍使用 NoopRunner；B10 [实时日志与控制台构建页](./build-console.md) 已实现；B11 带令牌的预览 HTTP 服务尚未实现。中文为当前权威，英文待翻译，对外发布前需补齐对应指南。安全与后续预览边界见 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，队列/授权见 [B08](./worker-build-queue.md)。
 
 ## 设计与源码来源
 

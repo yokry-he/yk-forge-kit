@@ -1,4 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router';
+import BuildListPage from './views/BuildListPage.vue';
+import BuildDetailPage from './views/BuildDetailPage.vue';
 import ProjectCreateView from './views/ProjectCreateView.vue';
 import AssetCatalogView from './views/AssetCatalogView.vue';
 import ProjectListView from './views/ProjectListView.vue';
@@ -14,7 +16,9 @@ export const router = createRouter({
     { path: '/', redirect: '/projects' },
     { path: '/projects', component: ProjectListView },
     { path: '/projects/new', component: ProjectCreateView },
-    { path: '/projects/:slug', component: ProjectDetailView },
+    { path: '/projects/:slug', name: 'project-detail', component: ProjectDetailView },
+    { path: '/projects/:slug/builds', name: 'project-builds', component: BuildListPage },
+    { path: '/projects/:slug/builds/:buildId', name: 'project-build', component: BuildDetailPage },
     { path: '/auth/login', component: AuthLoginView },
     { path: '/auth/callback', component: AuthCallbackView, props: { kind: 'login' } },
     { path: '/auth/logout-callback', component: AuthCallbackView, props: { kind: 'logout' } },

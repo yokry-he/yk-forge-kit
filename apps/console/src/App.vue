@@ -8,7 +8,7 @@ import { requiresOidcProjectAccess } from './auth/return-path';
 const route = useRoute();
 const router = useRouter();
 const apiOnline = ref(false);
-const pageName = computed(() => route.path.startsWith('/auth/') ? '用户中心' : route.path === '/assets' ? '资产中心' : route.path === '/projects/new' ? '创建项目' : route.path === '/projects' ? '项目列表' : '项目详情');
+const pageName = computed(() => route.path.startsWith('/auth/') ? '用户中心' : route.path === '/assets' ? '资产中心' : route.path === '/projects/new' ? '创建项目' : route.path === '/projects' ? '项目列表' : route.name === 'project-builds' ? '构建记录' : route.name === 'project-build' ? '构建详情' : '项目详情');
 
 // A token may expire while the user is already viewing a project page.
 watch(authSession, (next, previous) => {
