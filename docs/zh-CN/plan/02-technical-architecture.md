@@ -76,7 +76,7 @@ flowchart TB
   Browser -. 访问预览 .-> Preview
 ```
 
-> 说明：图中 `apps/worker` 的 BullMQ 空构建编排与构建 API 已由 [B08](../worker-build-queue.md) 实现；Docker Runner、Artifact Store、Preview Gateway、Deploy Adapters、部署 Agent 仍为**规划中**；现状包含 [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、`packages/*` 与本地 CLI 存在。
+> 说明：图中 `apps/worker` 的 BullMQ 编排与构建 API 已由 [B08](../worker-build-queue.md) 实现；[B09](../docker-build-runner.md) 提供 Docker Runner 和本地 ArtifactStore（暂位于 worker，首次外部复用时再评估独立包）。Preview Gateway、Deploy Adapters、部署 Agent 仍为**规划中**；源码目前仅支持模板重建，生产 registry 白名单需宿主网络落实。
 
 ## 2. 与现有 monorepo 的映射
 
@@ -92,16 +92,16 @@ flowchart TB
 | [packages/cli](../../../packages/cli) | 已实现：create / asset list/plan/add/upgrade/remove/verify | 本地 CLI | 新增本地构建/部署、设备授权登录（V1） |
 | [packages/identity-core](../../../packages/identity-core) | 已实现：OIDC 验证 + 纯授权策略（owner/editor/viewer） | 身份与授权 | 新增权限：`build:run`、`deploy:*`、`secret:write`、`log:read` 等；组织/团队（V1） |
 | [packages/db](../../../packages/db) | 已实现：MySQL 8 + Drizzle，迁移 0000–0008；B07 构建/日志/预览数据基础 | 数据访问 | 后续新增 releases、secrets、log_streams 等，并按 B12–B15 扩展部署模型 |
-| `apps/worker` | B08 已有 BullMQ + NoopRunner + 状态机 | 队列消费/调度 | B09 Docker Runner 与存储实现、B10 实时日志 |
+| `apps/worker` | B08 BullMQ + 状态机；B09 可选 Docker Runner 与本地制品，默认 noop | 队列消费/调度 | B10 实时日志；后续保留期/清理策略 |
 | `apps/agent` | 待建 | 轻量部署 Agent（V1） | 新建：单二进制，出站 WebSocket/HTTPS，mTLS + 一次性注册令牌 |
 | `adapters/deploy-ssh` | 待建 | SSH 发布器 | 新建：原子切换 current 软链接、Caddy 配置、健康检查、回滚 |
 | `adapters/deploy-aliyun` | 待建 | 阿里云 API 适配（V1） | 新建：实例列表、云助手、安全组、DNS、证书 |
 | `adapters/deploy-tencent` | 待建 | 腾讯云 API 适配（V1） | 新建：CVM、TAT、安全组、DNSPod、证书 |
 | `adapters/build-web` | 待建 | Web 构建适配 | 新建：pnpm install/build、产物收集 |
 | `adapters/build-uniapp` | 待建 | uni-app 构建（V1） | 新建：H5/小程序构建、miniprogram-ci/minidev 上传 |
-| `adapters/artifact-store` | 待建 | 产物存储抽象 | 新建：本地/MinIO/OSS/COS/S3 适配 |
+| `adapters/artifact-store` | B09 接口与本地实现暂在 worker；独立包待真实外部复用时评估 | 产物存储抽象 | 后续 MinIO/OSS/COS/S3 适配 |
 | `apps/preview-gateway` | 待建 | 预览网关 | 新建：按项目+构建号提供静态预览，令牌/过期 |
-| `apps/worker` 内 Runner 镜像 | 待建 | 隔离 Runner | 新建 Dockerfile：非 root、资源限制、只读基础镜像、无控制面 DB 访问、出网白名单 |
+| `apps/worker` 内 Runner 镜像 | B09 默认预拉取可信 node:22，参数强制非 root/只读/资源限制，无自定义 Dockerfile | 隔离 Runner | 生产固定镜像 digest；宿主落实 registry 出口，后续更强 runtime |
 
 ### 2.2 复用原则
 

@@ -17,6 +17,7 @@
   "dependencies": {
     "@forgekit/contracts": "workspace:*",
     "@forgekit/db": "workspace:*",
+    "@forgekit/project-core": "workspace:*",
     "bullmq": "^5.0.0",
     "dotenv": "^16.6.0"
   },

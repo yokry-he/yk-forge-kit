@@ -29,6 +29,13 @@ function pageSize(limit: number): number {
 export class BuildRepository {
   constructor(private readonly db: Database) {}
 
+  /** B09 template rendering input only; never returns platform credentials. */
+  async getProjectSource(projectId: string) {
+    const [row] = await this.db.select({ name: projects.slug, template: projects.template, features: projects.features })
+      .from(projects).where(eq(projects.id, projectId)).limit(1);
+    return row ?? null;
+  }
+
   async create(input: { projectId: string; template: string; sourceRef: string; triggeredBy: string }, audit = false): Promise<BuildRow> {
     const now = new Date();
     const row: BuildRow = {

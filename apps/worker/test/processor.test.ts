@@ -47,6 +47,15 @@ describe('build processor with guarded repository', () => {
     const f = fixture('queued', { run: async () => ({ exitCode: 17 }) }); await f.run();
     expect(f.row).toMatchObject({ status: 'failed', exitCode: 17 });
   });
+  it('persists artifact metadata and runner info with the B07 success transition', async () => {
+    const artifact = { key: 'build/artifact', size: 123, sha256: 'a'.repeat(64) };
+    const runnerInfo = { runnerId: 'docker-cli', image: 'node:22' };
+    const f = fixture('queued', { run: async () => ({ exitCode: 0, artifact, runnerInfo }) });
+    await f.run();
+    expect(f.repository.updateStatus).toHaveBeenLastCalledWith(f.row.id, 'running', 'succeeded', {
+      exitCode: 0, artifactKey: artifact.key, artifactSize: artifact.size, artifactSha256: artifact.sha256, runnerInfo,
+    });
+  });
   it('records thrown runner failures without leaking the exception', async () => {
     const f = fixture('queued', { run: async () => { throw new Error('secret'); } }); await f.run();
     expect(f.row.errorMessage).toBe('runner_or_control_failure');

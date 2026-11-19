@@ -4,11 +4,19 @@ import { BuildLogRepository, BuildRepository, BuildTransitionError, type Databas
 import { BuildProcessor } from './processor';
 import { NoopRunner, type BuildRunner } from './runner';
 import type { resolveWorkerConfig } from './config';
+import { DockerBuildRunner } from './docker-runner';
+import { LocalFsArtifactStore } from './artifact-store';
+import { TemplateWorkspaceSource } from './workspace-source';
 
 type Log = (event: Record<string, unknown>) => void;
 export async function startWorker(client: DatabaseClient, config: ReturnType<typeof resolveWorkerConfig>,
-  log: Log = (event) => console.log(JSON.stringify(event)), runner: BuildRunner = new NoopRunner()) {
+  log: Log = (event) => console.log(JSON.stringify(event)), runner?: BuildRunner) {
   const builds = new BuildRepository(client.db);
+  const runnerName = runner ? 'injected' : config.runner;
+  if (!runner) {
+    runner = config.docker ? new DockerBuildRunner(new TemplateWorkspaceSource((id) => builds.getProjectSource(id)),
+      new LocalFsArtifactStore(config.docker.artifactDir, config.docker.maxArtifactBytes), config.docker) : new NoopRunner();
+  }
   const processor = new BuildProcessor(builds, new BuildLogRepository(client.db), runner, config.timeoutMs);
   const queue = new Queue<BuildJobPayload>(BUILD_QUEUE_NAME, { connection: { ...config.connection, maxRetriesPerRequest: 1 } });
   const worker = new Worker<BuildJobPayload>(BUILD_QUEUE_NAME, (job) => processor.process(job.data, job.id), {
@@ -73,7 +81,7 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
     if (!closing) heartbeat = setTimeout(schedule, config.heartbeatMs);
   };
   function schedule() { healthTask = tick(); }
-  log({ event: 'worker_ready', queue: BUILD_QUEUE_NAME, runner: 'noop', concurrency: config.concurrency });
+  log({ event: 'worker_ready', queue: BUILD_QUEUE_NAME, runner: runnerName, concurrency: config.concurrency });
   heartbeat = setTimeout(schedule, config.heartbeatMs);
   return {
     async close() {

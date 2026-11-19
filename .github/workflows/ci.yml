@@ -125,6 +125,24 @@ jobs:
         if: failure()
         run: docker logs keycloak | tail -100
 
+  docker-runner-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      FORGEKIT_DOCKER_RUNNER_TEST: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm --filter @forgekit/worker... build
+      - name: Pull trusted Node image before isolated builds
+        run: docker pull node:22
+      - name: B09 real Vue and Nuxt builds, artifacts and build network isolation
+        run: corepack pnpm --filter @forgekit/worker exec vitest run test/docker-runner.integration.test.ts
+
   template-smoke:
     runs-on: ubuntu-latest
     timeout-minutes: 35

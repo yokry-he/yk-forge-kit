@@ -1,5 +1,9 @@
 import type { BuildLogEvent } from '@forgekit/contracts';
 import type { BuildRepository, BuildLogRepository } from '@forgekit/db';
+import type { RunnerInfo } from '@forgekit/contracts';
+import type { ArtifactMetadata } from './artifact-store';
+
+export type { ArtifactStore } from './artifact-store';
 
 export type BuildRecord = NonNullable<Awaited<ReturnType<BuildRepository['get']>>>;
 export interface BuildLogSink {
@@ -7,12 +11,8 @@ export interface BuildLogSink {
 }
 /** B09 must terminate and clean up its isolated process when signal is aborted. */
 export interface BuildRunner {
-  run(build: BuildRecord, logs: BuildLogSink, signal: AbortSignal): Promise<{ exitCode: number }>;
-}
-/** Capability boundary only. No storage implementation or artifact download in B08. */
-export interface ArtifactStore {
-  put(buildId: string, source: AsyncIterable<Uint8Array>, signal: AbortSignal): Promise<{
-    key: string; size: number; sha256: string;
+  run(build: BuildRecord, logs: BuildLogSink, signal: AbortSignal): Promise<{
+    exitCode: number; artifact?: ArtifactMetadata; runnerInfo?: RunnerInfo;
   }>;
 }
 export class RepositoryLogSink implements BuildLogSink {

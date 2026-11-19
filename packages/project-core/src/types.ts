@@ -40,6 +40,8 @@ export interface ProjectTemplateMetadata {
   assetTarget: 'vue-web' | null;
   /** Commands shown after generation, relative to the project directory. */
   commands: string[];
+  /** Static build plan consumed by isolated workers; commands are package script names. */
+  build?: { script: 'build' | 'generate'; outputDirectory: string };
 }
 
 export interface ProjectTemplateDefinition extends ProjectTemplateMetadata {

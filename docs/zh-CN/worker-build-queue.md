@@ -1,6 +1,6 @@
 # 构建队列与 Worker（B08）
 
-已实现空构建队列闭环、状态查询、取消、MySQL 分块日志读取与审计。当前只提供 NoopRunner，不执行源码、不产生文件。Docker Runner/ArtifactStore 实现由 B09 提供，SSE/控制台构建页面由 B10 提供，预览由 B11 提供。中文为权威，英文未翻译，公开发布前须补齐。决策见 [ADR-0008](../adr/0008-worker-build-queue.md)，持久化语义见 [B07 数据模型](./build-data-model.md)。
+已实现构建队列闭环、状态查询、取消、MySQL 分块日志读取与审计。默认 NoopRunner 不执行源码、不产生文件；[B09 Docker Runner/ArtifactStore](./docker-build-runner.md) 可通过配置启用，支持模板静态构建。SSE/控制台构建页面由 B10 提供，预览由 B11 提供。中文为权威，英文未翻译，公开发布前须补齐。决策见 [ADR-0008](../adr/0008-worker-build-queue.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)，持久化语义见 [B07 数据模型](./build-data-model.md)。
 
 ## 架构与契约
 
@@ -9,8 +9,8 @@
 - 队列名 `builds`，job name `build`，jobId = buildId（UUID）；载荷严格为 `{ "buildId": "<UUID>" }`。名称与 Zod Schema 共享于 `@forgekit/contracts`。不要手动用随机 jobId 入队。
 - MySQL 是状态和日志权威，任务只传 ID。消费者对终态/已删除构建无操作；业务失败/超时作为已处理任务结束，BullMQ 的 completed 表示编排完成，**不表示构建 succeeded**。
 - 自动入队最多 3 次基础设施重试，指数退避起始 1 秒；保留最近 1000 个 completed/failed 任务。即使 Redis 历史被清理，同 ID 再次到达也由数据库终态保护；业务重试需新建构建记录。
-- `BuildRunner.run(build, logs, signal)` 返回 `{ exitCode }`；0 成功，其余失败；异常记录脱敏的通用错误码。NoopRunner 不读源码、不运行 shell。`BuildLogSink.write` 每次等待 B07 append，序号从 1 分配，单块 16 KiB；日志写入失败使构建失败，不静默丢日志。
-- `ArtifactStore.put` 仅声明能力接口，B08 没有实例、存储上传或下载接口，也不填写 artifact 字段。
+- `BuildRunner.run(build, logs, signal)` 返回 `{ exitCode, artifact?, runnerInfo? }`；0 成功，其余失败；异常记录脱敏的通用错误码。NoopRunner 不读源码、不运行 shell。`BuildLogSink.write` 每次等待 B07 append，序号从 1 分配，单块 16 KiB；日志写入失败使构建失败，不静默丢日志。
+- B09 提供 LocalFsArtifactStore，真实 Runner 返回的制品元数据在 running→succeeded 时写入 B07 字段。NoopRunner 仍不填写 artifact 字段；读取能力供后续 B11 使用。
 
 ```mermaid
 stateDiagram-v2
@@ -36,7 +36,7 @@ stateDiagram-v2
 
 running 的恢复以 BullMQ 独占锁为前提，不能在副本启动时批量失败其他进程的任务。锁默认约 30 秒过期，stalled 扫描后任务重新被领取，处理器见 running 就写 failed/worker_lost，不重复执行。默认最多一次 stalled 重领；如果 Redis job 已永久 failed/completed 或丢失，心跳扫描超过执行超时 + 60 秒的 running 行并写 failed（每批 100 条）。因此恢复依赖 Redis/MySQL 可用和至少一个健康 worker；Redis 丢失时 queued 可以补投，running 会延后失败。保留 Redis 数据、开启适当持久化并设置 `maxmemory-policy=noeviction`。
 
-SIGINT/SIGTERM 时先暂停本 worker 的队列接收（不等待活跃任务），再中断当前 Runner，running→failed；等待进行中的心跳、Runner 清理及活跃任务结束后关闭消费者与数据库。取消、超时或停机触发 AbortSignal 后，处理器始终等待 Runner promise 完成，期间保留并发槽位和队列锁续租；数据库终态可能先于资源清理完成。Runner 必须在清理资源后才完成 promise；不响应中断或无法完成清理会阻塞任务释放和停机。NoopRunner 会响应信号，B09 容器实现仍需验证强制终止和失锁后的资源清理。worker 不在控制面执行用户代码。连接失败会重连，健康日志不可用时应告警。
+SIGINT/SIGTERM 时先暂停本 worker 的队列接收（不等待活跃任务），再中断当前 Runner，running→failed；等待进行中的心跳、Runner 清理及活跃任务结束后关闭消费者与数据库。取消、超时或停机触发 AbortSignal 后，处理器始终等待 Runner promise 完成，期间保留并发槽位和队列锁续租；数据库终态可能先于资源清理完成。Runner 必须在清理资源后才完成 promise；不响应中断或无法完成清理会阻塞任务释放和停机。B09 Docker Runner 实现了响应信号的容器 kill/rm 和工作目录清理；强杀/daemon 故障后的运维边界见其指南。worker 不在控制面执行用户代码。连接失败会重连，健康日志不可用时应告警。
 
 ## 配置
 
@@ -58,13 +58,13 @@ worker 输出 JSON `worker_ready`、`worker_heartbeat`（ok/unavailable）、`jo
 
 | 方法与路径（相对 /api/v1） | 参数与结果 |
 | --- | --- |
-| POST /projects/:id/builds | 严格 JSON `{ "sourceRef": "snapshots/immutable-key" }`；1–1024 字符；template 取项目记录，触发者取认证身份；201 返回 Build |
+| POST /projects/:id/builds | 严格 JSON `{ "sourceRef": "template:vue-web" }`；1–1024 字符；template 取项目记录，触发者取认证身份；201 返回 Build；Docker 仅支持对应模板引用 |
 | GET /projects/:id/builds | `beforeNumber` 排他游标，`limit` 默认 50、1–1000；构建号倒序数组 |
 | GET /projects/:id/builds/:buildId | 完整 Build，时间为 ISO UTC |
 | POST /projects/:id/builds/:buildId/cancel | 空请求或 `{}`；201 返回取消后的 Build |
 | GET /projects/:id/builds/:buildId/logs | `seq` 默认 0（严格大于）、`limit` 默认 500、1–1000；日志块升序数组 |
 
-列表下一页传最后一条 number；日志下一页传最后一条 seq，空数组表示暂时没有新日志。跨项目 buildId 一律 404。sourceRef 必须由调用者提供不可变快照键或解析后的提交引用；B08 不抓取、不解析分支，B09 必须在 Runner/存储边界校验并取材，不能把它直接当本地路径或 shell 命令。
+列表下一页传最后一条 number；日志下一页传最后一条 seq，空数组表示暂时没有新日志。跨项目 buildId 一律 404。API 持久化 sourceRef 而不抓取源码；B09 Docker 模式只接受与项目模板一致的 `template:<模板ID>`（例如 `template:vue-web`），使用当前模板重建，不是不可变快照。快照/Git 引用尚未实现，在 Docker 模式会失败；不能把它直接当本地路径或 shell 命令。
 
 触发、取消分别按 OIDC 身份限流 30 次/小时、60 次/小时，跨 API 实例共享已有原子计数表的独立配额，超额 429。迁移 0009 的 build_audit 保存 triggered/canceled、项目、构建和操作者 ID，与创建/取消同事务；无变化取消不重复记录。保留期/清理策略同已有审计计数表，尚未提供自动清理任务。
 

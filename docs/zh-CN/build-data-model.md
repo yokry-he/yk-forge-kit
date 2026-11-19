@@ -1,6 +1,6 @@
 # 构建、日志与静态预览数据基础（B07）
 
-状态：B07 已提供数据表、共享 Zod 契约、数据仓库及测试；B08 已新增 [队列 Worker、构建 API 与查询/取消能力](./worker-build-queue.md)。Docker Runner、对象存储、SSE、预览网关或部署执行能力仍由 B09–B15 交付。决策见 [ADR-0007](../adr/0007-build-data-foundation.md)。当前中文为权威版本，英文未翻译，对外发布前须补齐。
+状态：B07 已提供数据表、共享 Zod 契约、数据仓库及测试；B08 已新增 [队列 Worker、构建 API 与查询/取消能力](./worker-build-queue.md)；B09 已提供 [Docker Runner、本地制品和受限日志](./docker-build-runner.md)。云对象存储、SSE、预览网关或部署执行能力尚未实现。决策见 [ADR-0007](../adr/0007-build-data-foundation.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)。当前中文为权威版本，英文未翻译，对外发布前须补齐。
 
 ## 表与边界
 
@@ -17,7 +17,7 @@
 
 部署关系采用 `(project_id, id)` 组合外键，构建、环境和部署目标必须属于同一项目。项目、构建及其依赖数据按外键级联删除；删除环境或目标也会删除关联的部署占位记录，B12/B13 添加删除接口时必须先确定历史保留策略。触发者/创建者引用 `users`，存在引用时禁止物理删除用户。数据仓库不承担用户身份与项目授权，调用方必须先授权；不能直接暴露按 ID 查询的方法作为接口。
 
-仓库返回数据库行（时间为 `Date`），跨进程前应转 ISO UTC 字符串并通过契约校验。新表时间精度为毫秒，`updated_at` 由 Drizzle 的 `$onUpdateFn` 或仓库显式设置；直接 SQL 写入必须自行维护更新时间。`artifact_size` 使用无符号 BIGINT，契约与仓库限制为 JS 安全整数；`artifact_sha256` 为 64 位小写十六进制。`source_ref` 是不可变源码快照键或已解析的提交引用，`template` 是构建时的模板 ID 快照；不保存源码或可变分支的隐式解析结果。存储键是不透明标识，B09 必须在适配器边界校验路径，不能直接信任为本地文件路径。runner_info 仅含 runnerId、image 和可选 containerId，不包含凭证。
+仓库返回数据库行（时间为 `Date`），跨进程前应转 ISO UTC 字符串并通过契约校验。新表时间精度为毫秒，`updated_at` 由 Drizzle 的 `$onUpdateFn` 或仓库显式设置；直接 SQL 写入必须自行维护更新时间。`artifact_size` 使用无符号 BIGINT，契约与仓库限制为 JS 安全整数；`artifact_sha256` 为 64 位小写十六进制。`source_ref` 是源码引用，目标为不可变快照键或已解析提交；当前 B09 仅支持 `template:<模板ID>`，代表当前模板重建，不是不可变快照，尚不支持快照/Git 抓取。`template` 是构建时的模板 ID；表内不保存源码或可变分支的隐式解析结果。存储键是不透明标识，适配器校验路径，不能直接信任为本地文件路径。runner_info 仅含 runnerId、image 和可选 containerId，不包含凭证。
 
 ## 状态与并发
 
@@ -29,7 +29,7 @@
 | running | succeeded、failed、canceled、timed_out |
 | succeeded / failed / canceled / timed_out | 无 |
 
-同状态写入也拒绝；重试需要新建构建记录。queued 不直接超时：构建执行超时仅发生于 running，队列调度失败可进入 failed。B08 的空构建允许没有产物；B09/B11 再在业务层要求可预览的成功构建具有可用产物。
+同状态写入也拒绝；重试需要新建构建记录。queued 不直接超时：构建执行超时仅发生于 running，队列调度失败可进入 failed。NoopRunner 的空构建允许没有产物；B09 Docker Runner 成功前要求可用静态制品并返回元数据，处理器随成功转换写入；B11 还须验证制品可读。
 
 - `BuildRepository.create`：在显式 `READ COMMITTED` 事务内锁定项目行，再以当前锁定读查询最大构建号并加一，首次构建为 1。父行锁保证同项目串行分配；该隔离级别避免不同项目首次写入时争用共享索引间隙锁。两个数据库连接池并发调用也不会重复。失败的事务不消耗编号。B07 不提供删除单个构建的方法；未来若删除最大编号的构建，需先引入独立计数器以保证历史编号永不复用。
 - `get` / `listByProject`：按 ID 读取；项目列表按编号倒序，`beforeNumber` 是排他游标，默认 50 条，最多 1000 条。
@@ -43,7 +43,7 @@
 
 `BuildLogRepository.append({ buildId, stream, content, ts? })` 在显式 `READ COMMITTED` 事务与构建行锁内分配从 1 开始的序号，串行提交同构建的并发追加，同时避免不同构建首次追加时争用共享索引间隙锁，防止客户端已越过较大序号后遗漏迟到的较小序号。每块最多 16 KiB（UTF-8 字节），支持多行文本；允许构建终态后补写系统收尾日志。`listSince(buildId, seq, limit)` 返回严格大于游标的序号，按序号升序，默认游标 0、500 条，最多 1000 条。轮询期间不可对活跃构建清理分块，否则可能复用序号。
 
-全构建日志总量、保留期、脱敏、背压和清理任务未实现，B09/B10 必须在持续接收输出前补齐；分块大小限制不能代替总量限制。后续可在终态后归档并明确切换读取位置，删除或保留游标规则需同步更新。
+B09 Docker Runner 已提供两阶段合计日志字节上限、脱敏、未换行缓冲上限和 await 写入背压；仓库本身仍只限制单块大小，不应绕过 Runner 直接接受不可信输出。日志保留期和自动清理任务尚未实现。后续可在终态后归档并明确切换读取位置，删除或保留游标规则需同步更新。
 
 ## 预览链接
 

@@ -80,7 +80,11 @@ export class BuildProcessor {
       if (!Number.isInteger(result.exitCode) || result.exitCode < -2147483648 || result.exitCode > 2147483647) {
         throw new Error('invalid_runner_result');
       }
-      await this.finish(buildId, result.exitCode === 0 ? 'succeeded' : 'failed', { exitCode: result.exitCode });
+      await this.finish(buildId, result.exitCode === 0 ? 'succeeded' : 'failed', {
+        exitCode: result.exitCode, runnerInfo: result.runnerInfo,
+        ...(result.exitCode === 0 && result.artifact ? { artifactKey: result.artifact.key,
+          artifactSize: result.artifact.size, artifactSha256: result.artifact.sha256 } : {}),
+      });
     } catch {
       if (!canceled) await this.finish(buildId, timedOut ? 'timed_out' : 'failed', {
         errorMessage: timedOut ? 'build_timeout' : 'runner_or_control_failure',

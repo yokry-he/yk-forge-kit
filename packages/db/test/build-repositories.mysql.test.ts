@@ -82,6 +82,8 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B07 MySQL reposito
         { id: otherProjectId, slug: `b07-${otherProjectId}`, name: 'B07 other', features: [] },
       ]);
       const input = { projectId, template: 'vue-web', sourceRef: 'sources/snapshot-1.tar', triggeredBy: userId };
+      expect(await repository.getProjectSource(projectId)).toEqual({ name: `b07-${projectId}`, template: 'vue-web', features: [] });
+      expect(await repository.getProjectSource(randomUUID())).toBeNull();
       const created = await Promise.all(Array.from({ length: 12 }, (_, n) => (n % 2 ? repository : competing).create(input)));
       expect(created.map((b) => b.number).sort((a, b) => a - b)).toEqual(Array.from({ length: 12 }, (_, n) => n + 1));
       const first = created.find((b) => b.number === 1)!;
