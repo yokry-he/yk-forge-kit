@@ -111,6 +111,9 @@ importers:
       '@forgekit/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@forgekit/project-core':
+        specifier: workspace:*
+        version: link:../../packages/project-core
       bullmq:
         specifier: ^5.0.0
         version: 5.81.5

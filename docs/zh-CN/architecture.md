@@ -22,11 +22,11 @@
 ## 仍待定案
 
 - UI 组件库（`yk-forge-ui`）的包布局、发布渠道及多端范围。
-- CLI/核心 SDK/Runner 的内部边界与 Runner 沙箱方案。
+- CLI/核心 SDK 的后续边界；Runner 的更强隔离方案（MVP Docker 方案已见 ADR-0009）。
 - 生产 OIDC 提供方、多租户隔离模型细节、云部署适配层及成本模型。
 
 以上事项应通过需求约束、验证原型及 ADR 决定，避免把初步讨论当成实现承诺。
 
 ## B07 数据基础
 
-迁移 0008 已新增构建、日志分块、预览链接及最小部署关联表，见 [构建数据模型](./build-data-model.md) 与 [ADR-0007](../adr/0007-build-data-foundation.md)。B07 交付 contracts/db 及仓库测试；B08 已交付 [构建 API 与空构建 Worker](./worker-build-queue.md)，Docker Runner、SSE、预览和部署服务按 B09–B15 后续实现。
+迁移 0008 已新增构建、日志分块、预览链接及最小部署关联表，见 [构建数据模型](./build-data-model.md) 与 [ADR-0007](../adr/0007-build-data-foundation.md)。B07 交付 contracts/db 及仓库测试；B08 已交付 [构建 API 与队列 Worker](./worker-build-queue.md)，B09 已提供 [Docker Runner 与本地制品](./docker-build-runner.md)。SSE、预览和部署服务按 B10–B15 后续实现；预览安全约束见 [ADR-0009](../adr/0009-build-and-preview-security-model.md)。

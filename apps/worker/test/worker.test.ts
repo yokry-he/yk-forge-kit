@@ -2,6 +2,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { DatabaseClient } from '@forgekit/db';
 import { resolveWorkerConfig } from '../src/config';
 import { startWorker } from '../src/worker';
+import { BuildProcessor } from '../src/processor';
+import { DockerBuildRunner } from '../src/docker-runner';
 
 const adapters = vi.hoisted(() => ({
   worker: {
@@ -28,6 +30,16 @@ vi.mock('../src/processor', () => ({ BuildProcessor: vi.fn(function () { return 
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 
 describe('worker shutdown', () => {
+  it('selects Docker from startup config while keeping process creation deferred until a build', async () => {
+    const client = { ping: vi.fn(async () => {}), db: {}, close: vi.fn() } as unknown as DatabaseClient;
+    const log = vi.fn();
+    const worker = await startWorker(client, resolveWorkerConfig({ DATABASE_URL: 'mysql://u:p@localhost/test',
+      REDIS_URL: 'redis://localhost/15', FORGEKIT_BUILD_RUNNER: 'docker', FORGEKIT_ARTIFACT_DIR: '/tmp/forgekit-test-artifacts' }), log);
+    try {
+      expect(vi.mocked(BuildProcessor).mock.calls.at(-1)?.[2]).toBeInstanceOf(DockerBuildRunner);
+      expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: 'worker_ready', runner: 'docker' }));
+    } finally { await worker.close(); }
+  });
   it('pauses intake without waiting for active jobs before stopping the processor during a delayed heartbeat', async () => {
     vi.useFakeTimers();
     let finishHeartbeat!: () => void;

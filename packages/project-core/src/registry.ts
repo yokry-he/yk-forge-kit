@@ -22,6 +22,7 @@ const templates: ProjectTemplateDefinition[] = [
     builtIn: [],
     assetTarget: 'vue-web',
     commands: ['pnpm install', 'pnpm dev'],
+    build: { script: 'build', outputDirectory: 'dist' },
     render: renderVueWeb,
   },
   {
@@ -36,6 +37,7 @@ const templates: ProjectTemplateDefinition[] = [
     builtIn: ['Element Plus 组件库（中文语言包）', 'Vue Router 与登录守卫', 'Pinia 状态管理', '暗色模式', '移动端抽屉菜单', '模拟数据接口'],
     assetTarget: null,
     commands: ['pnpm install', 'pnpm dev'],
+    build: { script: 'build', outputDirectory: 'dist' },
     render: renderVueAdmin,
   },
   {
@@ -50,6 +52,7 @@ const templates: ProjectTemplateDefinition[] = [
     builtIn: ['SSR / SSG', 'SEO 元信息与 canonical', '文章 JSON-LD', '含文章的 sitemap.xml', '响应式导航', 'Markdown 博客与标签筛选'],
     assetTarget: null,
     commands: ['pnpm install', 'pnpm dev'],
+    build: { script: 'generate', outputDirectory: '.output/public' },
     render: renderNuxtSite,
   },
 ];

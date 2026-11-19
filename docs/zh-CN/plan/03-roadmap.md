@@ -238,7 +238,7 @@ gantt
 | B06 | 新增 nuxt-site 内容站模板 | 博客/个人站/官网 SSG 模板 | [packages/project-core](../../../packages/project-core)（模板）、[packages/contracts](../../../packages/contracts) | 生成工程可 SSG 构建，元数据正确 | B04 | M |
 | B07 | contracts + db 数据模型与迁移 | `environments`、`deploy_targets`、`builds`、`deployments` | [packages/contracts](../../../packages/contracts)、[packages/db](../../../packages/db)（迁移 0008+） | 空库/已有库幂等迁移，结构评审通过 | B01 | M |
 | B08 | worker 骨架 + BullMQ + 构建状态机 | 已实现 [空构建编排与 API](../worker-build-queue.md)，真实 Runner 留待 B09 | `apps/worker`、[packages/contracts](../../../packages/contracts)、[apps/api](../../../apps/api) | 空构建任务状态机正确流转，状态可查询 | B07 | M |
-| B09 | Docker 隔离 Runner（Web 构建） | 隔离执行 `pnpm install/build`，日志回传，产物存储抽象 | `apps/worker`、`adapters/`（Artifact Store 抽象） | 非 root/资源限制/只读镜像/出网白名单；产物可下载 | B08 | L |
+| B09 | Docker 隔离 Runner（Web 构建） | 已实现 [Docker Runner 与本地制品](../docker-build-runner.md)；模板取材，安装默认禁网/可接 registry 代理，构建禁网 | `apps/worker`（Runner/Artifact Store）、project-core 模板构建元数据 | 非 root/资源限制/只读镜像；提供安全制品读取接口，HTTP 下载/预览留 B11；生产出网白名单需宿主落实 | B08 | L |
 | B10 | 构建日志实时流 API + 控制台构建页 | SSE 实时日志与控制台页面 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、[packages/contracts](../../../packages/contracts) | 构建日志实时可见，页面可触发/查看构建 | B09 | M |
 | B11 | 静态预览服务 | 按项目和构建号访问的预览链接（令牌、过期） | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、存储抽象 | 预览链接可访问，过期失效 | B09 | M |
 | B12 | 部署目标管理（SSH 主机） | 平台生成密钥对、连通性检查、指纹固定、加密存储 | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 添加主机成功，指纹固定，密钥加密存储 | B07 | M |
