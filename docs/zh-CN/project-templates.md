@@ -26,8 +26,9 @@
 | --- | --- | --- | --- |
 | `vue-web` | Vue Web 应用 | web-app | Vue 3 + Vite 单页应用，可选 theme / router / pinia |
 | `vue-admin` | Vue 后台管理系统 | admin | Vue 3 + Element Plus 后台，详见 [vue-admin 模板](./templates/vue-admin.md) |
+| `nuxt-site` | Nuxt 企业官网 / 博客 | content-site | Nuxt 4 + Markdown，支持 SSR / SSG、SEO 与站点地图，详见 [nuxt-site 模板](./templates/nuxt-site.md) |
 
-后续计划：`nuxt-site`（B06，内容站 / 官网 SSG），以及 V1 的 uni-app 和 V2 的 Tauri 2 模板。
+后续计划：V1 的 uni-app 和 V2 的 Tauri 2 模板。
 
 ## 使用
 
