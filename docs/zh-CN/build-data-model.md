@@ -1,6 +1,6 @@
 # 构建、日志与静态预览数据基础（B07）
 
-状态：B07 已提供数据表、共享 Zod 契约、数据仓库及测试；B08 已新增 [队列 Worker、构建 API 与查询/取消能力](./worker-build-queue.md)；B09 已提供 [Docker Runner、本地制品和受限日志](./docker-build-runner.md)。云对象存储、SSE、预览网关或部署执行能力尚未实现。决策见 [ADR-0007](../adr/0007-build-data-foundation.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)。当前中文为权威版本，英文未翻译，对外发布前须补齐。
+状态：B07 已提供数据表、共享 Zod 契约、数据仓库及测试；B08 已新增 [队列 Worker、构建 API 与查询/取消能力](./worker-build-queue.md)；B09 已提供 [Docker Runner、本地制品和受限日志](./docker-build-runner.md)。B10 已提供 [SSE 实时日志与控制台构建页](./build-console.md)。云对象存储、预览网关或部署执行能力尚未实现。决策见 [ADR-0007](../adr/0007-build-data-foundation.md) 与 [ADR-0009](../adr/0009-build-and-preview-security-model.md)。当前中文为权威版本，英文未翻译，对外发布前须补齐。
 
 ## 表与边界
 
@@ -39,7 +39,7 @@
 
 ## 日志持久化与续传
 
-架构规划未强制使用对象存储保存日志。MVP 选择 MySQL 分块，便于 B10 使用 SSE 的 Last-Event-ID 恢复连接；不新增 Redis 或存储服务依赖。`log_storage_key` 预留给 B09/后续日志归档，不改变分块表在 MVP 的权威地位，不在本项实现归档或双写。
+架构规划未强制使用对象存储保存日志。MVP 选择 MySQL 分块，支持 B10 使用 SSE 的 Last-Event-ID 恢复连接；日志读取不依赖 Redis 发布订阅，B10 的一次性流票据复用已有 Redis。`log_storage_key` 预留给 B09/后续日志归档，不改变分块表在 MVP 的权威地位，不在本项实现归档或双写。
 
 `BuildLogRepository.append({ buildId, stream, content, ts? })` 在显式 `READ COMMITTED` 事务与构建行锁内分配从 1 开始的序号，串行提交同构建的并发追加，同时避免不同构建首次追加时争用共享索引间隙锁，防止客户端已越过较大序号后遗漏迟到的较小序号。每块最多 16 KiB（UTF-8 字节），支持多行文本；允许构建终态后补写系统收尾日志。`listSince(buildId, seq, limit)` 返回严格大于游标的序号，按序号升序，默认游标 0、500 条，最多 1000 条。轮询期间不可对活跃构建清理分块，否则可能复用序号。
 

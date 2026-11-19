@@ -94,3 +94,10 @@ export async function getAccessToken(): Promise<string | null> {
   }
   return user.access_token;
 }
+
+/** Explicit API 401 only; network failures must preserve the session. */
+export async function clearSession(): Promise<void> {
+  if (config.mode !== 'oidc') return;
+  session.value = null;
+  await getManager().removeUser();
+}

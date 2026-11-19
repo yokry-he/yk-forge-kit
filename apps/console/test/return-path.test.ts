@@ -3,6 +3,10 @@ import { requiresOidcProjectAccess, returnPathFromOidcState, safeProjectReturnPa
 
 describe('safe OIDC post-login navigation', () => {
   it('keeps internal project routes and their local query parameters', () => {
+    for (const path of ['/projects/demo/builds', '/projects/demo/builds/build-id?tab=log']) {
+      expect(safeProjectReturnPath(path)).toBe(path);
+      expect(requiresOidcProjectAccess(path.split('?')[0]!)).toBe(true);
+    }
     expect(safeProjectReturnPath('/projects/new')).toBe('/projects/new');
     expect(safeProjectReturnPath('/projects/demo?tab=members')).toBe('/projects/demo?tab=members');
     expect(returnPathFromOidcState({ returnTo: '/projects/demo' })).toBe('/projects/demo');

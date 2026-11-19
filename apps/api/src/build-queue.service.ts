@@ -1,8 +1,9 @@
 import { Injectable, Logger, ServiceUnavailableException, type OnModuleDestroy } from '@nestjs/common';
-import { Queue, type ConnectionOptions } from 'bullmq';
+import { Queue } from 'bullmq';
+import type { RedisOptions } from 'ioredis';
 import { BUILD_JOB_NAME, BUILD_QUEUE_NAME, BuildJobPayloadSchema, type BuildJobPayload } from '@forgekit/contracts';
 
-export function resolveBuildRedisConfig(env: Record<string, string | undefined>): ConnectionOptions | null {
+export function resolveBuildRedisConfig(env: Record<string, string | undefined>): RedisOptions | null {
   if (!env.REDIS_URL) return null;
   let url: URL;
   try { url = new URL(env.REDIS_URL); } catch { throw new Error('REDIS_URL 格式无效。'); }

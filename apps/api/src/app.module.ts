@@ -1,3 +1,6 @@
+import { BuildStreamsController } from './build-streams.controller';
+import { BuildStreamsService } from './build-streams.service';
+import { BuildStreamTickets } from './build-stream-tickets';
 import { BuildsController } from './builds.controller';
 import { BuildsService } from './builds.service';
 import { BuildQueueService } from './build-queue.service';
@@ -20,7 +23,7 @@ import { InvitationRateLimiter } from './invitation-rate-limiter';
 import { IdentityAccountsService } from './identity-accounts.service';
 
 @Module({
-  controllers: [BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
-  providers: [BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
+  controllers: [BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
+  providers: [BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
 })
 export class AppModule {}

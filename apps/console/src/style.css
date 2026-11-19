@@ -109,3 +109,15 @@ button.template { width: 100%; text-align: left; color: inherit; font: inherit; 
 button.template.selected { border-color: #604389; background: #261c33; }
 button.template small { display: block; }
 .built-in { color: #a1a1aa; margin: 0 0 12px; }
+
+/* B10 project build pages */
+.build-list-page, .build-detail-page { min-width: 0; --build-surface: #18181b; --build-text: #e4e4e7; --build-accent: #8b5cf6; --build-border: #3f3f46; --build-muted: #a1a1aa; }
+.build-table { width: 100%; table-layout: fixed; border-collapse: collapse; }
+.build-table th, .build-table td { text-align: left; padding: .75rem .35rem; border-bottom: 1px solid var(--build-border); overflow-wrap: anywhere; }
+.build-summary { padding: 1.25rem; }
+.build-summary h1 { display: flex; flex-wrap: wrap; align-items: center; gap: .5rem; }
+.build-meta { display: grid; grid-template-columns: minmax(5rem, 9rem) minmax(0, 1fr); gap: .75rem; }
+.build-meta dd { margin: 0; overflow-wrap: anywhere; }
+.build-actions { margin: 1rem 0; }
+.build-list-page button:focus-visible, .build-detail-page button:focus-visible, .build-log-container:focus-visible { outline: 2px solid #22d3ee; outline-offset: 3px; }
+@media (max-width: 580px) { .build-list-page .section-toolbar, .build-detail-page .section-toolbar { flex-wrap: wrap; } .build-table { font-size: .75rem; } .build-meta { grid-template-columns: 5rem minmax(0, 1fr); } }
