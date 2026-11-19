@@ -1,0 +1,15 @@
+{
+  "name": "forgekit",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "dev": "pnpm --filter @forgekit/db build && pnpm --parallel --filter @forgekit/console --filter @forgekit/api dev",
+    "build": "pnpm -r --if-present build",
+    "typecheck": "pnpm -r --if-present typecheck",
+    "test": "pnpm build && pnpm -r --if-present test",
+    "db:migrations:check": "pnpm --filter @forgekit/db exec drizzle-kit check",
+    "db:test:integration": "pnpm --filter @forgekit/db build && pnpm --filter @forgekit/db exec vitest run test/integration.mysql.test.ts"
+  },
+  "engines": { "node": ">=22" }
+}

@@ -1,0 +1,11 @@
+{
+  "name": "@forgekit/project-core",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "types": "./src/index.ts",
+  "exports": { ".": { "types": "./src/index.ts", "default": "./dist/index.js" } },
+  "scripts": { "build": "tsc", "typecheck": "tsc --noEmit", "test": "vitest run" },
+  "dependencies": { "@forgekit/asset-core": "workspace:*" },
+  "devDependencies": { "typescript": "^5.9.0", "vitest": "^3.2.0" }
+}

@@ -1,0 +1,62 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1794743025363,
+      "tag": "0000_brief_morph",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1794743660684,
+      "tag": "0001_flimsy_triathlon",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1794744856082,
+      "tag": "0002_big_hellion",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1794769637043,
+      "tag": "0003_wild_james_howlett",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1794778109983,
+      "tag": "0004_blushing_night_nurse",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1794778825379,
+      "tag": "0005_luxuriant_trauma",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1794779798952,
+      "tag": "0006_first_gideon",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1794781252310,
+      "tag": "0007_curved_stingray",
+      "breakpoints": true
+    }
+  ]
+}
