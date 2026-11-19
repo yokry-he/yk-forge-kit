@@ -74,6 +74,14 @@ describe('vue-admin template', () => {
     expect(files['index.html']).toContain('<title>ops-console</title>');
   });
 
+  it('gives each generated project its own browser storage keys', () => {
+    const otherFiles = renderProjectFiles({ name: 'other-console', template: 'vue-admin', features: [] });
+    for (const key of ['token', 'user', 'dark', 'profile']) {
+      expect(files['src/storage.ts']).toContain(`'ops-console:${key}'`);
+      expect(otherFiles['src/storage.ts']).toContain(`'other-console:${key}'`);
+    }
+  });
+
   it('ships an Element Plus admin with guarded routes and replaceable mock APIs', () => {
     const pkg = JSON.parse(files['package.json']!) as { dependencies: Record<string, string>; scripts: Record<string, string> };
     expect(Object.keys(pkg.dependencies).sort()).toEqual(['@element-plus/icons-vue', 'element-plus', 'pinia', 'vue', 'vue-router']);
