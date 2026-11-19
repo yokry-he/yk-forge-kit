@@ -6,24 +6,30 @@ export type ClaimCommand = { kind: 'list' } | { kind: 'claim'; slug: string; iss
 
 const usage = '用法：\n  pnpm --filter @forgekit/api claim:project -- --list\n' +
   '  pnpm --filter @forgekit/api claim:project -- --slug <项目> --issuer <OIDC issuer> --subject <OIDC subject> [--yes]\n' +
+  '若 subject 以 -- 开头或含空格，请使用 --subject=<原值>。\n' +
   '不加 --yes 时只做检查（dry-run），不会写入数据库。';
 
 export function parseClaimArgs(argv: string[]): ClaimCommand {
-  const args = argv.filter((arg) => arg !== '--');
+  // pnpm may forward a single leading `--` separator; any other `--` is treated as an argument.
+  const args = argv[0] === '--' ? argv.slice(1) : argv;
   if (args.length === 1 && args[0] === '--list') return { kind: 'list' };
   const values: Record<string, string> = {};
   let apply = false;
   for (let index = 0; index < args.length; index++) {
-    const arg = args[index];
-    if (arg === '--yes') { apply = true; continue; }
-    if (arg === '--slug' || arg === '--issuer' || arg === '--subject') {
-      const value = args[index + 1];
-      if (!value || value.startsWith('--') || values[arg]) throw new ProjectClaimError(usage);
-      values[arg] = value;
-      index++;
+    const arg = args[index] ?? '';
+    if (arg === '--yes') {
+      if (apply) throw new ProjectClaimError(usage);
+      apply = true;
       continue;
     }
-    throw new ProjectClaimError(usage);
+    // `--subject=<value>` keeps values that begin with `--` or contain spaces intact.
+    const inline = /^(--slug|--issuer|--subject)=(.*)$/s.exec(arg);
+    const key = inline ? inline[1]! : arg;
+    if (key !== '--slug' && key !== '--issuer' && key !== '--subject') throw new ProjectClaimError(usage);
+    const value = inline ? inline[2] : args[index + 1];
+    if (!inline) index++;
+    if (!value || (!inline && value.startsWith('--')) || key in values) throw new ProjectClaimError(usage);
+    values[key] = value;
   }
   const slug = values['--slug'];
   const issuer = values['--issuer'];

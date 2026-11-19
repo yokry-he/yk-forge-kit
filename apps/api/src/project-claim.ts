@@ -27,9 +27,8 @@ export async function listUnownedProjects(db: Db) {
  * the function only validates and reports. The project row is locked so concurrent claims serialize.
  */
 export async function claimUnownedProject(db: Db, request: ClaimRequest, options: { apply: boolean }): Promise<ClaimResult> {
-  const slug = request.slug.trim();
-  const issuer = request.issuer.trim();
-  const subject = request.subject.trim();
+  // Issuer and subject are matched byte-for-byte exactly as the API stores them; never normalize them.
+  const { slug, issuer, subject } = request;
   if (!slug || !issuer || !subject) throw new ProjectClaimError('必须同时提供 --slug、--issuer 与 --subject。');
   let issuerUrl: URL;
   try { issuerUrl = new URL(issuer); } catch { throw new ProjectClaimError('issuer 必须是完整 URL，与 API 的 OIDC_ISSUER 完全一致。'); }

@@ -28,8 +28,9 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('legacy project cla
       await expect(claimUnownedProject(database.db, { slug, issuer, subject: owner.subject }, { apply: true })).rejects.toThrow('尚无 YKForgeKit 账户');
       const ownerId = await projects.ensureUser(owner);
       await projects.ensureUser(other);
-      // Subject comparison is case-sensitive.
+      // Subject comparison is exact: case and surrounding whitespace are significant.
       await expect(claimUnownedProject(database.db, { slug, issuer, subject: owner.subject.toUpperCase() }, { apply: true })).rejects.toThrow();
+      await expect(claimUnownedProject(database.db, { slug, issuer, subject: ` ${owner.subject}` }, { apply: true })).rejects.toThrow();
 
       const dryRun = await claimUnownedProject(database.db, { slug, issuer, subject: owner.subject }, { apply: false });
       expect(dryRun).toMatchObject({ applied: false, slug, userId: ownerId });

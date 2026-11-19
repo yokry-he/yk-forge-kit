@@ -10,7 +10,7 @@
 
 - 只能认领**没有任何成员**的项目。已有成员的项目应由现有 Owner 通过[邀请码](./project-invitations.md)添加成员。
 - 目标身份必须已经登录过控制台，并完成账户初始化（`POST /api/v1/auth/account`）。命令不会为写错的 issuer/subject 新建账户。
-- issuer 和 subject 按大小写敏感、完全一致的方式匹配，与 API 鉴权一致。
+- issuer 和 subject 按原值精确匹配（区分大小写，不去除空格），与 API 鉴权一致。subject 以 `--` 开头或含空格时，使用 `--subject=<原值>` 形式。
 - 默认只做检查（dry-run），追加 `--yes` 才会写入。
 - 写入在一个 MySQL 事务中完成：先锁定项目行，再写入 `owner` 成员，并在 `project_member_audit` 中记录一条审计（`actor_user_id = operator-cli`，`previous_role = none`，`next_role = owner`）。并发认领只有一个能成功。
 
