@@ -61,7 +61,7 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('real MySQL project
     let userId: string | null = null;
     try {
       const [first, second] = await Promise.all([accounts.initializeAccount(auth), accounts.initializeAccount(auth)]);
-      expect(first).toMatchObject({ displayName: 'ForgeKit 用户' });
+      expect(first).toMatchObject({ displayName: 'YKForgeKit 用户' });
       expect(second?.id).toBe(first?.id);
       userId = first?.id ?? null;
       expect(await accounts.findUserId({ ...auth, subject: subject.toUpperCase() })).toBeNull();

@@ -1,6 +1,6 @@
 # 本机 Keycloak OIDC 联调（可选）
 
-这套 Keycloak 仅供本机开发和测试，不替代生产身份服务。ForgeKit 使用标准 OIDC，生产环境可更换身份提供方。
+这套 Keycloak 仅供本机开发和测试，不替代生产身份服务。YKForgeKit 使用标准 OIDC，生产环境可更换身份提供方。
 
 ## 启动身份服务
 

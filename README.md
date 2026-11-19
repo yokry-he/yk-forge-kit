@@ -1,10 +1,10 @@
-# ForgeKit
+# YKForgeKit
 
 [简体中文](#简体中文) | [English](#english)
 
 ## 简体中文
 
-ForgeKit 是面向开发者的一体化项目创建、资产组合、跨端构建与发布平台。
+YKForgeKit 是面向开发者的一体化项目创建、资产组合、跨端构建与发布平台。
 
 > 项目处于架构设计阶段，尚未提供可运行的正式平台。
 
@@ -28,7 +28,7 @@ ForgeKit 是面向开发者的一体化项目创建、资产组合、跨端构�
 
 ## English
 
-ForgeKit is a planned developer platform for project creation, composable assets, cross-platform builds, and deployment.
+YKForgeKit is a planned developer platform for project creation, composable assets, cross-platform builds, and deployment.
 
 > The project is in the architecture-design phase; there is no production-ready application yet.
 

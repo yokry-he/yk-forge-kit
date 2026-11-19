@@ -1,14 +1,14 @@
 {
   "realm": "forgekit-dev",
   "enabled": true,
-  "displayName": "ForgeKit Local Development",
+  "displayName": "YKForgeKit Local Development",
   "registrationAllowed": false,
   "resetPasswordAllowed": false,
   "rememberMe": false,
   "clients": [
     {
       "clientId": "forgekit-web",
-      "name": "ForgeKit local SPA",
+      "name": "YKForgeKit local SPA",
       "enabled": true,
       "protocol": "openid-connect",
       "publicClient": true,

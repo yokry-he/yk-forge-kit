@@ -12,7 +12,7 @@
 
 ## Mac/Linux 本地执行
 
-在 ForgeKit 仓库根目录：
+在 YKForgeKit 仓库根目录：
 
 ```bash
 cp .env.test.example .env.test

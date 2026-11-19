@@ -1,4 +1,4 @@
-# ForgeKit 本地开发（工程骨架）
+# YKForgeKit 本地开发（工程骨架）
 
 当前提供 Vue 控制台、NestJS API、共享 TypeScript 契约和 Vue Web 项目创建能力。用户中心、业务资产市场、云部署尚未实现。
 

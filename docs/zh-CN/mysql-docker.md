@@ -20,7 +20,7 @@
 
 两个阶段保持同一个 `DATABASE_URL` 配置键，仅改变运行环境中的值，业务代码不感知部署位置。后续增加 Docker Compose 时应使用内部网络、数据库健康检查和启动依赖，不在项目仓库中写入真实密码。
 
-建议为 ForgeKit 使用独立数据库、最小权限账号和独立业务表，不使用 root 账号。创建数据库及授权需先确认现有实例情况。
+建议为 YKForgeKit 使用独立数据库、最小权限账号和独立业务表，不使用 root 账号。创建数据库及授权需先确认现有实例情况。
 
 ## 本地开发与检查
 
@@ -53,7 +53,7 @@ Vue 控制台的 `/projects` 页面显示项目列表，`/projects/new` 创建�
 
 ### 在本机执行资产计划
 
-项目详情页可根据你填写的项目源码目录生成三条命令（应在 ForgeKit 仓库根目录执行）：
+项目详情页可根据你填写的项目源码目录生成三条命令（应在 YKForgeKit 仓库根目录执行）：
 
     node packages/cli/dist/index.js asset plan official.theme --dir ./my-app
     node packages/cli/dist/index.js asset add official.theme --dir ./my-app

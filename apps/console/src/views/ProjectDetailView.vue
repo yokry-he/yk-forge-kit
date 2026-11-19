@@ -307,7 +307,7 @@ watch(() => route.params.slug, refresh);
       <p class="asset-help">当前仅提供已实现安装器的官方主题资产；用户中心、大屏等资产仍在规划中。</p>
       <div v-if="pendingAssets.length" class="asset-handoff">
         <h3>在本机执行已登记的资产计划</h3>
-        <p class="asset-help">输入项目源码目录。先预览变更，再执行安装，最后只读校验；命令需要在 ForgeKit 仓库根目录执行。执行成功也不会自动将数据库状态改为“已安装”。</p>
+        <p class="asset-help">输入项目源码目录。先预览变更，再执行安装，最后只读校验；命令需要在 YKForgeKit 仓库根目录执行。执行成功也不会自动将数据库状态改为“已安装”。</p>
         <label for="project-source-dir">项目源码目录</label>
         <input id="project-source-dir" v-model="localDirectory" :placeholder="`./${project.slug}`" spellcheck="false" />
         <div v-for="item in pendingAssets" :key="item.id" class="handoff-item">

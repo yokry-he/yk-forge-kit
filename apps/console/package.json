@@ -1,5 +1,6 @@
 {
   "name": "@forgekit/console",
+  "description": "YKForgeKit Web 控制台（Vue 3）",
   "version": "0.0.0",
   "private": true,
   "type": "module",

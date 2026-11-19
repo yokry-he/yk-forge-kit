@@ -1,5 +1,6 @@
 {
   "name": "@forgekit/db",
+  "description": "YKForgeKit 数据库访问层（MySQL + Drizzle）",
   "version": "0.0.0",
   "private": true,
   "type": "commonjs",

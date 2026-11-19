@@ -69,12 +69,12 @@ export function renderProjectFiles(input: ProjectOptions): Record<string, string
     'src/main.ts': mainLines.join('\n'),
     'src/App.vue': enabled.has('router') ? `<template>\n  <main class="app"><router-view /></main>\n</template>\n` : `<template>\n  <main class="app"><h1>${options.name}</h1><p>项目创建成功，开始构建你的应用吧。</p></main>\n</template>\n`,
     'src/style.css': `:root { font-family: system-ui, sans-serif; } body { margin: 0; } .app { max-width: 960px; margin: 10vh auto; padding: 24px; }\n`,
-    'README.md': `# ${options.name}\n\n由 ForgeKit 创建的 Vue 3 + Vite 项目。\n\n## 开始\n\n\`\`\`bash\npnpm install\npnpm dev\n\`\`\`\n\n已启用能力：${options.features.length ? options.features.join('、') : '无'}。\n`,
+    'README.md': `# ${options.name}\n\n由 YKForgeKit 创建的 Vue 3 + Vite 项目。\n\n## 开始\n\n\`\`\`bash\npnpm install\npnpm dev\n\`\`\`\n\n已启用能力：${options.features.length ? options.features.join('、') : '无'}。\n`,
     '.gitignore': `node_modules/\ndist/\n.env.local\n`,
   };
   if (enabled.has('router')) {
     files['src/router.ts'] = `import { createRouter, createWebHistory } from 'vue-router'\nimport Home from './views/Home.vue'\n\nexport default createRouter({ history: createWebHistory(), routes: [{ path: '/', component: Home }] })\n`;
-    files['src/views/Home.vue'] = `<template>\n  <section><h1>${options.name}</h1><p>欢迎使用 ForgeKit 创建的项目。</p></section>\n</template>\n`;
+    files['src/views/Home.vue'] = `<template>\n  <section><h1>${options.name}</h1><p>欢迎使用 YKForgeKit 创建的项目。</p></section>\n</template>\n`;
   }
   if (enabled.has('theme')) {
     const plan = planAssetInstall('official.theme', 'vue-web', {

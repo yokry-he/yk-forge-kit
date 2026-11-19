@@ -4,7 +4,7 @@
 
 ## 为什么先做验证器
 
-ForgeKit 面向 Web、桌面端与 CLI。使用成熟 OIDC 身份提供方，避免在业务服务内自建密码存储、重置邮件及独立会话体系。具体提供方（自托管或托管）尚待选择，数据模型用 `(issuer, subject)` 绑定稳定身份。
+YKForgeKit 面向 Web、桌面端与 CLI。使用成熟 OIDC 身份提供方，避免在业务服务内自建密码存储、重置邮件及独立会话体系。具体提供方（自托管或托管）尚待选择，数据模型用 `(issuer, subject)` 绑定稳定身份。
 
 `@forgekit/identity-core` 的 `createOidcTokenVerifier` 使用 `jose` 和可信 JWKS，明确校验签名、固定 issuer、API audience、允许的算法（RS256/ES256）、过期时间、签发时间和 subject。使用公开配置而不是从令牌中自动选择 issuer 或密钥地址。
 
@@ -23,7 +23,7 @@ OIDC_JWKS_URL=https://idp.example.com/realms/forgekit/protocol/openid-connect/ce
 ## 认证与授权是两件事
 
 - **认证：** 服务端验证令牌签名与主体身份，得到 `(issuer, subject)`。
-- **身份关联：** 通过 `external_identities` 找到 ForgeKit 内部用户。
+- **身份关联：** 通过 `external_identities` 找到 YKForgeKit 内部用户。
 - **授权：** 通过 `project_memberships` 和 `@forgekit/identity-core` 的权限矩阵检查具体项目与操作。
 
 任何一步失败都不得授予项目权限。仅验证令牌不能证明请求者有权访问某个项目；也不能把 ID Token 错当成 API Access Token。必须为 API 配置独立 audience，并在服务端的每个入口执行资源级授权检查。

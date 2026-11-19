@@ -31,7 +31,7 @@ onMounted(async () => {
 <template>
   <div class="layout">
     <aside class="sidebar">
-      <div class="brand"><span>◆</span> ForgeKit <small>WORKSPACE</small></div>
+      <div class="brand"><span>◆</span> YKForgeKit <small>WORKSPACE</small></div>
       <div class="menu-title">工作空间</div>
       <RouterLink to="/projects/new" class="menu" active-class="active">◈　创建项目</RouterLink>
       <RouterLink to="/projects" class="menu" active-class="active">▦　项目列表</RouterLink>

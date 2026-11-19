@@ -12,6 +12,6 @@ async function bootstrap(): Promise<void> {
 }
 
 bootstrap().catch((error: unknown) => {
-  console.error('ForgeKit API failed to start', error);
+  console.error('YKForgeKit API failed to start', error);
   process.exitCode = 1;
 });
