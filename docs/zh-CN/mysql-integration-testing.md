@@ -75,3 +75,9 @@ corepack pnpm --filter @forgekit/api exec vitest run test/keycloak-oidc.mysql.te
 - 已增加使用临时自签名 HTTPS JWKS、测试签名 JWT 和真实 HTTP API 的鉴权端到端测试：覆盖签名、Audience、有效期、项目范围授权及邀请兑换。证书/私钥在测试时临时生成，不提交至仓库。
 - 已增加真实 Keycloak 的授权码 + PKCE 登录及 API 鉴权端到端测试（见上节）。仍需在真实浏览器中联调控制台的登录回调与前端会话，以及与生产 OIDC 提供方的对接。
 - 增加迁移升级兼容及备份恢复演练；新建空测试库验证不能代表已有业务库的数据兼容性。
+
+## B07 数据仓库回归
+
+`db:test:integration` 通过 `pnpm --filter @forgekit/db... build` 按依赖顺序构建 contracts/db，顺序运行原有迁移测试和 `packages/db/test/build-repositories.mysql.test.ts`，CI 的 mysql-integration Job 使用相同入口。新增测试覆盖预 B07 已有项目升级及迁移重放、双连接池同项目并发编号、不同项目首次构建/不同构建首次日志的并发写入、状态竞争、日志分块序号/续传、预览摘要/有效期/撤销、同项目组合外键和级联清理。详细边界见 [构建数据模型](./build-data-model.md)。默认单元测试仍跳过真实数据库用例。
+
+2026-11-19 审查修复验证：在 `/tmp` 新建独立数据目录，使用本地 MySQL 8.0.45（默认 `REPEATABLE READ`）通过上述 3 项数据库测试及 5 项相关 API 集成测试，无需 Docker。另在临时源码副本中分别移除构建编号、日志序号事务的 `READ COMMITTED` 配置，两次均由跨父记录并发回归检出 `ER_LOCK_DEADLOCK`；工作区源码未受该验证影响。临时实例仅按本次启动的子进程 PID 停止，CI 继续使用 Docker 环境。

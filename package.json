@@ -6,12 +6,13 @@
   "private": true,
   "packageManager": "pnpm@10.18.3",
   "scripts": {
-    "dev": "pnpm --filter @forgekit/db build && pnpm --parallel --filter @forgekit/console --filter @forgekit/api dev",
+    "dev": "pnpm --filter @forgekit/api^... --filter @forgekit/console^... build && pnpm --parallel --filter @forgekit/console --filter @forgekit/api dev",
     "build": "pnpm -r --if-present build",
     "typecheck": "pnpm -r --if-present typecheck",
     "test": "pnpm build && pnpm -r --if-present test",
+    "test:startup": "node --test scripts/startup.test.mjs",
     "db:migrations:check": "pnpm --filter @forgekit/db exec drizzle-kit check",
-    "db:test:integration": "pnpm --filter @forgekit/db build && pnpm --filter @forgekit/db exec vitest run test/integration.mysql.test.ts"
+    "db:test:integration": "pnpm --filter @forgekit/db... build && pnpm --filter @forgekit/db exec vitest run test/integration.mysql.test.ts && pnpm --filter @forgekit/db exec vitest run test/build-repositories.mysql.test.ts"
   },
   "engines": { "node": ">=22" }
 }
