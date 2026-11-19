@@ -64,3 +64,38 @@ describe('project template registry', () => {
     }
   });
 });
+
+describe('vue-admin template', () => {
+  const files = renderProjectFiles({ name: 'ops-console', template: 'vue-admin', features: [] });
+
+  it('substitutes the project name everywhere and leaves no placeholder', () => {
+    expect(Object.values(files).some((contents) => contents.includes('__PROJECT_NAME__'))).toBe(false);
+    expect(JSON.parse(files['package.json']!).name).toBe('ops-console');
+    expect(files['index.html']).toContain('<title>ops-console</title>');
+  });
+
+  it('gives each generated project its own browser storage keys', () => {
+    const otherFiles = renderProjectFiles({ name: 'other-console', template: 'vue-admin', features: [] });
+    for (const key of ['token', 'user', 'dark', 'profile']) {
+      expect(files['src/storage.ts']).toContain(`'ops-console:${key}'`);
+      expect(otherFiles['src/storage.ts']).toContain(`'other-console:${key}'`);
+    }
+  });
+
+  it('ships an Element Plus admin with guarded routes and replaceable mock APIs', () => {
+    const pkg = JSON.parse(files['package.json']!) as { dependencies: Record<string, string>; scripts: Record<string, string> };
+    expect(Object.keys(pkg.dependencies).sort()).toEqual(['@element-plus/icons-vue', 'element-plus', 'pinia', 'vue', 'vue-router']);
+    expect(pkg.scripts.build).toBe('vue-tsc --noEmit && vite build');
+    expect(files['src/main.ts']).toContain('zhCn');
+    expect(files['src/router/index.ts']).toContain('beforeEach');
+    for (const view of ['LoginView', 'DashboardView', 'UsersView', 'SettingsView', 'NotFoundView']) {
+      expect(files[`src/views/${view}.vue`]).toBeDefined();
+    }
+    expect(files['src/api/mock.ts']).toContain('export async function fetchUsers');
+  });
+
+  it('offers no optional features and rejects others', () => {
+    expect(() => createProjectPlan({ name: 'ops', template: 'vue-admin', features: ['theme'] })).toThrow();
+    expect(createProjectPlan({ name: 'ops', template: 'vue-admin', features: [] }).files).toContain('src/layouts/AdminLayout.vue');
+  });
+});

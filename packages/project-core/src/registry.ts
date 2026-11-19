@@ -1,4 +1,5 @@
 import type { ProjectFeatureOption, ProjectTemplateDefinition, ProjectTemplateId, ProjectTemplateMetadata } from './types.js';
+import { renderVueAdmin } from './vue-admin.js';
 import { renderVueWeb } from './vue-web.js';
 
 const featureCatalog = {
@@ -21,6 +22,20 @@ const templates: ProjectTemplateDefinition[] = [
     assetTarget: 'vue-web',
     commands: ['pnpm install', 'pnpm dev'],
     render: renderVueWeb,
+  },
+  {
+    id: 'vue-admin',
+    name: 'Vue 后台管理系统',
+    description: '基于 Element Plus 的响应式后台：登录与路由守卫、侧边栏布局、仪表盘、用户管理增删改查、系统设置、暗色模式；接口为可替换的模拟数据。',
+    kind: 'admin',
+    targets: ['web'],
+    stack: ['Vue 3', 'TypeScript', 'Vite', 'Element Plus', 'Pinia', 'Vue Router'],
+    features: [],
+    defaultFeatures: [],
+    builtIn: ['Element Plus 组件库（中文语言包）', 'Vue Router 与登录守卫', 'Pinia 状态管理', '暗色模式', '移动端抽屉菜单', '模拟数据接口'],
+    assetTarget: null,
+    commands: ['pnpm install', 'pnpm dev'],
+    render: renderVueAdmin,
   },
 ];
 
