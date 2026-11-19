@@ -1,6 +1,6 @@
 import { constants } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
-import { lstat, mkdir, open, readdir, rename, rm } from 'node:fs/promises';
+import { lstat, mkdir, open, opendir, rename, rm } from 'node:fs/promises';
 import { isAbsolute, join, resolve } from 'node:path';
 
 export interface ArtifactMetadata { key: string; size: number; sha256: string }
@@ -67,7 +67,7 @@ export class LocalFsArtifactStore implements ArtifactStore {
       const target = join(staging, relative);
       if (stat.isDirectory()) {
         await mkdir(target, { mode: 0o700 });
-        for (const name of (await readdir(source)).sort()) await visit(`${relative}/${name}`, depth + 1);
+        for await (const entry of await opendir(source)) await visit(`${relative}/${entry.name}`, depth + 1);
       } else {
         if (size + stat.size > this.maxBytes) throw new Error('artifact_size_limit');
         const input = await open(source, constants.O_RDONLY | constants.O_NOFOLLOW);
@@ -91,7 +91,8 @@ export class LocalFsArtifactStore implements ArtifactStore {
     try {
       const rootStat = await lstat(directory);
       if (!rootStat.isDirectory() || rootStat.isSymbolicLink()) throw new Error('unsafe_artifact_root');
-      for (const name of (await readdir(directory)).sort()) await visit(name, 0);
+      // Stream names so the entry budget applies before an untrusted directory is buffered.
+      for await (const entry of await opendir(directory)) await visit(entry.name, 0);
       signal.throwIfAborted();
       const manifest = createHash('sha256');
       for (const record of records.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) {
