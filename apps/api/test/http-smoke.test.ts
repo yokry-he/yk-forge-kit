@@ -37,10 +37,13 @@ async function waitForHealth(base: string, child: ChildProcess): Promise<void> {
   throw new Error('API 未能在 4 秒内完成本地启动。');
 }
 
-describe('compiled API loopback HTTP without database credentials', () => {
+describe.each([
+  { mode: 'compiled', args: [resolve(process.cwd(), 'dist/main.js')] },
+  { mode: 'development', args: ['--import', 'tsx', resolve(process.cwd(), 'src/main.ts')] },
+])('$mode API loopback HTTP without database credentials', ({ args }) => {
   it('exposes health and fails closed when MySQL is not configured', async () => {
     const port = await unusedLoopbackPort();
-    const child = spawn(process.execPath, [resolve(process.cwd(), 'dist/main.js')], {
+    const child = spawn(process.execPath, args, {
       cwd: process.cwd(),
       stdio: 'ignore',
       env: { ...process.env, AUTH_MODE: 'local', NODE_ENV: 'test', API_HOST: '127.0.0.1', DATABASE_URL: '', PORT: String(port) },

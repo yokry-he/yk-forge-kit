@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { ProjectApiError, listProjects, saveProject } from '../src/api/projects';
-import { listProjectAssets, planProjectAsset } from '../src/api/project-assets';
+import { listProjectAssets, planProjectAsset, upgradeProjectAssetPlan } from '../src/api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../src/api/project-members';
 import { issueInvitation, listInvitations, redeemInvitation, revokeInvitation } from '../src/api/invitations';
 import { getAccessToken } from '../src/auth/session';
@@ -94,6 +94,16 @@ describe('project API client', () => {
     await planProjectAsset('my-app', 'official.theme');
     expect(fetch).toHaveBeenNthCalledWith(1, '/api/v1/projects/my-app/assets', expect.any(Object));
     expect(fetch).toHaveBeenNthCalledWith(2, '/api/v1/projects/my-app/assets', expect.objectContaining({ method: 'POST', body: '{"assetId":"official.theme"}' }));
+  });
+
+  it('submits only expectedVersion for optimistic upgrade of desired metadata', async () => {
+    const fetch = vi.fn().mockResolvedValue({ ok: true, json: async () => ({ version: '1.1.0', status: 'planned' }) });
+    vi.stubGlobal('fetch', fetch);
+    await upgradeProjectAssetPlan('my-app', 'official.theme', '1.0.0');
+    const [path, init] = fetch.mock.calls[0] as [string, RequestInit];
+    expect(path).toBe('/api/v1/projects/my-app/assets/official.theme/plan');
+    expect(init.method).toBe('PATCH');
+    expect(init.body).toBe('{"expectedVersion":"1.0.0"}');
   });
 
   it('loads project members and submits scoped role updates', async () => {

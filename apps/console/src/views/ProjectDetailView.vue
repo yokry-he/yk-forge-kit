@@ -4,7 +4,7 @@ import { RouterLink, useRoute } from 'vue-router';
 import { parseAssetVerificationReceipt, type AssetVerificationReceipt, type ProjectAssetRecord, type ProjectMembersResponse, type ProjectRecord } from '@forgekit/contracts';
 import { getAssetVersionStatus, listAssets } from '@forgekit/asset-core';
 import { getProject } from '../api/projects';
-import { listProjectAssets, planProjectAsset } from '../api/project-assets';
+import { listProjectAssets, planProjectAsset, upgradeProjectAssetPlan } from '../api/project-assets';
 import { listProjectMembers, updateProjectMemberRole } from '../api/project-members';
 import { issueInvitation, listInvitations, revokeInvitation, type InvitationSummary, type IssuedInvitation } from '../api/invitations';
 
@@ -16,7 +16,9 @@ const assets = ref<ProjectAssetRecord[]>([]);
 const assetsError = ref('');
 const assetsLoading = ref(false);
 const planning = ref('');
+const upgradingPlan = ref('');
 const planMessage = ref('');
+const postUpgradeHandoff = ref<{ preview: string; apply: string } | null>(null);
 const localDirectory = ref('');
 const copied = ref('');
 const receiptText = ref('');
@@ -203,6 +205,23 @@ async function planAsset(assetId: string): Promise<void> {
   finally { planning.value = ''; }
 }
 
+async function upgradeRecordedPlan(assetId: string, expectedVersion: string): Promise<void> {
+  if (!project.value || upgradingPlan.value || !['owner', 'editor'].includes(members.value?.currentRole ?? '') ||
+      getAssetVersionStatus(assetId, expectedVersion) !== 'upgrade-available') return;
+  upgradingPlan.value = assetId;
+  planMessage.value = '';
+  assetsError.value = '';
+  try {
+    const preview = assetCliCommand('upgrade', assetId, 'dry-run');
+    const apply = assetCliCommand('upgrade', assetId, 'yes');
+    await upgradeProjectAssetPlan(project.value.slug, assetId, expectedVersion);
+    await refreshAssets(project.value.slug);
+    postUpgradeHandoff.value = { preview, apply };
+    planMessage.value = '已更新服务端目标版本计划；本地源码和锁文件尚未升级，请按 CLI 步骤完成。';
+  } catch (reason) { assetsError.value = reason instanceof Error ? reason.message : '版本登记更新失败，请刷新后重试。'; }
+  finally { upgradingPlan.value = ''; }
+}
+
 async function refresh(): Promise<void> {
   const epoch = ++viewEpoch;
   loading.value = true;
@@ -212,6 +231,7 @@ async function refresh(): Promise<void> {
   project.value = null;
   assets.value = [];
   planMessage.value = '';
+  postUpgradeHandoff.value = null;
   copied.value = '';
   receiptText.value = '';
   inspectedReceipt.value = null;
@@ -269,6 +289,11 @@ watch(() => route.params.slug, refresh);
       <p class="asset-help">这里登记准备集成的公共资产及其版本。<strong>登记不等于安装成功</strong>；实际文件修改仍需通过 CLI 执行并校验。</p>
       <p v-if="assetsError" class="form-error" role="alert">{{ assetsError }}</p>
       <p v-if="planMessage" class="form-success" role="status">{{ planMessage }}</p>
+      <div v-if="postUpgradeHandoff" class="asset-handoff">
+        <p class="asset-help">目标版本更新后仍须执行本地 CLI，命令保留在这里方便继续完成：</p>
+        <div class="handoff-command"><span>升级预览</span><code>{{ postUpgradeHandoff.preview }}</code><button class="subtle-button" @click="copyCommand(postUpgradeHandoff.preview, 'post-upgrade-preview')">{{ copied === 'post-upgrade-preview' ? '已复制' : '复制' }}</button></div>
+        <div class="handoff-command"><span>确认执行</span><code>{{ postUpgradeHandoff.apply }}</code><button class="subtle-button" @click="copyCommand(postUpgradeHandoff.apply, 'post-upgrade-apply')">{{ copied === 'post-upgrade-apply' ? '已复制' : '复制' }}</button></div>
+      </div>
       <div v-if="assetsLoading" class="state-card" role="status">正在加载资产计划…</div>
       <div v-else-if="!assets.length" class="state-card compact-state">尚未登记额外资产安装计划。</div>
       <div v-else class="project-assets-list">
@@ -299,6 +324,7 @@ watch(() => route.params.slug, refresh);
             <p v-else class="asset-help">该登记版本没有受支持的自动升级路径，请人工核对锁文件和来源。</p>
             <template v-if="getAssetVersionStatus(item.assetId, item.version) === 'upgrade-available'">
               <div v-for="mode in (['dry-run', 'yes'] as const)" :key="mode" class="handoff-command"><span>{{ mode === 'dry-run' ? '升级预览' : '升级执行' }}</span><code>{{ assetCliCommand('upgrade', item.assetId, mode) }}</code><button class="subtle-button" @click="copyCommand(assetCliCommand('upgrade', item.assetId, mode), `${item.assetId}:upgrade:${mode}`)">{{ copied === `${item.assetId}:upgrade:${mode}` ? '已复制' : '复制' }}</button></div>
+              <button v-if="members?.currentRole === 'owner' || members?.currentRole === 'editor'" class="subtle-button" :disabled="!!upgradingPlan || assetsLoading" @click="upgradeRecordedPlan(item.assetId, item.version)">{{ upgradingPlan === item.assetId ? '登记中…' : '将服务端目标版本登记为最新' }}</button>
             </template>
             <div v-for="mode in (['dry-run', 'yes'] as const)" :key="mode" class="handoff-command"><span>{{ mode === 'dry-run' ? '卸载预览' : '卸载执行' }}</span><code>{{ assetCliCommand('remove', item.assetId, mode) }}</code><button class="subtle-button" @click="copyCommand(assetCliCommand('remove', item.assetId, mode), `${item.assetId}:remove:${mode}`)">{{ copied === `${item.assetId}:remove:${mode}` ? '已复制' : '复制' }}</button></div>
             <p class="asset-help">先运行 --dry-run 并检查 git diff，再决定是否执行 --yes。浏览器不会修改源码；CLI 会拒绝覆盖已漂移的文件。数据库登记版本不会随着本地命令自动更新。</p>

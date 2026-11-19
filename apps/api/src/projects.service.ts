@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, desc, eq, inArray } from 'drizzle-orm';
 import { externalIdentities, projectMemberships, projects } from '@forgekit/db';
 import { canAccessProject, type ProjectPermission } from '@forgekit/identity-core';
@@ -15,8 +15,8 @@ export interface CreateProjectInput {
 
 @Injectable()
 export class ProjectsService {
-  constructor(private readonly database: DatabaseService,
-    private readonly identities: IdentityAccountsService = new IdentityAccountsService(database)) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService,
+    @Inject(IdentityAccountsService) private readonly identities: IdentityAccountsService = new IdentityAccountsService(database)) {}
 
   async create(input: CreateProjectInput, auth: ProjectAuthContext) {
     const db = this.database.db;

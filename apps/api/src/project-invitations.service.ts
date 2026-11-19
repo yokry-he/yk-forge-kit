@@ -1,5 +1,5 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
-import { ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
+import { Inject, ConflictException, ForbiddenException, GoneException, Injectable, NotFoundException } from '@nestjs/common';
 import { and, desc, eq } from 'drizzle-orm';
 import { projectInvitationAudit, projectInvitations, projectMemberships, projects } from '@forgekit/db';
 import { DatabaseService } from './database.service';
@@ -12,8 +12,8 @@ const tokenDigest = (token: string) => createHash('sha256').update(token, 'utf8'
 
 @Injectable()
 export class ProjectInvitationsService {
-  constructor(private readonly database: DatabaseService, private readonly projects: ProjectsService,
-    private readonly limiter: InvitationRateLimiter) {}
+  constructor(@Inject(DatabaseService) private readonly database: DatabaseService, @Inject(ProjectsService) private readonly projects: ProjectsService,
+    @Inject(InvitationRateLimiter) private readonly limiter: InvitationRateLimiter) {}
 
   async create(slug: string, role: 'editor' | 'viewer', auth: ProjectAuthContext) {
     if (auth.mode !== 'oidc') throw new ForbiddenException('项目邀请需要 OIDC 登录。');

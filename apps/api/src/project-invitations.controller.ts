@@ -1,4 +1,4 @@
-import { BadRequestException, Body, Controller, Get, Param, Post, Delete, Req, UseGuards } from '@nestjs/common';
+import { Inject, BadRequestException, Body, Controller, Get, Param, Post, Delete, Req, UseGuards } from '@nestjs/common';
 import { ProjectApiGuard } from './project-api.guard';
 import { requireProjectAuth, type ProjectAuthRequest } from './project-auth-context';
 import { ProjectInvitationsService } from './project-invitations.service';
@@ -6,7 +6,7 @@ import { ProjectInvitationsService } from './project-invitations.service';
 @Controller('api/v1/projects/:slug/invitations')
 @UseGuards(ProjectApiGuard)
 export class ProjectInvitationsController {
-  constructor(private readonly invitations: ProjectInvitationsService) {}
+  constructor(@Inject(ProjectInvitationsService) private readonly invitations: ProjectInvitationsService) {}
 
   @Get()
   list(@Param('slug') slug: string, @Req() request: ProjectAuthRequest) {
@@ -27,7 +27,7 @@ export class ProjectInvitationsController {
 @Controller('api/v1/invitations')
 @UseGuards(ProjectApiGuard)
 export class InvitationRedemptionController {
-  constructor(private readonly invitations: ProjectInvitationsService) {}
+  constructor(@Inject(ProjectInvitationsService) private readonly invitations: ProjectInvitationsService) {}
 
   @Post('redeem')
   async redeem(@Body() body: unknown, @Req() request: ProjectAuthRequest) {

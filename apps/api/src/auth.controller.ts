@@ -1,10 +1,10 @@
-import { Body, Controller, Get, Headers, Patch, Post } from '@nestjs/common';
+import { Inject, Body, Controller, Get, Headers, Patch, Post } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { IdentityAccountsService, parseDisplayName } from './identity-accounts.service';
 
 @Controller('api/v1/auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService, private readonly accounts: IdentityAccountsService) {}
+  constructor(@Inject(AuthService) private readonly auth: AuthService, @Inject(IdentityAccountsService) private readonly accounts: IdentityAccountsService) {}
 
   /** Identity check only. It does not authorize access to any project. */
   @Get('whoami')
