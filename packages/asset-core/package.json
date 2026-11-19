@@ -2,6 +2,7 @@
   "name": "@forgekit/asset-core",
   "description": "YKForgeKit 公共资产协议与生命周期规划",
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "types": "./src/index.ts",

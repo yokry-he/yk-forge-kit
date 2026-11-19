@@ -2,6 +2,7 @@
   "name": "@forgekit/identity-core",
   "description": "YKForgeKit OIDC 身份校验核心",
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "types": "./src/index.ts",

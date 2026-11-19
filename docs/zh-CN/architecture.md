@@ -10,13 +10,19 @@
 - 公共 UI 组件独立于 YKForgeKit 业务项目，拟使用 `yk-forge-ui` 仓库。
 - 以成熟稳定、低耦合、适度抽象、可测试及可替换为基础约束。
 
-## 尚未定案
+## 2026-11-19 已定案（见 ADR-0005）
 
-- Web 控制台采用 Nuxt 还是 Vue + Vite。
-- API 后端框架、持久化及队列选型。
-- 移动端与小程序适配框架的最终组合。
-- UI 组件库的包布局、发布渠道及多端范围。
-- CLI/核心 SDK/Runner 的内部边界。
-- 认证方案、租户隔离模型、云部署适配层及成本模型。
+- Web 控制台采用 Vue 3 + Vite（ADR-0002 已 Accepted）；Nuxt 仅用于需要 SEO 的官网/内容站。
+- API 采用 NestJS 模块化单体，持久化为 MySQL 8 + Drizzle（ADR-0003），队列规划为 Redis + BullMQ。
+- 跨端：小程序 + 移动 App + H5 采用 uni-app（Vue 3），桌面采用 Tauri 2 + Vue。
+- 先私有化单租户、架构预留多租户；后台管理模板采用 Element Plus；许可证 Apache-2.0。
+
+详见 [ADR-0005](../adr/0005-product-positioning-and-cross-platform-stack.md)。
+
+## 仍待定案
+
+- UI 组件库（`yk-forge-ui`）的包布局、发布渠道及多端范围。
+- CLI/核心 SDK/Runner 的内部边界与 Runner 沙箱方案。
+- 生产 OIDC 提供方、多租户隔离模型细节、云部署适配层及成本模型。
 
 以上事项应通过需求约束、验证原型及 ADR 决定，避免把初步讨论当成实现承诺。

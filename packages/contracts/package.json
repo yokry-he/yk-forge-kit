@@ -2,6 +2,7 @@
   "name": "@forgekit/contracts",
   "description": "YKForgeKit 前后端与 CLI 共享契约",
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "type": "module",
   "types": "./src/index.ts",

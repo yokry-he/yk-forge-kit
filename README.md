@@ -29,8 +29,10 @@ YKForgeKit 是面向开发者的一体化项目创建、资产组合、跨端构
 - [测试与质量门禁](docs/zh-CN/testing.md)
 - [UI / UX 规范](docs/zh-CN/ui-design.md)
 - [文档与翻译策略](docs/zh-CN/documentation.md)
-- [架构决策记录](docs/adr/0001-engineering-foundations.md)
+- [架构决策记录](docs/adr/0001-engineering-foundations.md)（产品定位与跨端技术栈见 [ADR-0005](docs/adr/0005-product-positioning-and-cross-platform-stack.md)）
 - [仓库保护配置建议](docs/zh-CN/repository-governance.md)
+
+许可证：[Apache-2.0](LICENSE)。
 
 目前以中文文档为权威版本，待关键方案稳定后逐步补齐英文，正式对外发布前确保核心用户文档双语可用。
 
@@ -46,5 +48,7 @@ YKForgeKit is a planned developer platform for project creation, composable asse
 - Visual and interaction reference: [SiteForge](https://github.com/yokry-he/yk-site-generator), developed independently
 
 **Product plan (draft, Chinese):** see [docs/zh-CN/plan/](docs/zh-CN/plan/00-product-vision.md) for vision, capability map, technical architecture, roadmap, and open questions.
+
+**License:** [Apache-2.0](LICENSE).
 
 **Documentation status:** Simplified Chinese is currently the source of truth. English documentation will be added as the architecture stabilizes; core user-facing guides will be bilingual before public release. See the Chinese [documentation policy](docs/zh-CN/documentation.md).

@@ -2,6 +2,7 @@
   "name": "@forgekit/api",
   "description": "YKForgeKit API 服务（NestJS）",
   "version": "0.0.0",
+  "license": "Apache-2.0",
   "private": true,
   "scripts": {
     "dev": "tsx watch src/main.ts",

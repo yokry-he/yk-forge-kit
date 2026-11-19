@@ -1,6 +1,6 @@
 # ADR-0002: Vue 优先的第一版平台架构
 
-- 状态：Proposed
+- 状态：Accepted（2026-11-19 由用户确认，见 ADR-0005）
 - 日期：2026-11-15
 - English title: Vue-first platform architecture
 
@@ -28,4 +28,4 @@
 
 优点是可继承 Vue 经验、缩小首期复杂度、保留扩展能力。代价是未来增加 Nuxt 或不同跨端 UI 框架时需维护适配层。
 
-本 ADR 仍为提案；在用户确认具体架构和验证关键风险后再改为 Accepted。
+2026-11-19：用户确认采纳本 ADR，状态改为 Accepted；跨端技术栈与首批产品决策见 [ADR-0005](./0005-product-positioning-and-cross-platform-stack.md)。

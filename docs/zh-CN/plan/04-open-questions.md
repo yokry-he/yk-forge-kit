@@ -16,24 +16,26 @@
 
 ## 1. 需要用户决策的问题
 
-| 编号 | 问题 | 选项 | 推荐默认 | 影响 | 需要在何时之前决定 |
-|---|---|---|---|---|---|
-| D-01 | 产品形态：SaaS 公有云 / 私有化部署 / 两者兼顾 | A. 纯 SaaS；B. 纯私有化单租户；C. 先自用/私有化单租户，架构预留多租户，后续再开 SaaS | C | 决定 db 是否引入 tenant 维度、identity-core 授权模型是否加组织层、控制面部署方式；影响 MVP 全部数据模型 | Phase 0 结束前（决定 db 迁移是否预留 tenant_id） |
-| D-02 | 控制面部署在哪 | A. 用户自己的一台阿里云/腾讯云主机 + 现有 MySQL；B. 托管云服务；C. 本地开发机先行 | A | 决定 CI/CD、备份、监控、域名/HTTPS 方案；影响运维成本与合规 | MVP 启动前 |
-| D-03 | MVP 先支持阿里云还是腾讯云 | A. 仅阿里云；B. 仅腾讯云；C. SSH 方式两家同时支持，云 API 适配先阿里云 | C | SSH 部署本身平台无关，可同时覆盖 ECS/CVM/轻量；云 API 适配（V1）先做一家降低工作量 | MVP 启动前（SSH 部分）；V1 启动前（API 适配顺序） |
-| D-04 | 跨端技术栈是否接受 uni-app 作为小程序 + 移动 + H5 主力方案 | A. 接受 uni-app；B. 改用 Taro；C. 各端分别选型 | A | 决定 project-core 模板注册表、asset-core target 扩展、V1 排期；Taro 与 Vue 路线契合度较低 | B02「ADR-0005 产品定位与跨端技术栈」完成前；V1 开始交付小程序和 H5 |
-| D-05 | 后台管理模板组件库 | A. Element Plus；B. Naive UI；C. 两者都出模板 | A（生态更大、文档与社区更成熟） | 决定 vue-admin 模板实现与资产设计；影响后续资产市场 | B05「新增 vue-admin 后台管理模板」开始前 |
-| D-06 | Git 托管首选集成 | A. GitHub；B. Gitee；C. 两者都做，MVP 仅“推送/下载” | C（MVP 先支持把生成项目推送到 GitHub/Gitee 或仅下载） | 决定 OAuth App 申请、Webhook 设计、PM 视图关联提交的数据来源 | MVP 源码交付功能开发前确认是否提供推送；V1 启动前确认深度集成顺序 |
-| D-07 | AI 模型提供商与费用承担 | A. 平台统一采购；B. 用户自带 Key（BYOK），默认 DeepSeek；C. 混合 | B | 决定 AI 模块的密钥管理（复用信封加密）、计费模型、合规（数据出境） | V1 启动前（AI 提案属 V1） |
-| D-08 | 非技术用户模式（向导 + AI 对话 + 可视化配置）优先级 | A. MVP 就做；B. V1 做；C. V2+ 做 | B | 影响 console 交互设计与 AI 模块排期；MVP 聚焦开发者 Web 闭环 | V1 规划前 |
-| D-09 | 是否商业化 / 是否设计计费 | A. 暂不商业化，仅预留数据模型；B. V2+ 正式计费；C. 不做 | A（V2+ 先设计数据模型：免费额度、按构建分钟/存储/AI token 计量） | 决定是否引入计量表、配额校验中间件；影响 db 与 api 设计 | V2+ 规划前（MVP 仅需预留字段） |
-| D-10 | 开源许可证 | A. MIT；B. Apache-2.0；C. AGPL-3.0；D. 核心开源 + 企业版 | B（Apache-2.0，含专利授权，利于商业友好） | 决定仓库 LICENSE、第三方依赖合规审查、私有化交付条款 | 首次公开发布前（不阻塞开发） |
-| D-11 | 33 个旧 PR 的处理 | A. grok-dev 合并 main 后关闭旧 PR；B. 逐个 review 挑选；C. 全部关闭重开 | A | 影响仓库历史整洁度与协作效率；避免长期悬挂 PR 干扰 CI | Phase 0 内（尽快） |
-| D-12 | 域名与 ICP 备案主体 | A. 用户自有域名并自行备案；B. 平台代持域名；C. 仅 IP + 自签证书（不推荐） | A（平台提醒中国大陆主机绑定域名需 ICP 备案，不代持） | 决定 HTTPS 方案（Caddy 自动证书/acme.sh）、预览子域（*.preview）规划、合规责任划分 | MVP 部署功能开发前 |
-| D-13 | iOS 开发者账号与 Mac 构建机 | A. 用户自备 Apple 开发者账号 + 自建 Mac mini；B. 云 Mac 服务；C. 暂不支持 iOS 打包 | A（V2+ 交付，MVP/V1 不做） | 决定 V2+ 移动 App 打包签名方案与成本；影响路线图 V2+ 范围 | V2+ 规划前 |
-| D-14 | 预览环境形态 | A. MVP 仅静态产物预览（*.preview 子域 + 令牌/过期）；B. 直接上容器预览 | A（V1 再上带后端的容器预览、PR/分支预览、闲置回收） | 决定预览存储、子域与证书、访问控制设计 | MVP 构建/预览开发前 |
-| D-15 | Artifact Store 选型 | A. MVP 本地磁盘/MinIO，V1 接 OSS/COS/S3；B. MVP 直接上 OSS/COS | A（抽象存储接口，便于切换） | 决定 worker 产物上传实现与成本；影响预览服务读取路径 | B09「Docker 隔离 Runner（Web 构建）」开始前 |
-| D-16 | 是否引入轻量部署 Agent（V1） | A. 引入（单二进制、主动出站 WebSocket/HTTPS、mTLS + 一次性注册令牌）；B. 仅 SSH，不引入部署 Agent | A（V1，用于部署、日志采集、指标，免开放入站端口） | 决定 V1 日志检索/告警与监控实现路径；增加一个交付物 apps/agent | V1 启动前 |
+> **2026-11-19 更新：** 项目所有者已确认采纳下表全部“推荐默认”，决策记录见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md)。表格保留选项与影响分析，便于日后回溯。
+
+| 编号 | 问题 | 选项 | 推荐默认 | 影响 | 需要在何时之前决定 | 决策状态 |
+|---|---|---|---|---|---|---|
+| D-01 | 产品形态：SaaS 公有云 / 私有化部署 / 两者兼顾 | A. 纯 SaaS；B. 纯私有化单租户；C. 先自用/私有化单租户，架构预留多租户，后续再开 SaaS | C | 决定 db 是否引入 tenant 维度、identity-core 授权模型是否加组织层、控制面部署方式；影响 MVP 全部数据模型 | Phase 0 结束前（决定 db 迁移是否预留 tenant_id） | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-02 | 控制面部署在哪 | A. 用户自己的一台阿里云/腾讯云主机 + 现有 MySQL；B. 托管云服务；C. 本地开发机先行 | A | 决定 CI/CD、备份、监控、域名/HTTPS 方案；影响运维成本与合规 | MVP 启动前 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-03 | MVP 先支持阿里云还是腾讯云 | A. 仅阿里云；B. 仅腾讯云；C. SSH 方式两家同时支持，云 API 适配先阿里云 | C | SSH 部署本身平台无关，可同时覆盖 ECS/CVM/轻量；云 API 适配（V1）先做一家降低工作量 | MVP 启动前（SSH 部分）；V1 启动前（API 适配顺序） | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-04 | 跨端技术栈是否接受 uni-app 作为小程序 + 移动 + H5 主力方案 | A. 接受 uni-app；B. 改用 Taro；C. 各端分别选型 | A | 决定 project-core 模板注册表、asset-core target 扩展、V1 排期；Taro 与 Vue 路线契合度较低 | B02「ADR-0005 产品定位与跨端技术栈」完成前；V1 开始交付小程序和 H5 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-05 | 后台管理模板组件库 | A. Element Plus；B. Naive UI；C. 两者都出模板 | A（生态更大、文档与社区更成熟） | 决定 vue-admin 模板实现与资产设计；影响后续资产市场 | B05「新增 vue-admin 后台管理模板」开始前 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-06 | Git 托管首选集成 | A. GitHub；B. Gitee；C. 两者都做，MVP 仅“推送/下载” | C（MVP 先支持把生成项目推送到 GitHub/Gitee 或仅下载） | 决定 OAuth App 申请、Webhook 设计、PM 视图关联提交的数据来源 | MVP 源码交付功能开发前确认是否提供推送；V1 启动前确认深度集成顺序 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-07 | AI 模型提供商与费用承担 | A. 平台统一采购；B. 用户自带 Key（BYOK），默认 DeepSeek；C. 混合 | B | 决定 AI 模块的密钥管理（复用信封加密）、计费模型、合规（数据出境） | V1 启动前（AI 提案属 V1） | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-08 | 非技术用户模式（向导 + AI 对话 + 可视化配置）优先级 | A. MVP 就做；B. V1 做；C. V2+ 做 | B | 影响 console 交互设计与 AI 模块排期；MVP 聚焦开发者 Web 闭环 | V1 规划前 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-09 | 是否商业化 / 是否设计计费 | A. 暂不商业化，仅预留数据模型；B. V2+ 正式计费；C. 不做 | A（V2+ 先设计数据模型：免费额度、按构建分钟/存储/AI token 计量） | 决定是否引入计量表、配额校验中间件；影响 db 与 api 设计 | V2+ 规划前（MVP 仅需预留字段） | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-10 | 开源许可证 | A. MIT；B. Apache-2.0；C. AGPL-3.0；D. 核心开源 + 企业版 | B（Apache-2.0，含专利授权，利于商业友好） | 决定仓库 LICENSE、第三方依赖合规审查、私有化交付条款 | 首次公开发布前（不阻塞开发） | ✅ 已决策（2026-11-19）：Apache-2.0，已添加 [LICENSE](../../../LICENSE) |
+| D-11 | 33 个旧 PR 的处理 | A. grok-dev 合并 main 后关闭旧 PR；B. 逐个 review 挑选；C. 全部关闭重开 | A | 影响仓库历史整洁度与协作效率；避免长期悬挂 PR 干扰 CI | Phase 0 内（尽快） | ✅ 已决策（2026-11-19）：采纳 A，**暂缓执行**——待 grok-dev 稳定后再合入 main 并关闭旧 PR |
+| D-12 | 域名与 ICP 备案主体 | A. 用户自有域名并自行备案；B. 平台代持域名；C. 仅 IP + 自签证书（不推荐） | A（平台提醒中国大陆主机绑定域名需 ICP 备案，不代持） | 决定 HTTPS 方案（Caddy 自动证书/acme.sh）、预览子域（*.preview）规划、合规责任划分 | MVP 部署功能开发前 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-13 | iOS 开发者账号与 Mac 构建机 | A. 用户自备 Apple 开发者账号 + 自建 Mac mini；B. 云 Mac 服务；C. 暂不支持 iOS 打包 | A（V2+ 交付，MVP/V1 不做） | 决定 V2+ 移动 App 打包签名方案与成本；影响路线图 V2+ 范围 | V2+ 规划前 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-14 | 预览环境形态 | A. MVP 仅静态产物预览（*.preview 子域 + 令牌/过期）；B. 直接上容器预览 | A（V1 再上带后端的容器预览、PR/分支预览、闲置回收） | 决定预览存储、子域与证书、访问控制设计 | MVP 构建/预览开发前 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-15 | Artifact Store 选型 | A. MVP 本地磁盘/MinIO，V1 接 OSS/COS/S3；B. MVP 直接上 OSS/COS | A（抽象存储接口，便于切换） | 决定 worker 产物上传实现与成本；影响预览服务读取路径 | B09「Docker 隔离 Runner（Web 构建）」开始前 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
+| D-16 | 是否引入轻量部署 Agent（V1） | A. 引入（单二进制、主动出站 WebSocket/HTTPS、mTLS + 一次性注册令牌）；B. 仅 SSH，不引入部署 Agent | A（V1，用于部署、日志采集、指标，免开放入站端口） | 决定 V1 日志检索/告警与监控实现路径；增加一个交付物 apps/agent | V1 启动前 | ✅ 已决策（2026-11-19）：采纳推荐默认，见 [ADR-0005](../../adr/0005-product-positioning-and-cross-platform-stack.md) |
 
 > 说明：D-01、D-02、D-03、D-12 相互关联，建议合并为一次“部署与形态”决策会，产出 ADR。D-04 在 B02 中确认，D-05 在模板开发前确认。D-06 和 D-07 按表中时点确认，并记录到对应 ADR。
 
@@ -75,7 +77,7 @@
 | A-09 | 单人 + AI 协作的开发节奏可持续，路线图时间为粗估 | 排期需整体顺延 | 每阶段结束复盘 |
 | A-10 | 私有化单租户先行、架构预留多租户，不会在 MVP 引入组织/团队复杂度 | 若 D-01 选纯 SaaS，db 与授权模型需提前加 tenant | D-01 决策 |
 | A-11 | 预览与部署的访问控制可复用 identity-core 默认拒绝策略，新增 build:run、deploy:*、secret:write、log:read 等权限即可 | 需重新设计授权模型 | 在 B07「contracts + db 数据模型与迁移」和 B12「部署目标管理（SSH 主机）」中验证 |
-| A-12 | 开源许可证最终为 Apache-2.0（待 D-10 确认），第三方依赖合规可接受 | 需替换不兼容依赖或调整许可策略 | 首次公开发布前 |
+| A-12 | 开源许可证为 Apache-2.0（D-10 已于 2026-11-19 确认），第三方依赖合规可接受 | 需替换不兼容依赖或调整许可策略 | 首次公开发布前 |
 
 ---
 
@@ -84,7 +86,7 @@
 1. **提出**：任何决策项（D-xx）由维护者或用户发起，在本文档登记，标注影响范围与截止时点。
 2. **讨论**：在对应 Issue 或文档中收集选项、利弊、与蓝图原则的一致性（成熟稳定优先、模块化单体、控制面与 Runner 隔离、不锁定用户源码等）。
 3. **决策**：用户拍板；若无异议则按“推荐默认”执行，并在 ADR 中记录“默认采纳及理由”。
-4. **落档**：每个已决策项写入 [docs/adr/](../../adr) 下的 ADR（编号递增，现有 0001–0004），状态从 Proposed 转 Accepted；本文件对应行更新为“已决策 → ADR-xxxx”。
+4. **落档**：每个已决策项写入 [docs/adr/](../../adr) 下的 ADR（编号递增，现有 0001–0005），状态从 Proposed 转 Accepted；本文件对应行更新为“已决策 → ADR-xxxx”。
 5. **回溯**：若后续事实变化导致决策失效，新开 ADR 标注“Supersedes ADR-xxxx”，不直接改写历史 ADR。
 6. **同步**：决策结果同步到 [00-product-vision.md](./00-product-vision.md)、[01-capability-map.md](./01-capability-map.md)、[02-technical-architecture.md](./02-technical-architecture.md)、[03-roadmap.md](./03-roadmap.md) 及 backlog，确保文档一致。
 7. **节奏**：按决策表所列时点确认，涉及多阶段的决策分别在对应功能开工前确认。逾期未决的按推荐默认推进，并在阶段复盘中复核。
