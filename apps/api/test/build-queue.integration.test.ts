@@ -10,6 +10,7 @@ import { createDatabaseClient, requireDisposableTestDatabase, BuildRepository, B
   projects, users, projectMemberships, externalIdentities, buildAudit } from '@forgekit/db';
 import { startWorker } from '../../worker/src/worker';
 import { resolveWorkerConfig } from '../../worker/src/config';
+import type { BuildRunner } from '../../worker/src/runner';
 import { BuildQueueService } from '../src/build-queue.service';
 import { BuildsService } from '../src/builds.service';
 import { ProjectsService } from '../src/projects.service';
@@ -115,4 +116,83 @@ describe.skipIf(process.env.FORGEKIT_WORKER_INTEGRATION !== '1')('B08 real Redis
       } finally { await client.close(); }
     }
   }, 40000);
+
+  it('holds active work through runner cleanup and leaves queued jobs untouched while shutdown waits for a heartbeat', async () => {
+    const client = createDatabaseClient(requireDisposableTestDatabase(process.env));
+    const config = resolveWorkerConfig({ DATABASE_URL: process.env.DATABASE_URL, REDIS_URL: testRedisUrl(),
+      WORKER_CONCURRENCY: '1', WORKER_HEARTBEAT_MS: '20' });
+    const queue = new Queue(BUILD_QUEUE_NAME, { connection: config.connection });
+    const repository = new BuildRepository(client.db);
+    const projectId = randomUUID(), userId = randomUUID();
+    const ids: string[] = [];
+    let worker: Awaited<ReturnType<typeof startWorker>> | undefined;
+    let closing: Promise<void> | undefined;
+    let releaseCleanup!: () => void;
+    let releaseHeartbeat!: () => void;
+    const cleanup = new Promise<void>((resolve) => { releaseCleanup = resolve; });
+    const heartbeat = new Promise<void>((resolve) => { releaseHeartbeat = resolve; });
+    let signal: AbortSignal | undefined;
+    const runner: BuildRunner = { run: vi.fn(async (_build, _logs, abortSignal) => {
+      signal = abortSignal;
+      try {
+        return await new Promise<{ exitCode: number }>((_resolve, reject) => {
+          signal!.addEventListener('abort', () => reject(signal!.reason), { once: true });
+        });
+      } finally { await cleanup; }
+    }) };
+    const ping = vi.spyOn(client, 'ping');
+    try {
+      await migrate(client.db, { migrationsFolder: resolve(process.cwd(), '../../packages/db/drizzle') });
+      await client.db.insert(users).values({ id: userId, displayName: 'B08 shutdown integration' });
+      await client.db.insert(projects).values({ id: projectId, slug: `b08-${projectId}`, name: 'B08 shutdown', features: [] });
+      const active = await repository.create({ projectId, triggeredBy: userId, template: 'vue-web', sourceRef: 'snapshots/active' });
+      const waiting = await repository.create({ projectId, triggeredBy: userId, template: 'vue-web', sourceRef: 'snapshots/waiting' });
+      ids.push(active.id, waiting.id);
+      await queue.add('build', { buildId: active.id }, { jobId: active.id });
+      await queue.add('build', { buildId: waiting.id }, { jobId: waiting.id, attempts: 1 });
+      worker = await startWorker(client, config, () => {}, runner);
+      let heartbeatStarted = false;
+      ping.mockImplementationOnce(() => { heartbeatStarted = true; return heartbeat; });
+      await vi.waitFor(() => {
+        expect(signal).toBeDefined();
+        expect(heartbeatStarted).toBe(true);
+      });
+      const closed = vi.fn();
+      closing = worker.close().then(closed);
+      await vi.waitFor(() => expect(signal?.aborted).toBe(true));
+      await vi.waitFor(async () => expect((await repository.get(active.id))?.status).toBe('failed'));
+      // Give BullMQ time to complete the job if the processor incorrectly returned before cleanup.
+      await new Promise((resolve) => setTimeout(resolve, 50));
+      expect(await (await queue.getJob(active.id))?.getState()).toBe('active');
+      expect(closed).not.toHaveBeenCalled();
+
+      releaseCleanup();
+      await vi.waitFor(async () => expect(await (await queue.getJob(active.id))?.getState()).toBe('completed'));
+      expect(runner.run).toHaveBeenCalledOnce();
+      const waitingJob = await queue.getJob(waiting.id);
+      expect(await waitingJob?.getState()).toBe('waiting');
+      expect(waitingJob?.attemptsMade).toBe(0);
+      expect((await repository.get(waiting.id))?.status).toBe('queued');
+      expect(closed).not.toHaveBeenCalled();
+
+      releaseHeartbeat();
+      await closing;
+      worker = undefined;
+      ping.mockRestore();
+      worker = await startWorker(client, config, () => {});
+      await vi.waitFor(async () => expect((await repository.get(waiting.id))?.status).toBe('succeeded'));
+    } finally {
+      releaseCleanup();
+      releaseHeartbeat();
+      ping.mockRestore();
+      try {
+        await closing;
+        await worker?.close();
+        for (const id of ids) await (await queue.getJob(id))?.remove();
+        await queue.close();
+        await client.db.delete(projects).where(eq(projects.id, projectId));
+        await client.db.delete(users).where(eq(users.id, userId));
+      } finally { await client.close(); }
+    }
+  }, 20000);
 });

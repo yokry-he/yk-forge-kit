@@ -73,9 +73,10 @@ export class BuildProcessor {
       // First read also catches cancellation between queued->running and runner startup.
       poll = setTimeout(() => { void check(); }, 0);
     });
+    const sink = new RepositoryLogSink(buildId, this.logs, controller.signal);
+    const execution = Promise.resolve().then(() => this.runner.run(running, sink, controller.signal));
     try {
-      const sink = new RepositoryLogSink(buildId, this.logs, controller.signal);
-      const result = await Promise.race([Promise.resolve().then(() => this.runner.run(running, sink, controller.signal)), control]);
+      const result = await Promise.race([execution, control]);
       if (!Number.isInteger(result.exitCode) || result.exitCode < -2147483648 || result.exitCode > 2147483647) {
         throw new Error('invalid_runner_result');
       }
@@ -89,6 +90,9 @@ export class BuildProcessor {
       clearTimeout(timeout);
       clearTimeout(poll);
       controller.abort(new Error('build_finished'));
+      // The race handles the outcome; an aborted runner may reject only after asynchronous cleanup.
+      // Keep the processor pending (and BullMQ's concurrency slot/lock) until that cleanup settles.
+      await Promise.allSettled([execution]);
       this.active.delete(controller);
     }
   }

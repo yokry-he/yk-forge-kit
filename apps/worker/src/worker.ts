@@ -79,6 +79,8 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
     async close() {
       closing = true;
       clearTimeout(heartbeat);
+      // Stop intake first, but keep active jobs/lock renewal alive while their runners abort.
+      await worker.pause(true);
       processor.shutdown();
       await healthTask;
       await worker.close();

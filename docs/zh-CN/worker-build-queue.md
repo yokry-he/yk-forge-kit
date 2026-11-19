@@ -36,7 +36,7 @@ stateDiagram-v2
 
 running 的恢复以 BullMQ 独占锁为前提，不能在副本启动时批量失败其他进程的任务。锁默认约 30 秒过期，stalled 扫描后任务重新被领取，处理器见 running 就写 failed/worker_lost，不重复执行。默认最多一次 stalled 重领；如果 Redis job 已永久 failed/completed 或丢失，心跳扫描超过执行超时 + 60 秒的 running 行并写 failed（每批 100 条）。因此恢复依赖 Redis/MySQL 可用和至少一个健康 worker；Redis 丢失时 queued 可以补投，running 会延后失败。保留 Redis 数据、开启适当持久化并设置 `maxmemory-policy=noeviction`。
 
-SIGINT/SIGTERM 时停止接收工作、中断当前 Runner，running→failed，关闭消费者与数据库。Runner 必须在 AbortSignal 后终止并清理资源；NoopRunner 会响应信号，B09 容器实现仍需验证强制终止和失锁后的资源清理。worker 不在控制面执行用户代码。连接失败会重连，健康日志不可用时应告警。
+SIGINT/SIGTERM 时先暂停本 worker 的队列接收（不等待活跃任务），再中断当前 Runner，running→failed；等待进行中的心跳、Runner 清理及活跃任务结束后关闭消费者与数据库。取消、超时或停机触发 AbortSignal 后，处理器始终等待 Runner promise 完成，期间保留并发槽位和队列锁续租；数据库终态可能先于资源清理完成。Runner 必须在清理资源后才完成 promise；不响应中断或无法完成清理会阻塞任务释放和停机。NoopRunner 会响应信号，B09 容器实现仍需验证强制终止和失锁后的资源清理。worker 不在控制面执行用户代码。连接失败会重连，健康日志不可用时应告警。
 
 ## 配置
 

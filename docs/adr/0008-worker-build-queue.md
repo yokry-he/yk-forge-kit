@@ -13,7 +13,7 @@
 3. SQL 状态仓库是最终权威；API 先提交 queued 与 triggered 审计，再入队。入队报错使用 queued→failed CAS，不覆盖抢先进入 running 的任务。数据库与 Redis 不共享事务：worker 每次启动及心跳补投递 30 秒前的 queued 记录（每批 100 条）；相同 ID 入队去重，补偿提交后入队前崩溃。已在 Redis 永久 failed/completed 但仍 queued 的记录经守卫转 failed，避免失败任务去重导致永远排队。该方案有 30 秒以上调度延迟，不承诺严格事务消息/恰好一次。
 4. 不在 worker 启动时把全局 running 一律失败。BullMQ 续租锁与 stalled 检测重领任务，避免重启一个副本误伤其他副本。持锁处理器重领 running 时经守卫转 failed（worker_lost），绝不再次执行。失去 Redis 任务或已永久 failed/completed 的 running 记录，在开始时间超过执行超时 + 60 秒后经扫描与 CAS 转 failed。仍处 active/waiting/delayed 的任务交给锁与重领机制。两种扫描均每批 100 条；Redis 必须持久化、使用 noeviction，不能将清空 Redis 当作重试机制。
 5. API 通过 OIDC 成员授权，owner/editor 可触发/取消，viewer 可读；本地匿名模式不允许构建写操作。沿用项目接口 `/api/v1` 前缀，本模块按项目 UUID 寻址。新增 build_audit（迁移 0009），创建/取消审计和状态写入同事务。复用已有原子身份限流表，以独立 build-trigger/build-cancel 前缀隔离配额。
-6. API 的 REDIS_URL 可缺省，保持本地无外部服务启动体验，触发时明确 503 且不建行；配置非空但无效则启动失败。连接延迟到首次触发，有限请求重试、连接/命令超时。worker 的 start 要求 Redis/MySQL；dev 在缺少任一地址时打印 disabled，便于根 dev 启动其他应用。退出时中断当前 Runner，运行中构建写 failed，再关闭消费者/生产者/数据库。
+6. API 的 REDIS_URL 可缺省，保持本地无外部服务启动体验，触发时明确 503 且不建行；配置非空但无效则启动失败。连接延迟到首次触发，有限请求重试、连接/命令超时。worker 的 start 要求 Redis/MySQL；dev 在缺少任一地址时打印 disabled，便于根 dev 启动其他应用。退出时先暂停本消费者接收（不等待活跃任务），再中断当前 Runner、运行中构建写 failed；等待心跳和活跃任务完成后关闭消费者/生产者/数据库。取消、超时和停机均须等待 Runner promise 完成资源清理，处理器才可结束并释放并发槽位与队列锁。
 
 ## 依赖评估
 

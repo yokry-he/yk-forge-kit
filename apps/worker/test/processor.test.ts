@@ -89,6 +89,39 @@ describe('build processor with guarded repository', () => {
     await vi.advanceTimersByTimeAsync(1); f.processor.shutdown(); await pending;
     expect(f.row.status).toBe('failed');
   });
+  it.each(['cancellation', 'timeout', 'shutdown', 'control failure'] as const)(
+    'holds the job until runner cleanup settles after %s', async (reason) => {
+      vi.useFakeTimers();
+      let releaseCleanup!: () => void;
+      const cleanup = new Promise<void>((resolve) => { releaseCleanup = resolve; });
+      let signal!: AbortSignal;
+      const runner: BuildRunner = { run: vi.fn(async (_build, _logs, abortSignal) => {
+        signal = abortSignal;
+        try {
+          return await new Promise<{ exitCode: number }>((_resolve, reject) => {
+            signal.addEventListener('abort', () => reject(signal.reason), { once: true });
+          });
+        } finally { await cleanup; }
+      }) };
+      const f = fixture('queued', runner);
+      const released = vi.fn();
+      const pending = f.run().then(released);
+      try {
+        await vi.advanceTimersByTimeAsync(1);
+        expect(runner.run).toHaveBeenCalledOnce();
+        if (reason === 'cancellation') await f.repository.updateStatus(f.row.id, 'running', 'canceled');
+        if (reason === 'shutdown') f.processor.shutdown();
+        if (reason === 'control failure') f.repository.get.mockRejectedValueOnce(new Error('database unavailable'));
+        await vi.advanceTimersByTimeAsync(reason === 'timeout' ? 100 : 6);
+        expect(signal.aborted).toBe(true);
+        expect(released).not.toHaveBeenCalled();
+      } finally {
+        releaseCleanup();
+        await pending;
+      }
+      expect(released).toHaveBeenCalledOnce();
+      expect(f.row.status).toBe(reason === 'cancellation' ? 'canceled' : reason === 'timeout' ? 'timed_out' : 'failed');
+    });
   it('rejects invalid or mismatched queue messages', async () => {
     const f = fixture();
     await expect(f.processor.process({ buildId: f.row.id, command: 'sh' }, f.row.id)).rejects.toThrow();
