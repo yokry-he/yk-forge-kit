@@ -3,7 +3,7 @@ import { existsSync } from 'node:fs';
 import { createHash } from 'node:crypto';
 import { lstat, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { dirname, join, resolve } from 'node:path';
-import { createProjectPlan, renderProjectFiles, ProjectValidationError, type ProjectFeature } from '@forgekit/project-core';
+import { createProjectPlan, getProjectTemplate, listProjectTemplates, renderProjectFiles, ProjectValidationError, type ProjectFeature, type ProjectTemplateId } from '@forgekit/project-core';
 import type { AssetVerificationReceipt } from '@forgekit/contracts';
 import {
   listAssets, parseAssetLock, planAssetInstall, planAssetUpgrade, planAssetUninstall,
@@ -157,19 +157,25 @@ async function assetCommand(args: string[]): Promise<void> {
 async function createProject(args: string[]): Promise<void> {
   const name = args[0];
   if (!name || name.startsWith('--')) throw new ProjectValidationError('请提供项目名称，例如：forgekit create my-app');
-  const allowedFlags = new Set(['--features', '--dir']);
+  const allowedFlags = new Set(['--template', '--features', '--dir']);
   const flags = new Map<string, string>();
   for (let index = 1; index < args.length; index += 2) {
     const key = args[index];
     const value = args[index + 1];
     if (!key || !allowedFlags.has(key) || !value || value.startsWith('--') || flags.has(key)) {
-      throw new ProjectValidationError('无效参数。支持 --features 和 --dir，且每个参数只能出现一次。');
+      throw new ProjectValidationError('无效参数。支持 --template、--features 和 --dir，且每个参数只能出现一次。');
     }
     flags.set(key, value);
   }
-  const featureArg = flags.get('--features') ?? 'theme';
-  const features = featureArg === 'none' ? [] : featureArg.split(',').filter(Boolean) as ProjectFeature[];
-  const plan = createProjectPlan({ name, template: 'vue-web', features });
+  const templateId = flags.get('--template') ?? 'vue-web';
+  const template = getProjectTemplate(templateId);
+  if (!template) {
+    throw new ProjectValidationError(`未知模板：${templateId}。可用模板：${listProjectTemplates().map((item) => item.id).join('、')}（运行 forgekit templates 查看详情）`);
+  }
+  const featureArg = flags.get('--features');
+  const features = featureArg === undefined ? [...template.defaultFeatures]
+    : featureArg === 'none' ? [] : featureArg.split(',').filter(Boolean) as ProjectFeature[];
+  const plan = createProjectPlan({ name, template: template.id as ProjectTemplateId, features });
   const parent = resolve(flags.get('--dir') ?? process.cwd());
   const target = join(parent, plan.options.name);
   if (existsSync(target)) throw new ProjectValidationError(`目标目录已存在：${target}`);
@@ -190,11 +196,20 @@ async function createProject(args: string[]): Promise<void> {
   console.log(`✓ 已创建 ${plan.options.name} (${plan.files.length} 个文件)\n\n下一步：\n  ${plan.commands.join('\n  ')}`);
 }
 
+function printTemplates(): void {
+  for (const template of listProjectTemplates()) {
+    const features = template.features.map((feature) => feature.id).join(',') || '无';
+    console.log(`${template.id}\t${template.name}（${template.stack.join(' · ')}）\n  ${template.description}\n  目标端：${template.targets.join(', ')}；可选能力：${features}；默认：${template.defaultFeatures.join(',') || '无'}`);
+  }
+}
+
 const [command] = process.argv.slice(2);
 if (command === 'version' || command === '--version') {
   console.log('YKForgeKit CLI 0.0.0');
 } else if (command === 'help' || command === '--help' || !command) {
-  console.log('YKForgeKit CLI\n\nCommands:\n  create <name> [--features theme,router,pinia] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset verify <id> [--dir project-directory] [--json]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
+  console.log('YKForgeKit CLI\n\nCommands:\n  templates\n  create <name> [--template vue-web] [--features theme,router,pinia|none] [--dir parent-directory]\n  asset list\n  asset plan/add <id> [--dir project-directory]\n  asset verify <id> [--dir project-directory] [--json]\n  asset upgrade/remove <id> [--dir project-directory] [--dry-run] [--yes]\n  version\n  help');
+} else if (command === 'templates') {
+  printTemplates();
 } else if (command === 'create') {
   createProject(process.argv.slice(3)).catch((error: unknown) => {
     console.error(error instanceof Error ? error.message : '项目创建失败');

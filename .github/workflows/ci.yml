@@ -107,3 +107,19 @@ jobs:
       - name: Keycloak logs on failure
         if: failure()
         run: docker logs keycloak | tail -100
+
+  template-smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      FORGEKIT_TEMPLATE_SMOKE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm build
+      - name: Generate, install and build every project template
+        run: corepack pnpm --filter @forgekit/cli exec vitest run test/templates.test.ts

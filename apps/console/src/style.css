@@ -103,3 +103,9 @@ button:focus-visible, input:focus-visible, summary:focus-visible { outline: 2px 
 /* One-time project invitations */
 .invite-box { margin-top: 28px; border-top: 1px solid #383842; padding-top: 20px; }.invite-box h3 { font-size: 14px; margin: 0 0 8px; }.invite-controls { display: flex; align-items: center; gap: 12px; margin: 15px 0; }.invite-controls label { color: #a1a1aa; font-size: 12px; }.invite-controls select,.invite-redeem input { background: #111116; color: #fafafa; border: 1px solid #454550; border-radius: 9px; padding: 11px; }.invite-controls button { margin-left: auto; }.issued-code { border: 1px solid #285d4f; background: #10251f; border-radius: 10px; padding: 16px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }.issued-code strong { width: 100%; font-size: 12px; color: #6ee7b7; }.issued-code code { overflow-wrap: anywhere; color: #e9d5ff; font-size: 12px; }.issued-code span { color: #a7f3d0; font-size: 11px; }.issued-code button { margin-left: auto; }.invitation-history { margin-top: 18px; font-size: 12px; }.invitation-history>div { display: flex; justify-content: space-between; color: #a1a1aa; border-bottom: 1px solid #34343e; padding: 10px 0; }.invitation-history small { font-size: 11px; }.invite-redeem label { display: block; font-size: 12px; margin-bottom: 8px; }.invite-redeem input { width: 100%; font: 12px ui-monospace,monospace; }
 @media(max-width:580px) { .invite-controls { flex-wrap: wrap; }.invite-controls button { width: 100%; }.issued-code button { margin-left: 0; } }
+
+.template-list { display: grid; gap: 10px; }
+button.template { width: 100%; text-align: left; color: inherit; font: inherit; cursor: pointer; border-color: #3f3f46; background: transparent; }
+button.template.selected { border-color: #604389; background: #261c33; }
+button.template small { display: block; }
+.built-in { color: #a1a1aa; margin: 0 0 12px; }

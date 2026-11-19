@@ -7,11 +7,9 @@ import { DatabaseService } from './database.service';
 import type { ProjectAuthContext } from './project-auth-context';
 import { IdentityAccountsService, identityMatches } from './identity-accounts.service';
 
-export interface CreateProjectInput {
-  name: string;
-  template: 'vue-web';
-  features: Array<'theme' | 'router' | 'pinia'>;
-}
+import type { ProjectOptions } from '@forgekit/project-core';
+
+export type CreateProjectInput = ProjectOptions;
 
 @Injectable()
 export class ProjectsService {
