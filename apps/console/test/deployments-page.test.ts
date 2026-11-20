@@ -25,6 +25,7 @@ async function render(selected = '') {
     { path: '/projects/:slug/deployments/:deploymentId?', name: 'project-deployments', component: DeploymentsPage },
     { path: '/projects/:slug', name: 'project-detail', component: { template: '<div />' } },
     { path: '/projects/:slug/builds', name: 'project-builds', component: { template: '<div />' } },
+    { path: '/projects/:slug/domains/:operationId?', name: 'project-domains', component: { template: '<div />' } },
   ] });
   await router.push('/projects/site/deployments' + selected); await router.isReady();
   const wrapper = mount(DeploymentsPage, { global: { plugins: [router], stubs: { ElPopconfirm: { template: '<span><slot name="reference" /><button class="confirm" @click="$emit(\'confirm\')">确认操作</button></span>' } } } });
@@ -38,6 +39,7 @@ beforeEach(() => {
 describe('Chinese deployment console', () => {
   it('edits without requiring a replacement private key and clears the draft after saving', async () => {
     const wrapper = await render(); await button(wrapper, '编辑').trigger('click');
+    expect(wrapper.get('a[href="/projects/site/domains"]').text()).toBe('管理自定义域名与 HTTPS');
     expect(wrapper.text()).toContain('留空保持原密钥');
     await wrapper.get('input[aria-label="名称"]').setValue('新的名称');
     await wrapper.get('form').trigger('submit'); await flushPromises();

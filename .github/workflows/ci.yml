@@ -186,6 +186,7 @@ jobs:
     env:
       FORGEKIT_DB_INTEGRATION: '1'
       FORGEKIT_SSH_DEPLOY_INTEGRATION: '1'
+      FORGEKIT_DOMAIN_HTTPS_INTEGRATION: '1'
       DATABASE_URL: mysql://forgekit_test:ci_user_test_only@127.0.0.1:3306/forgekit_test
       REDIS_URL: redis://127.0.0.1:6379/15
     steps:
@@ -197,7 +198,19 @@ jobs:
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm db:migrations:check
       - run: corepack pnpm --filter @forgekit/api... --filter @forgekit/worker build
+      - name: B13 MySQL hostname claims, target locks and log ordering
+        run: corepack pnpm --filter @forgekit/db exec vitest run test/domain-repositories.mysql.test.ts
       - name: Build disposable Linux sshd (no cloud credentials)
         run: docker build -t forgekit-sshd-test:b12 infra/ssh-test
       - name: B12 SSH deployment, rollback, retention, pinning and persisted SSE logs
         run: corepack pnpm --filter @forgekit/api exec vitest run test/ssh-deploy.integration.test.ts
+      - name: Build disposable sshd and Caddy with offline internal CA
+        run: docker build -t forgekit-https-test:b13 -f infra/https-test/Dockerfile .
+      - name: B13 DNS ownership, SSH config, offline HTTPS, rollback and persisted SSE logs
+        run: corepack pnpm --filter @forgekit/api exec vitest run test/domain-dns.integration.test.ts test/domain-https.integration.test.ts
+      - name: B13 real Caddy reload failure and crash recovery on unprivileged ports
+        run: |
+          docker create --name forgekit-caddy-bin forgekit-https-test:b13
+          docker cp forgekit-caddy-bin:/usr/bin/caddy "$RUNNER_TEMP/caddy"
+          docker rm forgekit-caddy-bin
+          PATH="$RUNNER_TEMP:$PATH" FORGEKIT_CADDY_INTEGRATION=1 corepack pnpm --filter @forgekit/worker exec vitest run test/domain-caddy.integration.test.ts
