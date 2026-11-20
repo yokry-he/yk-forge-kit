@@ -161,3 +161,43 @@ jobs:
       - run: corepack pnpm build
       - name: Generate, install, build and check static output of project templates
         run: corepack pnpm --filter @forgekit/cli exec vitest run test/templates.test.ts
+
+  ssh-deploy-integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    services:
+      redis:
+        image: redis:7
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=3s --health-timeout=3s --health-retries=30
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: ci_root_test_only
+          MYSQL_DATABASE: forgekit_test
+          MYSQL_USER: forgekit_test
+          MYSQL_PASSWORD: ci_user_test_only
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 --silent"
+          --health-interval=5s --health-timeout=5s --health-retries=30
+    env:
+      FORGEKIT_DB_INTEGRATION: '1'
+      FORGEKIT_SSH_DEPLOY_INTEGRATION: '1'
+      DATABASE_URL: mysql://forgekit_test:ci_user_test_only@127.0.0.1:3306/forgekit_test
+      REDIS_URL: redis://127.0.0.1:6379/15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: corepack enable
+      - run: corepack pnpm install --frozen-lockfile
+      - run: corepack pnpm db:migrations:check
+      - run: corepack pnpm --filter @forgekit/api... --filter @forgekit/worker build
+      - name: Build disposable Linux sshd (no cloud credentials)
+        run: docker build -t forgekit-sshd-test:b12 infra/ssh-test
+      - name: B12 SSH deployment, rollback, retention, pinning and persisted SSE logs
+        run: corepack pnpm --filter @forgekit/api exec vitest run test/ssh-deploy.integration.test.ts

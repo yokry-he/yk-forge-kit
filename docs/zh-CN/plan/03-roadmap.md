@@ -8,7 +8,7 @@
 ## 0. 阅读须知
 
 - **现状基线**：仓库为 pnpm monorepo（Node 22+、TypeScript），已实现 [apps/console](../../../apps/console)、[apps/api](../../../apps/api)、[packages/contracts](../../../packages/contracts)、[packages/project-core](../../../packages/project-core)、[packages/asset-core](../../../packages/asset-core)、[packages/cli](../../../packages/cli)、[packages/identity-core](../../../packages/identity-core)、[packages/db](../../../packages/db)，规划基线记录为 115 个单元测试通过；CI 已配置 MySQL 8 集成测试，真实 Keycloak 端到端验证仍待完成。当前 `project-core` 仅有 `vue-web` 一个模板，`asset-core` 仅内置 `official.theme` 一个资产，`AUTH_MODE` 支持 `local`/`oidc`。
-- **实施范围**：以下按阶段列出交付范围、实施顺序与验收条件。B08–B11 已实现模板构建、实时构建日志及静态产物预览；部署、应用在线日志、AI、计费、组织与多端模板仍按后续阶段推进。现有创建向导（`/projects/new`）在浏览器预览文件计划，通过 API 登记项目配置。本地工程文件由 `forgekit create` 生成。
+- **实施范围**：以下按阶段列出交付范围、实施顺序与验收条件。B08–B12 已实现模板构建、实时构建日志、静态产物预览与 SSH 静态发布/回滚（见 [SSH 部署](../ssh-deploy.md)，真实 Docker sshd 验证由独立 CI 执行）；应用在线日志、AI、计费、组织与多端模板仍按后续阶段推进。现有创建向导（`/projects/new`）在浏览器预览文件计划，通过 API 登记项目配置。本地工程文件由 `forgekit create` 生成。
 - **估算口径**：所有工期均为“单人 + AI 协作”的粗估，含设计、编码、测试、文档，不含外部等待（如 ICP 备案、云账号审批、平台审核）。实际以迭代中复盘为准。
 - **总体风险**：范围过大是最大风险（见各阶段“主要风险”与 [04-open-questions.md](./04-open-questions.md)）。本路线图的核心策略是**先收窄到 Web 类项目闭环**，再逐步扩展多端与运维能力。
 
@@ -73,8 +73,8 @@
 - 云端构建：`apps/worker` 调度 Docker 隔离 Runner（非 root、资源限制、只读基础镜像、无控制面数据库访问、出网白名单），执行 `pnpm install/build`，日志流回传。
 - 产物存储：本地磁盘或 MinIO 抽象（Artifact Store 接口）。
 - 静态预览：构建产物上传预览存储，按项目+构建号通过 `*.preview` 子域访问，带访问令牌/过期时间。
-- 部署目标管理：添加 SSH 主机（平台生成密钥对、连通性检查、主机指纹固定）+ 加密密钥存储。
-- SSH 发布器：上传产物到 `releases/<id>`、原子切换 `current` 软链接、Nginx/Caddy 托管静态站、健康检查失败自动回滚、保留最近 N 个版本可一键回滚。
+- 部署目标管理（B12 已实现用户本机生成的专用密钥导入、加密存储和主机公钥固定；平台生成/独立连通性检查仍是后续规划）：添加 SSH 主机（平台生成密钥对、连通性检查、主机指纹固定）+ 加密密钥存储。
+- SSH 发布器（B12 已实现静态上传、原子切换、保留和手动回滚；Web 服务配置及健康自动回滚仍待实现）：上传产物到 `releases/<id>`、原子切换 `current` 软链接、Nginx/Caddy 托管静态站、健康检查失败自动回滚、保留最近 N 个版本可一键回滚。
 - 域名+HTTPS：Caddy 自动证书或 acme.sh（Let's Encrypt）；提示中国大陆主机绑定域名需 ICP 备案。
 - 环境变量/密钥：信封加密（主密钥来自 KMS 或部署环境）、只写不读、按环境（dev/staging/prod）区分、部署时注入、审计。
 - 在线日志：构建日志、部署日志实时流（SSE/WebSocket）+ 通过 SSH 拉取应用日志（journald/docker logs/文件 tail），只读、限速、保留短期。
@@ -241,8 +241,8 @@ gantt
 | B09 | Docker 隔离 Runner（Web 构建） | 已实现 [Docker Runner 与本地制品](../docker-build-runner.md)；模板取材，安装默认禁网/可接 registry 代理，构建禁网 | `apps/worker`（Runner/Artifact Store）、project-core 模板构建元数据 | 非 root/资源限制/只读镜像；提供安全制品读取接口，HTTP 预览由 B11 提供；生产出网白名单需宿主落实 | B08 | L |
 | B10 | 构建日志实时流 API + 控制台构建页 | SSE 实时日志与控制台页面 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、[packages/contracts](../../../packages/contracts) | 构建日志实时可见，页面可触发/查看构建 | B09 | M |
 | B11 | 静态预览服务 | 已实现 [独立 host 静态预览](../preview-links.md)，成功构建的令牌链接、过期与撤销 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、存储抽象 | 预览链接可访问，过期失效 | B09 | M |
-| B12 | 部署目标管理（SSH 主机） | 平台生成密钥对、连通性检查、指纹固定、加密存储 | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 添加主机成功，指纹固定，密钥加密存储 | B07 | M |
-| B13 | SSH 发布器 | `releases/current` 原子切换、Caddy 配置、健康检查与回滚 | `adapters/deploy-ssh`、[apps/api](../../../apps/api)、`apps/worker` | 部署成功可访问；健康检查失败自动回滚；一键回滚 | B12、B09 | L |
+| B12 | SSH 静态部署与目标管理（已实现指定范围） | 专用密钥导入/加密、主机公钥固定、静态上传/原子切换、保留/手动回滚、部署日志；[实现边界](../ssh-deploy.md) | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 目标权限/密文、部署/回滚/保留、SSE 与本地 Docker sshd CI（本地未运行真实容器） | B07、B09–B11 | L |
+| B13 | SSH 发布运维增强（剩余规划） | B12 已含 `releases/current` 和手动回滚；后续 Caddy 配置、Web 健康检查与自动回滚 | `adapters/deploy-ssh`、[apps/api](../../../apps/api)、`apps/worker` | 部署成功可访问；健康检查失败自动回滚；一键回滚 | B12、B09 | L |
 | B14 | 环境变量/密钥管理 | 信封加密、只写不读、按环境、审计 | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 注入生效，不可读回明文，审计可查 | B07 | M |
 | B15 | 在线应用日志 + 部署历史页 | SSH tail 限速只读 + 部署历史页面 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、`adapters/deploy-ssh` | 应用日志可查看（只读限速）；部署历史可查可回滚 | B13 | M |
 

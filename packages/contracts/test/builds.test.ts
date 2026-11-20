@@ -69,7 +69,7 @@ it('validates the minimal environment, SSH target and deployment contracts', () 
   expect(EnvironmentSchema.parse({ id, projectId: id, name: 'preview', ...timestamps }).name).toBe('preview');
   const target = { id, projectId: id, kind: 'ssh', name: 'web', host: null, port: null, username: null, createdBy: id, ...timestamps };
   expect(DeployTargetSchema.parse(target).host).toBeNull();
-  for (const patch of [{ port: 0 }, { port: 65536 }, { kind: 'aliyun' }, { privateKey: 'secret' }]) {
+  for (const patch of [{ port: 0 }, { port: 65536 }, { kind: 'aliyun' }, { privateKey: 'secret' }, { encryptedPrivateKey: null }, { encryptedPrivateKey: 'v1.test-only-ciphertext' }]) {
     expect(DeployTargetSchema.safeParse({ ...target, ...patch }).success).toBe(false);
   }
   const deployment = { id, projectId: id, buildId: id, environmentId: id, deployTargetId: id,

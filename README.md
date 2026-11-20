@@ -56,3 +56,5 @@ YKForgeKit is a planned developer platform for project creation, composable asse
 **License:** [Apache-2.0](LICENSE).
 
 **Documentation status:** Simplified Chinese is currently the source of truth. English documentation will be added as the architecture stabilizes; core user-facing guides will be bilingual before public release. See the Chinese [documentation policy](docs/zh-CN/documentation.md).
+
+B12 自有 Linux 主机静态 SSH 发布、主机公钥固定、密钥加密、部署日志和手动回滚见 [中文指南](./docs/zh-CN/ssh-deploy.md)；Docker sshd 集成使用独立 CI，无云凭据。

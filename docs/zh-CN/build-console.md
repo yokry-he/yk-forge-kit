@@ -73,3 +73,5 @@ setsid -w corepack pnpm --filter @forgekit/api exec vitest run test/build-stream
 共享 builds 队列的集成文件须串行执行（Vitest `--no-file-parallelism` 或分别执行），防止测试 Worker 消费其他用例的 job。
 
 HTTP/组件测试覆盖鉴权、续传、终态、背压、权限和清理；集成用例验证真实数据库和 Redis、两个 API 实例和受控 Runner 日志。Docker 不可用的环境不能据此宣称真实 Docker 执行已验证。真实浏览器仍需验收 owner/viewer、网络断开、取消、会话到期、终态刷新、移动断点和键盘操作；jsdom 无真实布局。回退 API/console 即可，无数据库迁移，未消费票据 60 秒失效，已有构建/日志不受影响。
+
+B12 在项目详情增加部署目标/历史入口，在成功构建详情提供 SSH 部署，部署详情支持 SSE 日志、状态与保留版本回滚。配置、权限、限制见 [SSH 部署](./ssh-deploy.md)。

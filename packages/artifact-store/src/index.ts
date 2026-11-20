@@ -117,6 +117,29 @@ export class LocalFsArtifactStore implements ArtifactStore {
       return { size: stat.size, body, close: () => { body.destroy(); } };
     } catch (error) { await handle.close(); throw error; }
   }
+  /** B12 exports regular file paths through the same checked storage boundary. */
+  async *list(key: string): AsyncGenerator<string> {
+    this.key(key);
+    await checkedPath(this.base, key, true);
+    let entries = 0;
+    const base = this.base;
+    const maxEntries = this.maxEntries;
+    async function* visit(relative: string, depth: number): AsyncGenerator<string> {
+      if (depth > 64 || (relative !== '' && ++entries > maxEntries)) throw new Error('artifact_entry_limit');
+      const path = await checkedPath(base, `${key}${relative ? '/' + relative : ''}`, true);
+      for await (const entry of await opendir(path)) {
+        const name = relative ? `${relative}/${entry.name}` : entry.name;
+        safeRelativePath(name);
+        if (entry.isDirectory()) yield* visit(name, depth + 1);
+        else {
+          if (++entries > maxEntries) throw new Error('artifact_entry_limit');
+          await checkedPath(base, `${key}/${name}`);
+          yield name;
+        }
+      }
+    }
+    yield* visit('', 0);
+  }
   async remove(key: string): Promise<void> {
     this.key(key);
     const path = await checkedPath(this.base, key, true);

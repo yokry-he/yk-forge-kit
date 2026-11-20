@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest';
 import {
   createDatabaseClient, requireDisposableTestDatabase, projects, users, builds, buildLogChunks,
   environments, deployTargets, deployments, previewLinks,
-  BuildRepository, BuildLogRepository, PreviewLinkRepository, BuildTransitionError, BuildNotFoundError,
+  BuildRepository, BuildLogRepository, PreviewLinkRepository, BuildTransitionError, BuildNotFoundError, DeployRepository,
 } from '../src/index';
 import { BuildSchema, BuildLogEventSchema, PreviewLinkSchema, EnvironmentSchema, DeployTargetSchema, DeploymentSchema } from '@forgekit/contracts';
 
@@ -14,6 +14,33 @@ const digest = () => createHash('sha256').update(randomBytes(32)).digest('hex');
 function wire<T>(value: T): unknown { return JSON.parse(JSON.stringify(value)); }
 
 describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B07 MySQL repositories', () => {
+  it('does not deadlock on concurrent SSH target creation across different projects', async () => {
+    const url = requireDisposableTestDatabase(process.env);
+    const clients = [createDatabaseClient(url), createDatabaseClient(url)], client = clients[0]!;
+    const repositories = clients.map(({ db }) => new DeployRepository(db));
+    const userId = randomUUID(), projectIds = Array.from({ length: 20 }, () => randomUUID());
+    const input = { name: '并发目标', host: 'example.com', port: 22, username: 'deploy',
+      hostKey: 'ssh-ed25519 AAAA', basePath: '/srv/site', retention: 5 };
+    try {
+      await migrate(client.db, { migrationsFolder: resolve(process.cwd(), 'drizzle') });
+      await client.db.insert(users).values({ id: userId, displayName: 'B12 跨项目并发测试' });
+      await client.db.insert(projects).values(projectIds.map(id => ({ id, slug: `b12-target-${id}`, name: 'B12', features: [] })));
+      for (let round = 1; round <= 3; round++) {
+        // Separate parents and absent target IDs exercise the shared-gap-lock insertion case.
+        const ids = projectIds.map(() => randomUUID());
+        const results = await Promise.allSettled(projectIds.map((projectId, index) =>
+          repositories[index % 2]!.saveTarget(projectId, ids[index]!, userId, input, 'test-only-ciphertext', true)));
+        expect(results.filter(result => result.status === 'rejected')).toEqual([]);
+        for (const projectId of projectIds) expect(await repositories[0]!.listTargets(projectId)).toHaveLength(round);
+      }
+    } finally {
+      try {
+        await client.db.delete(projects).where(inArray(projects.id, projectIds));
+        await client.db.delete(users).where(eq(users.id, userId));
+      } finally { await Promise.all(clients.map(client => client.close())); }
+    }
+  }, 60_000);
+
   it('does not deadlock on concurrent first writes across different projects and builds', async () => {
     const url = requireDisposableTestDatabase(process.env);
     const clients = [createDatabaseClient(url), createDatabaseClient(url)];
@@ -189,7 +216,10 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B07 MySQL reposito
       const [env] = await client.db.select().from(environments).where(eq(environments.id, environment.id));
       expect(EnvironmentSchema.parse(wire(env)).name).toBe('preview');
       const [host] = await client.db.select().from(deployTargets).where(eq(deployTargets.id, target.id));
-      expect(DeployTargetSchema.parse(wire(host)).host).toBeNull();
+      const { encryptedPrivateKey, ...publicHost } = host!;
+      expect(encryptedPrivateKey).toBeNull();
+      expect(DeployTargetSchema.parse(wire(publicHost)).host).toBeNull();
+      expect(DeployTargetSchema.safeParse(wire(host)).success).toBe(false);
       await expect(client.db.insert(environments).values({ ...environment, id: randomUUID() })).rejects.toThrow();
       const deployment = { id: randomUUID(), projectId, buildId: running.id, environmentId: environment.id, deployTargetId: target.id };
       await client.db.insert(deployments).values(deployment);
