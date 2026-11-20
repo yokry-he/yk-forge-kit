@@ -234,3 +234,47 @@ export const deployAudit = mysqlTable('deploy_audit', {
   action: varchar('action', { length: 24 }).notNull(),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
 }, t => [index('deploy_audit_project_time_idx').on(t.projectId, t.createdAt)]);
+
+/** Unverified duplicates are allowed; a global nullable claim is acquired only after TXT verification. */
+export const domains = mysqlTable('domains', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull(),
+  deployTargetId: varchar('deploy_target_id', { length: 36 }).notNull(),
+  hostname: varchar('hostname', { length: 253 }).notNull(),
+  claimedHostname: varchar('claimed_hostname', { length: 253 }),
+  verificationToken: varchar('verification_token', { length: 64 }).notNull(),
+  status: mysqlEnum('status', ['pending_dns', 'verifying', 'issuing', 'active', 'failed', 'expired', 'revoked']).notNull().default('pending_dns'),
+  tlsMode: mysqlEnum('tls_mode', ['internal', 'staging', 'production']).notNull().default('internal'),
+  certificateExpiresAt: timestamp('certificate_expires_at', { fsp: 3 }),
+  certificateFingerprint: varchar('certificate_fingerprint', { length: 64 }),
+  verifiedAt: timestamp('verified_at', { fsp: 3 }),
+  lastCheckedAt: timestamp('last_checked_at', { fsp: 3 }),
+  errorCode: varchar('error_code', { length: 64 }),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow().$onUpdateFn(() => new Date()),
+}, t => [
+  foreignKey({ columns: [t.projectId, t.deployTargetId], foreignColumns: [deployTargets.projectId, deployTargets.id], name: 'domains_project_target_fk' }).onDelete('cascade'),
+  uniqueIndex('domains_hostname_claim_unique').on(t.claimedHostname),
+  index('domains_project_target_idx').on(t.projectId, t.deployTargetId),
+  index('domains_status_checked_idx').on(t.status, t.lastCheckedAt),
+]);
+export const domainOperations = mysqlTable('domain_operations', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull(),
+  deployTargetId: varchar('deploy_target_id', { length: 36 }).notNull(),
+  domainId: varchar('domain_id', { length: 36 }).notNull().references(() => domains.id, { onDelete: 'cascade' }),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: mysqlEnum('action', ['verify', 'refresh', 'remove']).notNull(),
+  status: mysqlEnum('status', ['pending', 'running', 'succeeded', 'failed']).notNull().default('pending'),
+  errorCode: varchar('error_code', { length: 64 }),
+  finishedAt: timestamp('finished_at', { fsp: 3 }),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow().$onUpdateFn(() => new Date()),
+}, t => [index('domain_operations_target_status_idx').on(t.deployTargetId, t.status), index('domain_operations_status_updated_idx').on(t.status, t.updatedAt)]);
+export const domainLogChunks = mysqlTable('domain_log_chunks', {
+  operationId: varchar('operation_id', { length: 36 }).notNull().references(() => domainOperations.id, { onDelete: 'cascade' }),
+  seq: int('seq', { unsigned: true }).notNull(),
+  stream: mysqlEnum('stream', ['stdout', 'stderr', 'system']).notNull(),
+  content: text('content').notNull(),
+  ts: timestamp('ts', { fsp: 3 }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.operationId, t.seq] })]);

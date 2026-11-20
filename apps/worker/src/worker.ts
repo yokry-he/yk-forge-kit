@@ -1,3 +1,4 @@
+import { startDomainWorker } from './domain-worker';
 import { startDeployWorker } from './deploy-worker';
 import { Queue, Worker } from 'bullmq';
 import { BUILD_JOB_NAME, BUILD_QUEUE_NAME, type BuildJobPayload } from '@forgekit/contracts';
@@ -73,6 +74,9 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
   let deployWorker;
   try { deployWorker = await startDeployWorker(client, config, process.env, log); }
   catch (error) { await Promise.allSettled([worker.close(true), queue.close()]); throw error; }
+  let domainWorker;
+  try { domainWorker = await startDomainWorker(client, config, process.env, log); }
+  catch (error) { await Promise.allSettled([deployWorker.close(), worker.close(true), queue.close()]); throw error; }
   const running = worker.run().catch(() => log({ event: 'worker_run_error' }));
   const tick = async () => {
     try {
@@ -94,7 +98,7 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
       // Stop intake first, but keep active jobs/lock renewal alive while their runners abort.
       await worker.pause(true);
       processor.shutdown();
-      await Promise.all([deployWorker.close(), (async () => {
+      await Promise.all([deployWorker.close(), domainWorker.close(), (async () => {
         await healthTask;
         await worker.close();
         await running;

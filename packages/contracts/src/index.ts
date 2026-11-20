@@ -89,3 +89,4 @@ export * from './builds';
 
 export * from './build-streams';
 export * from './deploys';
+export * from './domains';

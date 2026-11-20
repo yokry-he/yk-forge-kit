@@ -1,0 +1,5 @@
+# This root-context fixture needs only the operator initialization script.
+**
+!infra/
+!infra/caddy-host/
+!infra/caddy-host/prepare.py

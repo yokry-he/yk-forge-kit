@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto';
-import { and, asc, desc, eq, gt, inArray, isNull, lt } from 'drizzle-orm';
+import { and, asc, desc, eq, gt, inArray, isNull, lt, ne } from 'drizzle-orm';
 import { DeployLogEventSchema, type DeployLogEvent, type DeployTargetUpdate } from '@forgekit/contracts';
 import type { DatabaseClient } from './index';
-import { builds, deployAudit, deployLogChunks, deployments, deployTargets, environments, projects } from './schema';
+import { builds, deployAudit, deployLogChunks, deployments, deployTargets, environments, projects, domains, domainOperations } from './schema';
 
 type Database = DatabaseClient['db'];
 export type DeployTargetRow = typeof deployTargets.$inferSelect;
@@ -33,6 +33,8 @@ export class DeployRepository {
         await tx.insert(deployTargets).values({ ...input, id, projectId, createdBy: actor, encryptedPrivateKey });
       } else {
         if (!old || old.disabledAt) throw new DeployNotFoundError();
+        const domainBusy = await tx.select({ id: domainOperations.id }).from(domainOperations).where(and(eq(domainOperations.deployTargetId, id), inArray(domainOperations.status, [...busy]))).limit(1);
+        if (domainBusy.length) throw new DeployConflictError();
         const active = await tx.select({ id: deployments.id }).from(deployments).where(and(eq(deployments.deployTargetId, id), inArray(deployments.status, [...busy]))).limit(1);
         if (active.length) throw new DeployConflictError();
         const history = await tx.select({ id: deployments.id }).from(deployments).where(eq(deployments.deployTargetId, id)).limit(1);
@@ -47,8 +49,12 @@ export class DeployRepository {
     await this.db.transaction(async tx => {
       const [row] = await tx.select().from(deployTargets).where(and(eq(deployTargets.id, id), eq(deployTargets.projectId, projectId))).for('update');
       if (!row || row.disabledAt) throw new DeployNotFoundError();
+      const domainBusy = await tx.select({ id: domainOperations.id }).from(domainOperations).where(and(eq(domainOperations.deployTargetId, id), inArray(domainOperations.status, [...busy]))).limit(1);
+      if (domainBusy.length) throw new DeployConflictError();
       const active = await tx.select({ id: deployments.id }).from(deployments).where(and(eq(deployments.deployTargetId, id), inArray(deployments.status, [...busy]))).limit(1);
       if (active.length) throw new DeployConflictError();
+      const bound = await tx.select({ id: domains.id }).from(domains).where(and(eq(domains.deployTargetId, id), ne(domains.status, 'revoked'))).limit(1);
+      if (bound.length) throw new DeployConflictError();
       await tx.update(deployTargets).set({ disabledAt: new Date(), encryptedPrivateKey: null }).where(eq(deployTargets.id, id));
       await tx.insert(deployAudit).values({ projectId, targetId: id, actorUserId: actor, action: 'target_removed' });
     });
@@ -58,6 +64,8 @@ export class DeployRepository {
       await tx.select({ id: projects.id }).from(projects).where(eq(projects.id, input.projectId)).for('update');
       const [target] = await tx.select().from(deployTargets).where(and(eq(deployTargets.id, input.deployTargetId), eq(deployTargets.projectId, input.projectId))).for('update');
       if (!target || target.disabledAt || !target.hostKey || !target.encryptedPrivateKey || !target.basePath) throw new DeployConflictError();
+      const domainBusy = await tx.select({ id: domainOperations.id }).from(domainOperations).where(and(eq(domainOperations.deployTargetId, target.id), inArray(domainOperations.status, [...busy]))).limit(1);
+      if (domainBusy.length) throw new DeployConflictError();
       const active = await tx.select({ id: deployments.id }).from(deployments).where(and(eq(deployments.deployTargetId, target.id), inArray(deployments.status, [...busy]))).limit(1);
       if (active.length) throw new DeployConflictError();
       const [build] = await tx.select().from(builds).where(and(eq(builds.id, input.buildId), eq(builds.projectId, input.projectId)));

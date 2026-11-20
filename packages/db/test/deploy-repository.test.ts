@@ -32,7 +32,7 @@ const original: DeploymentRow = { id: randomUUID(), projectId: id, buildId: id, 
   errorMessage: null, startedAt: now, finishedAt: now, createdAt: now, updatedAt: now };
 const input = { projectId: id, buildId: id, deployTargetId: id, actor: id, rollbackOf: original.id };
 function rollbackSnapshots(previous = original, active: unknown[] = []) {
-  return [[{ id }], [target], active,
+  return [[{ id }], [target], [], active,
     [{ id, projectId: id, status: 'succeeded', artifactKey: 'artifact', artifactSha256: 'a'.repeat(64) }],
     [previous], [{ id, projectId: id, name: 'production', createdAt: now, updatedAt: now }]];
 }
