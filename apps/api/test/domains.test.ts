@@ -73,7 +73,7 @@ describe('B13 project-authorized APIs', () => {
     expect((await request('/domains', 'GET', undefined, 'viewer')).status).toBe(200);
   });
   it.each(['domain_certificate_invalid', 'domain_health_failed'])('preserves failed availability and historical certificate in responses: %s', async errorCode => {
-    const certificateExpiresAt = new Date('2099-12-20T00:00:00Z');
+    const certificateExpiresAt = new Date('2035-01-15T00:00:00.000Z');
     list.mockResolvedValueOnce([{ ...domain, status: 'failed', verifiedAt: now, claimedHostname: domain.hostname,
       certificateExpiresAt, certificateFingerprint: 'c'.repeat(64), errorCode }]);
     const response = await request('/domains');

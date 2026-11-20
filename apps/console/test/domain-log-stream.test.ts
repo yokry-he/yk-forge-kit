@@ -16,7 +16,7 @@ class FakeSource {
 afterEach(() => { vi.clearAllMocks(); vi.unstubAllGlobals(); });
 describe('deploy log resume protocol', () => {
   it('fills sequence gaps, validates operation status and closes terminal streams', async () => {
-    vi.stubGlobal('EventSource', FakeSource); vi.mocked(createDomainStreamTicket).mockResolvedValue({ ticket: 'a'.repeat(43), expiresAt: '2099-01-01T00:00:00Z' });
+    vi.stubGlobal('EventSource', FakeSource); vi.mocked(createDomainStreamTicket).mockResolvedValue({ ticket: 'a'.repeat(43), expiresAt: '2035-01-15T00:00:00.000Z' });
     const scope = effectScope(); const stream = scope.run(() => useDomainLogStream(ref(id), ref(id)))!;
     try {
       await nextTick(); await Promise.resolve();

@@ -43,7 +43,8 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B13 MySQL domain c
       await repo.finish(op.id, 'succeeded', { status: 'revoked' });
       expect((await repo.get(winner.id))?.claimedHostname).toBe(hostname);
       // A temporary observation failure retains eligibility, but must wait a full day.
-      const certificateExpiresAt = new Date('2099-12-20T00:00:00Z');
+      // Only a future expiry is needed; 2099 exceeds MySQL TIMESTAMP(3)'s 2038 limit.
+      const certificateExpiresAt = new Date('2035-01-15T00:00:00.000Z');
       const certificateFingerprint = 'c'.repeat(64);
       await repo.update(winner.id, { status: 'active', certificateExpiresAt, certificateFingerprint, lastCheckedAt: new Date() });
       const refresh = await repo.request(winner.projectId, winner.id, 'refresh', actor);
