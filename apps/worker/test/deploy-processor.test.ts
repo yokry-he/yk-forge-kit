@@ -75,3 +75,20 @@ describe('deploy job orchestration', () => {
     expect(jobs.transition).toHaveBeenLastCalledWith(id, 'running', 'failed', 'deploy_execution_failed');
   });
 });
+
+describe('B14 deployment log boundary', () => {
+  it('redacts injected secret values before repository persistence (SSE replays these chunks)', async () => {
+    const { jobs, builds, logs, deployer } = fixture();
+    const secret = 'b14-deploy-output-secret';
+    vi.mocked(deployer.run).mockImplementation(async (_job, _target, _artifact, _retained, log, _signal, variables) => {
+      expect(variables).toEqual({ TOKEN: secret });
+      await log('stdout: ' + secret + '\nstderr: ' + secret + '\n'); return [id];
+    });
+    const processor = new DeployProcessor(jobs, builds, logs, deployer, async (projectId, environmentId) => {
+      expect(projectId).toBe(id); expect(environmentId).toBe(row.environmentId); return { values: { TOKEN: secret }, secrets: [secret] };
+    });
+    await processor.process({ deploymentId: id }, id);
+    expect(JSON.stringify(logs.append.mock.calls)).not.toContain(secret);
+    expect(JSON.stringify(logs.append.mock.calls)).toContain('[REDACTED]');
+  });
+});

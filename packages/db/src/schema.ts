@@ -88,7 +88,7 @@ export const assetInstallations = mysqlTable('asset_installations', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 }, (table) => [uniqueIndex('asset_installations_project_asset_unique').on(table.projectId, table.assetId)]);
 
-/** Project-scoped names, e.g. preview / production. No environment secrets in B07. */
+/** Project-scoped names, e.g. preview / production. Reused by build bindings, deployments and B14 variables. */
 export const environments = mysqlTable('environments', {
   id: varchar('id', { length: 36 }).primaryKey(),
   projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
@@ -278,3 +278,33 @@ export const domainLogChunks = mysqlTable('domain_log_chunks', {
   content: text('content').notNull(),
   ts: timestamp('ts', { fsp: 3 }).notNull().defaultNow(),
 }, t => [primaryKey({ columns: [t.operationId, t.seq] })]);
+
+/** No plaintext in secret rows. Mutations and metadata-only audit commit together. */
+export const environmentVariables = mysqlTable('environment_variables', {
+  projectId: varchar('project_id', { length: 36 }).notNull(),
+  environmentId: varchar('environment_id', { length: 36 }).notNull(),
+  name: varchar('name', { length: 128 }).notNull(),
+  kind: mysqlEnum('kind', ['plain', 'secret']).notNull(),
+  plainValue: text('plain_value'),
+  encryptedValue: text('encrypted_value'),
+  updatedBy: varchar('updated_by', { length: 36 }).notNull(),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.environmentId, t.name] }),
+  foreignKey({ columns: [t.projectId, t.environmentId], foreignColumns: [environments.projectId, environments.id], name: 'variables_project_environment_fk' }).onDelete('cascade')]);
+export const variableAudit = mysqlTable('variable_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  environmentId: varchar('environment_id', { length: 36 }).notNull(),
+  name: varchar('name', { length: 128 }).notNull(),
+  kind: mysqlEnum('kind', ['plain', 'secret']).notNull(),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: mysqlEnum('action', ['create', 'update', 'delete']).notNull(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [index('variable_audit_project_time_idx').on(t.projectId, t.createdAt)]);
+/** Existing builds get a recorded preview binding on first execution. */
+export const buildEnvironments = mysqlTable('build_environments', {
+  buildId: varchar('build_id', { length: 36 }).primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull(),
+  environmentId: varchar('environment_id', { length: 36 }).notNull(),
+}, t => [foreignKey({ columns: [t.projectId, t.buildId], foreignColumns: [builds.projectId, builds.id], name: 'build_environment_build_fk' }).onDelete('cascade'),
+  foreignKey({ columns: [t.projectId, t.environmentId], foreignColumns: [environments.projectId, environments.id], name: 'build_environment_environment_fk' }).onDelete('cascade')]);

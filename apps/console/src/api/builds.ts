@@ -26,11 +26,11 @@ export function getBuild(projectId: string, buildId: string): Promise<Build> {
   return projectRequest<unknown>(buildPath(projectId, buildId)).then((data) => BuildSchema.parse(data));
 }
 
-export function triggerBuild(projectId: string, sourceRef: string): Promise<Build> {
+export function triggerBuild(projectId: string, sourceRef: string, environmentName?: string): Promise<Build> {
   return projectRequest<unknown>(buildsPath(projectId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ sourceRef }),
+    body: JSON.stringify({ sourceRef, ...(environmentName ? { environmentName } : {}) }),
   }).then((data) => BuildSchema.parse(data));
 }
 

@@ -3,16 +3,16 @@ import type { Readable } from 'node:stream';
 import type { CappedBuildLogs } from './build-logs';
 
 export interface DockerCommand {
-  execute(args: string[], signal: AbortSignal, logs?: CappedBuildLogs): Promise<number>;
+  execute(args: string[], signal: AbortSignal, logs?: CappedBuildLogs, variables?: Readonly<Record<string, string>>): Promise<number>;
 }
-export type DockerSpawn = (args: string[]) => ChildProcessByStdio<null, Readable, Readable>;
+export type DockerSpawn = (args: string[], variables?: Readonly<Record<string, string>>) => ChildProcessByStdio<null, Readable, Readable>;
 
 /** No shell on the host; terminate only the CLI child we spawned. Containers are removed by the runner. */
 export class DockerCli implements DockerCommand {
-  constructor(private readonly start: DockerSpawn = (args) => spawn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'] })) {}
-  async execute(args: string[], signal: AbortSignal, logs?: CappedBuildLogs): Promise<number> {
+  constructor(private readonly start: DockerSpawn = (args, variables) => spawn('docker', args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, ...variables, FORGEKIT_DEPLOY_ENCRYPTION_KEY: undefined } })) {}
+  async execute(args: string[], signal: AbortSignal, logs?: CappedBuildLogs, variables?: Readonly<Record<string, string>>): Promise<number> {
     signal.throwIfAborted();
-    const child = this.start(args);
+    const child = this.start(args, variables);
     let escalation: ReturnType<typeof setTimeout> | undefined;
     const stop = () => {
       if (child.exitCode !== null || child.signalCode !== null) return;

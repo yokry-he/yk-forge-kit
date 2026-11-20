@@ -20,13 +20,13 @@ export class BuildsService {
     if (!id) throw new ForbiddenException('项目成员身份不存在。');
     return id;
   }
-  async trigger(projectId: string, sourceRef: string, auth: ProjectAuthContext) {
+  async trigger(projectId: string, sourceRef: string, auth: ProjectAuthContext, environmentName?: string) {
     const actorId = await this.actor(auth);
     const project = await this.projects.findById(projectId, auth, 'build:run');
     this.queue.requireConfigured();
     if (auth.mode === 'oidc') await this.limiter.consume('build-trigger', auth.issuer, auth.subject);
     const repository = this.repository;
-    const row = await repository.create({ projectId, template: project.template, sourceRef, triggeredBy: actorId }, true);
+    const row = await repository.create({ projectId, template: project.template, sourceRef, triggeredBy: actorId }, true, ...(environmentName === undefined ? [] : [environmentName]));
     try { await this.queue.enqueue(row.id); }
     catch (error) {
       // An ambiguous enqueue may already have reached Redis. The CAS guard preserves a worker's result.

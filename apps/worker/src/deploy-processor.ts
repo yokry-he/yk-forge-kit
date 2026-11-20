@@ -1,6 +1,7 @@
 import { DeployJobPayloadSchema } from '@forgekit/contracts';
-import { BuildRepository, DeployConflictError, DeployLogRepository, DeployRepository } from '@forgekit/db';
+import { BuildRepository, DeployConflictError, DeployLogRepository, DeployRepository, type ResolvedVariables } from '@forgekit/db';
 import { SshDeployError } from './ssh-command';
+import { redactBuildLog } from './build-logs';
 import type { StaticDeployer } from './ssh-deployer';
 
 export function deployErrorCode(error: unknown): string {
@@ -14,7 +15,8 @@ export class DeployProcessor {
   private readonly active = new Set<AbortController>();
   constructor(private readonly jobs: Pick<DeployRepository, 'get' | 'target' | 'transition' | 'retained'>,
     private readonly builds: Pick<BuildRepository, 'get'>, private readonly logs: Pick<DeployLogRepository, 'append'>,
-    private readonly deployer: StaticDeployer) {}
+    private readonly deployer: StaticDeployer,
+    private readonly variables: (projectId: string, environmentId: string) => Promise<ResolvedVariables> = async () => ({ values: {}, secrets: [] })) {}
   shutdown() { this.stopping = true; for (const controller of this.active) controller.abort(); }
   async process(payload: unknown, jobId: string | undefined) {
     if (this.stopping) throw new Error('deploy_worker_stopping');
@@ -28,8 +30,10 @@ export class DeployProcessor {
     catch (error) { if (error instanceof DeployConflictError) return; throw error; }
     const controller = new AbortController(); this.active.add(controller);
     const timer = setTimeout(() => controller.abort(), 330000);
+    let resolved: ResolvedVariables = { values: {}, secrets: [] };
     let bytes = 0;
     const log = async (content: string) => {
+      content = redactBuildLog(content, resolved.secrets);
       bytes += Buffer.byteLength(content);
       if (bytes > 65536) throw new Error('deploy_log_limit');
       await this.logs.append({ deploymentId, stream: 'system', content });
@@ -40,8 +44,9 @@ export class DeployProcessor {
       const target = await this.jobs.target(job.projectId, job.deployTargetId);
       const build = await this.builds.get(job.buildId);
       if (!target || target.disabledAt || !build || build.projectId !== job.projectId || build.status !== 'succeeded' || !build.artifactKey || !build.artifactSha256) throw new Error('deploy_input_unavailable');
+      resolved = await this.variables(job.projectId, job.environmentId);
       const retained = (await this.jobs.retained(target.id)).flatMap(row => row.releaseId ? [row.releaseId] : []);
-      const keep = await this.deployer.run(job, target, { key: build.artifactKey, sha256: build.artifactSha256 }, retained, log, controller.signal);
+      const keep = await this.deployer.run(job, target, { key: build.artifactKey, sha256: build.artifactSha256 }, retained, log, controller.signal, resolved.values);
       controller.signal.throwIfAborted();
       // Final log is persisted before terminal status, so SSE's terminal high-water snapshot includes it.
       await log('部署任务完成。\n');
@@ -50,6 +55,6 @@ export class DeployProcessor {
       const code = controller.signal.aborted ? 'deploy_timeout_or_shutdown' : deployErrorCode(error);
       await log(`部署失败：${code}。请查看主机状态后创建新任务。\n`);
       await this.jobs.transition(job.id, 'running', 'failed', code);
-    } finally { clearTimeout(timer); this.active.delete(controller); }
+    } finally { resolved.values = {}; resolved.secrets = []; clearTimeout(timer); this.active.delete(controller); }
   }
 }

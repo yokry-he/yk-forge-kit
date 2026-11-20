@@ -2,7 +2,7 @@ import { startDomainWorker } from './domain-worker';
 import { startDeployWorker } from './deploy-worker';
 import { Queue, Worker } from 'bullmq';
 import { BUILD_JOB_NAME, BUILD_QUEUE_NAME, type BuildJobPayload } from '@forgekit/contracts';
-import { BuildLogRepository, BuildRepository, BuildTransitionError, type DatabaseClient } from '@forgekit/db';
+import { BuildLogRepository, BuildRepository, EnvironmentVariableRepository, BuildTransitionError, type DatabaseClient } from '@forgekit/db';
 import { BuildProcessor } from './processor';
 import { NoopRunner, type BuildRunner } from './runner';
 import type { resolveWorkerConfig } from './config';
@@ -17,7 +17,7 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
   const runnerName = runner ? 'injected' : config.runner;
   if (!runner) {
     runner = config.docker ? new DockerBuildRunner(new TemplateWorkspaceSource((id) => builds.getProjectSource(id)),
-      new LocalFsArtifactStore(config.docker.artifactDir, config.docker.maxArtifactBytes), config.docker) : new NoopRunner();
+      new LocalFsArtifactStore(config.docker.artifactDir, config.docker.maxArtifactBytes), config.docker, undefined, undefined, build => new EnvironmentVariableRepository(client.db).forBuild(build.projectId, build.id)) : new NoopRunner();
   }
   const processor = new BuildProcessor(builds, new BuildLogRepository(client.db), runner, config.timeoutMs);
   const queue = new Queue<BuildJobPayload>(BUILD_QUEUE_NAME, { connection: { ...config.connection, maxRetriesPerRequest: 1 } });

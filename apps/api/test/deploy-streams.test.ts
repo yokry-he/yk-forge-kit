@@ -15,6 +15,7 @@ import { DeploysService } from '../src/deploys.service';
 import { ProjectApiGuard } from '../src/project-api.guard';
 import { AuthService } from '../src/auth.service';
 import { DatabaseService } from '../src/database.service';
+import { DeployProcessor } from '../../worker/src/deploy-processor';
 
 const redis = vi.hoisted(() => ({ data: new Map<string, { value: string; expires: number }>() }));
 vi.mock('ioredis', () => ({ Redis: class {
@@ -62,6 +63,29 @@ async function ticket(role = 'viewer') {
   return (await response.json() as { ticket: string }).ticket;
 }
 describe('SSE HTTP endpoint', () => {
+  it('B14 redacts deployment output at persistence and actual HTTP SSE replay', async () => {
+    const secret = 'b14-deploy-stream-fixture-secret';
+    const stored: Awaited<ReturnType<DeployLogRepository['listSince']>> = [];
+    const append = vi.fn(async (input: Parameters<DeployLogRepository['append']>[0]) => {
+      expect(input.content).not.toContain(secret);
+      const row = { ...input, seq: stored.length + 1, ts: now }; stored.push(row); return row;
+    });
+    const job = { ...terminal, status: 'pending' as const, createdAt: now, updatedAt: now, startedAt: null, finishedAt: null };
+    const processor = new DeployProcessor({ get: vi.fn().mockResolvedValue(job),
+      target: vi.fn().mockResolvedValue({ id: terminal.deployTargetId, projectId }),
+      retained: vi.fn().mockResolvedValue([]), transition: vi.fn().mockResolvedValue(undefined),
+    }, { get: vi.fn().mockResolvedValue({ projectId, status: 'succeeded', artifactKey: 'fixture', artifactSha256: 'a'.repeat(64) }) }, { append }, {
+      run: async (_job, _target, _artifact, _retained, log) => {
+        await log('stdout: ' + secret + '\nstderr: ' + secret + '\n'); return [];
+      },
+    }, async () => ({ values: { TOKEN: secret }, secrets: [secret] }));
+    await processor.process({ deploymentId }, deploymentId);
+    logs.mockImplementation(async (_id, seq = 0) => stored.filter(row => row.seq > seq)); high.mockResolvedValue(stored.length);
+    const response = await fetch(`${base}/logs/stream?ticket=${await ticket()}`);
+    const streamed = await response.text();
+    expect(streamed).toContain('[REDACTED]'); expect(streamed).toContain('event: end'); expect(streamed).not.toContain(secret);
+    expect(JSON.stringify([...redis.data.values()])).not.toContain(secret);
+  });
   it('ticket needs Bearer; stream needs a one-time bound ticket, never a Bearer query token', async () => {
     expect((await fetch(`${base}/log-stream-ticket`, { method: 'POST' })).status).toBe(401);
     expect((await fetch(`${base}/logs/stream?access_token=secret`)).status).toBe(401);

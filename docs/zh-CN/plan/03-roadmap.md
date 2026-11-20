@@ -243,7 +243,7 @@ gantt
 | B11 | 静态预览服务 | 已实现 [独立 host 静态预览](../preview-links.md)，成功构建的令牌链接、过期与撤销 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、存储抽象 | 预览链接可访问，过期失效 | B09 | M |
 | B12 | SSH 静态部署与目标管理（已实现指定范围） | 专用密钥导入/加密、主机公钥固定、静态上传/原子切换、保留/手动回滚、部署日志；[实现边界](../ssh-deploy.md) | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 目标权限/密文、部署/回滚/保留、SSE 与本地 Docker sshd CI（本地未运行真实容器） | B07、B09–B11 | L |
 | B13 | SSH 发布运维增强（剩余规划） | B12 已含 `releases/current` 和手动回滚；后续 Caddy 配置、Web 健康检查与自动回滚 | `adapters/deploy-ssh`、[apps/api](../../../apps/api)、`apps/worker` | 部署成功可访问；健康检查失败自动回滚；一键回滚 | B12、B09 | L |
-| B14 | 环境变量/密钥管理 | 信封加密、只写不读、按环境、审计 | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 注入生效，不可读回明文，审计可查 | B07 | M |
+| B14 | 环境变量/秘密值管理（已实现 MVP） | 复用 B12 AES-GCM、秘密只写、按环境、审计、构建注入与私有主机 .env；[边界说明](../environment-variables.md) | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 注入生效，不可读回明文，审计可查 | B07 | M |
 | B15 | 在线应用日志 + 部署历史页 | SSH tail 限速只读 + 部署历史页面 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、`adapters/deploy-ssh` | 应用日志可查看（只读限速）；部署历史可查可回滚 | B13 | M |
 
 > 说明：B01–B08 属 Phase 0，B09–B15 属 MVP。V1/V2+ 的 backlog 在对应阶段启动前细化，避免过早锁定细节。

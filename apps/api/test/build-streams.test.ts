@@ -14,6 +14,8 @@ import { BuildsService } from '../src/builds.service';
 import { ProjectApiGuard } from '../src/project-api.guard';
 import { AuthService } from '../src/auth.service';
 import { DatabaseService } from '../src/database.service';
+import { CappedBuildLogs, redactBuildLog } from '../../worker/src/build-logs';
+import { RepositoryLogSink } from '../../worker/src/runner';
 
 const redis = vi.hoisted(() => ({ data: new Map<string, { value: string; expires: number }>() }));
 vi.mock('ioredis', () => ({ Redis: class {
@@ -59,6 +61,23 @@ async function ticket(role = 'viewer') {
   return (await response.json() as { ticket: string }).ticket;
 }
 describe('SSE HTTP endpoint', () => {
+  it('B14 redacts stdout/stderr before persistence and actual HTTP SSE replay', async () => {
+    const secret = 'b14-build-stream-fixture-secret';
+    const stored: Awaited<ReturnType<BuildLogRepository['listSince']>> = [];
+    const append = vi.fn(async (input: Parameters<BuildLogRepository['append']>[0]) => {
+      expect(input.content).not.toContain(secret);
+      const row = { ...input, seq: stored.length + 1, ts: now }; stored.push(row); return row;
+    });
+    const sink = new RepositoryLogSink(buildId, { append }, new AbortController().signal);
+    const capped = new CappedBuildLogs(sink, 10000, value => redactBuildLog(value, [secret]));
+    async function* output() { yield Buffer.from(secret.slice(0, 9)); yield Buffer.from(secret.slice(9) + '\n'); }
+    await capped.consume('stdout', output()); await capped.consume('stderr', output());
+    logs.mockImplementation(async (_id, seq = 0) => stored.filter(row => row.seq > seq)); high.mockResolvedValue(stored.length);
+    const response = await fetch(`${base}/logs/stream?ticket=${await ticket()}`);
+    const streamed = await response.text();
+    expect(streamed).toContain('[REDACTED]'); expect(streamed).toContain('event: end'); expect(streamed).not.toContain(secret);
+    expect(JSON.stringify([...redis.data.values()])).not.toContain(secret);
+  });
   it('ticket needs Bearer; stream needs a one-time bound ticket, never a Bearer query token', async () => {
     expect((await fetch(`${base}/log-stream-ticket`, { method: 'POST' })).status).toBe(401);
     expect((await fetch(`${base}/logs/stream?access_token=secret`)).status).toBe(401);

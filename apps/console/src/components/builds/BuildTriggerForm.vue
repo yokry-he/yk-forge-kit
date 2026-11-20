@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { ref, onBeforeUnmount, watch } from 'vue';
-import type { Build } from '@forgekit/contracts';
+import { EnvironmentNameSchema, type Build } from '@forgekit/contracts';
 import { triggerBuild } from '../../api/builds';
 import { ProjectApiError } from '../../api/projects';
 
@@ -17,12 +17,13 @@ const emit = defineEmits<{
 }>();
 
 const sourceRef = ref(props.initialSourceRef ?? '');
+const environmentName = ref('');
 const submitting = ref(false);
 const error = ref('');
 
 let epoch = 0;
 onBeforeUnmount(() => { ++epoch; });
-watch(() => props.projectId, () => { ++epoch; submitting.value = false; error.value = ''; sourceRef.value = props.initialSourceRef ?? ''; });
+watch(() => props.projectId, () => { ++epoch; submitting.value = false; error.value = ''; sourceRef.value = props.initialSourceRef ?? ''; environmentName.value = ''; });
 async function submitBuild(): Promise<void> {
   if (!props.canRun || submitting.value) {
     return;
@@ -34,12 +35,14 @@ async function submitBuild(): Promise<void> {
     return;
   }
 
+  const environment = environmentName.value.trim();
+  if (environment && !EnvironmentNameSchema.safeParse(environment).success) { error.value = '请输入有效的环境名称。'; return; }
   const current = ++epoch;
   submitting.value = true;
   error.value = '';
 
   try {
-    const build = await triggerBuild(props.projectId, trimmed);
+    const build = await triggerBuild(props.projectId, trimmed, ...(environment ? [environment] : []));
     if (current === epoch) emit('created', build);
   } catch (reason) {
     if (current !== epoch) return;
@@ -77,6 +80,10 @@ async function submitBuild(): Promise<void> {
       </p>
     </div>
 
+    <div class="build-trigger-form__field">
+      <label for="build-environment" class="build-trigger-form__label">构建环境（默认 preview）</label>
+      <input id="build-environment" v-model="environmentName" class="build-trigger-form__input" placeholder="preview" maxlength="64" :disabled="!canRun || submitting" />
+    </div>
     <div v-if="error" class="build-trigger-form__error" role="alert">
       {{ error }}
     </div>

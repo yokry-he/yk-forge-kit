@@ -14,7 +14,7 @@ describe('static SSH adapter preparation', () => {
   it.each([0o022, 0o077])('normalizes site permissions under umask %i, isolates credentials, and cleans up on failure', async (umask) => {
     const work = await mkdtemp(join(tmpdir(), 'b12-adapter-test-')), id = randomUUID(), key = randomBytes(32);
     const previousUmask = process.umask(umask);
-    const signal = new AbortController().signal;
+    const signal = new AbortController().signal, appSecret = 'b14-ssh-adapter-secret';
     let privateDirectory = '';
     try {
       const keyPath = join(work, 'key'); execFileSync('ssh-keygen', ['-q', '-t', 'ed25519', '-N', '', '-f', keyPath]);
@@ -37,19 +37,23 @@ describe('static SSH adapter preparation', () => {
         expect((await stat(identity)).mode & 0o777).toBe(0o600);
         expect((await stat(join(privateDirectory, 'known_hosts'))).mode & 0o777).toBe(0o600);
         expect(await readFile(identity, 'utf8')).toBe(text);
+        expect(args.join(' ')).not.toContain(appSecret);
+        expect((await stat(input!)).mode & 0o777).toBe(0o600);
         const archived = execFileSync('tar', ['-tf', input!], { encoding: 'utf8' });
         expect(archived).toContain('./index.html'); expect(archived).not.toContain('identity'); expect(archived).not.toContain('known_hosts');
         const extracted = join(work, 'extracted'); await mkdir(extracted);
         // Match remote extraction under its explicit umask 022.
         execFileSync('sh', ['-c', 'umask 022; exec tar -xf "$1" -C "$2" --no-same-owner --no-same-permissions', 'sh', input!, extracted]);
+        expect((await stat(join(extracted, '.forgekit-env'))).mode & 0o777).toBe(0o600);
+        expect(await readFile(join(extracted, '.forgekit-env'), 'utf8')).toBe("APP_TOKEN='" + appSecret + "'\n");
         for (const path of ['', 'assets', 'assets/nested']) expect((await stat(join(extracted, path))).mode & 0o777).toBe(0o755);
         for (const path of ['index.html', 'assets/nested/app.js']) expect((await stat(join(extracted, path))).mode & 0o777).toBe(0o644);
         throw new command.SshDeployError('ssh_host_key_mismatch');
       });
       const deployer = new SshStaticDeployer(store, key);
-      await expect(deployer.run(job, target, artifact, [], log, signal)).rejects.toThrow('ssh_host_key_mismatch');
+      await expect(deployer.run(job, target, artifact, [], log, signal, { APP_TOKEN: appSecret })).rejects.toThrow('ssh_host_key_mismatch');
       expect(privateDirectory).not.toBe(''); await expect(stat(privateDirectory)).rejects.toThrow();
-      expect(JSON.stringify(log.mock.calls)).not.toContain(text);
+      expect(JSON.stringify(log.mock.calls)).not.toContain(text); expect(JSON.stringify(log.mock.calls)).not.toContain(appSecret);
       ssh.mockClear();
       await expect(deployer.run(job, target, { key: artifact.key, sha256: '0'.repeat(64) }, [], log, signal)).rejects.toThrow('artifact_integrity_failed');
       expect(ssh.mock.calls.some(([program]) => program === 'ssh')).toBe(false);

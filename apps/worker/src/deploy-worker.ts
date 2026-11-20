@@ -2,7 +2,7 @@ import { isAbsolute } from 'node:path';
 import { Queue, Worker } from 'bullmq';
 import { DEPLOY_JOB_NAME, DEPLOY_QUEUE_NAME, type DeployJobPayload } from '@forgekit/contracts';
 import { LocalFsArtifactStore } from '@forgekit/artifact-store';
-import { BuildRepository, DeployConflictError, DeployLogRepository, DeployRepository, deployEncryptionKey, type DatabaseClient } from '@forgekit/db';
+import { BuildRepository, EnvironmentVariableRepository, DeployConflictError, DeployLogRepository, DeployRepository, deployEncryptionKey, type DatabaseClient } from '@forgekit/db';
 import { DeployProcessor } from './deploy-processor';
 import { SshStaticDeployer } from './ssh-deployer';
 import type { resolveWorkerConfig } from './config';
@@ -15,7 +15,8 @@ export async function startDeployWorker(client: DatabaseClient, config: ReturnTy
   if (!artifactDir || !isAbsolute(artifactDir)) throw new Error('deploy_artifact_dir_required');
   const jobs = new DeployRepository(client.db);
   const processor = new DeployProcessor(jobs, new BuildRepository(client.db), new DeployLogRepository(client.db),
-    new SshStaticDeployer(new LocalFsArtifactStore(artifactDir), key));
+    new SshStaticDeployer(new LocalFsArtifactStore(artifactDir), key),
+    (projectId, environmentId) => new EnvironmentVariableRepository(client.db).resolve(projectId, environmentId));
   const queue = new Queue<DeployJobPayload>(DEPLOY_QUEUE_NAME, { connection: { ...config.connection, maxRetriesPerRequest: 1 } });
   const worker = new Worker<DeployJobPayload>(DEPLOY_QUEUE_NAME, job => processor.process(job.data, job.id), {
     connection: { ...config.connection, maxRetriesPerRequest: null }, concurrency: config.concurrency, autorun: false, maxStalledCount: 1,

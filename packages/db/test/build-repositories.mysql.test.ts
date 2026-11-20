@@ -1,7 +1,7 @@
 import { createHash, randomBytes, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { migrate } from 'drizzle-orm/mysql2/migrator';
-import { eq, inArray } from 'drizzle-orm';
+import { and, eq, inArray } from 'drizzle-orm';
 import { describe, expect, it } from 'vitest';
 import {
   createDatabaseClient, requireDisposableTestDatabase, projects, users, builds, buildLogChunks,
@@ -207,13 +207,15 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B07 MySQL reposito
       expect(await links.recordAccess(expiring.id)).toBe(false);
       expect(await links.findValidByHash(digest())).toBeNull();
 
-      const environment = { id: randomUUID(), projectId, name: 'preview' };
+      // B14 records the preview environment while creating the first build. Reuse it.
+      const [environment] = await client.db.select().from(environments).where(and(eq(environments.projectId, projectId), eq(environments.name, 'preview')));
+      expect(environment).toBeDefined();
       const target = { id: randomUUID(), projectId, name: 'web', createdBy: userId };
       const foreignEnvironment = { id: randomUUID(), projectId: otherProjectId, name: 'production' };
       const foreignTarget = { ...target, id: randomUUID(), projectId: otherProjectId };
-      await client.db.insert(environments).values([environment, foreignEnvironment]);
+      await client.db.insert(environments).values(foreignEnvironment);
       await client.db.insert(deployTargets).values([target, foreignTarget]);
-      const [env] = await client.db.select().from(environments).where(eq(environments.id, environment.id));
+      const [env] = await client.db.select().from(environments).where(eq(environments.id, environment!.id));
       expect(EnvironmentSchema.parse(wire(env)).name).toBe('preview');
       const [host] = await client.db.select().from(deployTargets).where(eq(deployTargets.id, target.id));
       const { encryptedPrivateKey, ...publicHost } = host!;
@@ -221,7 +223,7 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B07 MySQL reposito
       expect(DeployTargetSchema.parse(wire(publicHost)).host).toBeNull();
       expect(DeployTargetSchema.safeParse(wire(host)).success).toBe(false);
       await expect(client.db.insert(environments).values({ ...environment, id: randomUUID() })).rejects.toThrow();
-      const deployment = { id: randomUUID(), projectId, buildId: running.id, environmentId: environment.id, deployTargetId: target.id };
+      const deployment = { id: randomUUID(), projectId, buildId: running.id, environmentId: environment!.id, deployTargetId: target.id };
       await client.db.insert(deployments).values(deployment);
       const [dep] = await client.db.select().from(deployments).where(eq(deployments.id, deployment.id));
       expect(DeploymentSchema.parse(wire(dep)).status).toBe('pending');

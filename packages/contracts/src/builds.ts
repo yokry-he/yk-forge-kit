@@ -102,7 +102,7 @@ export const BUILD_QUEUE_NAME = 'builds';
 export const BUILD_JOB_NAME = 'build';
 export const BuildJobPayloadSchema = z.strictObject({ buildId: id });
 export type BuildJobPayload = z.infer<typeof BuildJobPayloadSchema>;
-export const BuildCreateRequestSchema = z.strictObject({ sourceRef: key });
+export const BuildCreateRequestSchema = z.strictObject({ sourceRef: key, environmentName: z.string().min(1).max(64).regex(/^[a-z][a-z0-9_-]*$/).optional() });
 export const BuildListQuerySchema = z.strictObject({
   beforeNumber: z.coerce.number().int().min(1).max(4294967295).optional(),
   limit: z.coerce.number().int().min(1).max(1000).default(50),

@@ -37,3 +37,4 @@ export * from './deploy-secrets';
 export * from './deploy-repository';
 export * from './domain-repository';
 export * from './domain-log-repository';
+export * from './environment-variable-repository';
