@@ -81,6 +81,8 @@ export const DeployTargetSchema = z.strictObject({
   id, projectId: id, kind: z.literal('ssh'), name: z.string().min(1).max(150),
   host: z.string().min(1).max(255).nullable(), port: z.number().int().min(1).max(65535).nullable(),
   username: z.string().min(1).max(150).nullable(), createdBy: id, createdAt: time, updatedAt: time,
+  hostKey: z.string().nullable().default(null), basePath: z.string().nullable().default(null), retention: z.number().int().min(1).max(50).default(5),
+  currentReleaseId: id.nullable().default(null), disabledAt: time.nullable().default(null),
 });
 export type DeployTarget = z.infer<typeof DeployTargetSchema>;
 export const DeploymentStatusSchema = z.enum(['pending', 'running', 'succeeded', 'failed', 'canceled', 'rolled_back']);
@@ -89,6 +91,9 @@ export const DeploymentSchema = z.strictObject({
   id, projectId: id, buildId: id, environmentId: id, deployTargetId: id,
   status: DeploymentStatusSchema, createdAt: time, updatedAt: time,
   startedAt: time.nullable(), finishedAt: time.nullable(),
+  action: z.enum(['deploy', 'rollback']).default('deploy'), releaseId: id.nullable().default(null),
+  rollbackOf: id.nullable().default(null), triggeredBy: id.nullable().default(null),
+  retained: z.boolean().default(false), errorMessage: z.string().nullable().default(null),
 });
 export type Deployment = z.infer<typeof DeploymentSchema>;
 

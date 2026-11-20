@@ -23,6 +23,13 @@ describe('project authorization policy', () => {
     for (const role of ['owner', 'editor']) expect(canAccessProject(role, 'preview:manage')).toBe(true);
     for (const role of ['viewer', 'admin', null]) expect(canAccessProject(role, 'preview:manage')).toBe(false);
   });
+  it('allows deploy reads to members and target/deploy writes only to owners and editors', () => {
+    for (const role of ['owner', 'editor', 'viewer']) expect(canAccessProject(role, 'deploy:read')).toBe(true);
+    for (const permission of ['deploy:run', 'deploy:manage'] as const) {
+      for (const role of ['owner', 'editor']) expect(canAccessProject(role, permission)).toBe(true);
+      for (const role of ['viewer', 'admin', null]) expect(canAccessProject(role, permission)).toBe(false);
+    }
+  });
   it('limits owner membership changes until last-owner protection is implemented', () => {
     expect(canManageMembership('owner', 'viewer', false)).toBe(true);
     expect(canManageMembership('owner', 'owner', false)).toBe(false);

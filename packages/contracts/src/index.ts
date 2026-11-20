@@ -88,3 +88,4 @@ export const API_VERSION = 'v1' as const;
 export * from './builds';
 
 export * from './build-streams';
+export * from './deploys';

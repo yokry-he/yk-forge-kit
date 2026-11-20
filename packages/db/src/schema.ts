@@ -1,5 +1,5 @@
 import type { RunnerInfo } from '@forgekit/contracts';
-import { bigint, index, int, json, mysqlEnum, mysqlTable, primaryKey, foreignKey, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
+import { bigint, boolean, index, int, json, mysqlEnum, mysqlTable, primaryKey, foreignKey, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
 
 /** Initial metadata only; no user/auth schema is assumed at this stage. */
 export const projects = mysqlTable('projects', {
@@ -108,6 +108,12 @@ export const deployTargets = mysqlTable('deploy_targets', {
   host: varchar('host', { length: 255 }),
   port: int('port', { unsigned: true }),
   username: varchar('username', { length: 150 }),
+  hostKey: text('host_key'),
+  encryptedPrivateKey: text('encrypted_private_key'),
+  basePath: varchar('base_path', { length: 255 }),
+  retention: int('retention', { unsigned: true }).notNull().default(5),
+  currentReleaseId: varchar('current_release_id', { length: 36 }),
+  disabledAt: timestamp('disabled_at', { fsp: 3 }),
   createdBy: varchar('created_by', { length: 36 }).notNull().references(() => users.id),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow().$onUpdateFn(() => new Date()),
@@ -156,6 +162,12 @@ export const deployments = mysqlTable('deployments', {
   environmentId: varchar('environment_id', { length: 36 }).notNull(),
   deployTargetId: varchar('deploy_target_id', { length: 36 }).notNull(),
   status: mysqlEnum('status', ['pending', 'running', 'succeeded', 'failed', 'canceled', 'rolled_back']).notNull().default('pending'),
+  action: mysqlEnum('action', ['deploy', 'rollback']).notNull().default('deploy'),
+  releaseId: varchar('release_id', { length: 36 }),
+  rollbackOf: varchar('rollback_of', { length: 36 }),
+  triggeredBy: varchar('triggered_by', { length: 36 }),
+  retained: boolean('retained').notNull().default(false),
+  errorMessage: varchar('error_message', { length: 255 }),
   startedAt: timestamp('started_at', { fsp: 3 }),
   finishedAt: timestamp('finished_at', { fsp: 3 }),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
@@ -165,6 +177,8 @@ export const deployments = mysqlTable('deployments', {
   foreignKey({ columns: [t.projectId, t.environmentId], foreignColumns: [environments.projectId, environments.id], name: 'deployments_project_environment_fk' }).onDelete('cascade'),
   foreignKey({ columns: [t.projectId, t.deployTargetId], foreignColumns: [deployTargets.projectId, deployTargets.id], name: 'deployments_project_target_fk' }).onDelete('cascade'),
   index('deployments_project_environment_status_idx').on(t.projectId, t.environmentId, t.status),
+  index('deployments_target_status_idx').on(t.deployTargetId, t.status),
+  index('deployments_status_updated_idx').on(t.status, t.updatedAt),
 ]);
 
 export const previewLinks = mysqlTable('preview_links', {
@@ -202,3 +216,21 @@ export const previewLinkAudit = mysqlTable('preview_link_audit', {
   action: varchar('action', { length: 16 }).$type<'created' | 'revoked'>().notNull(),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
 }, (t) => [index('preview_link_audit_project_time_idx').on(t.projectId, t.createdAt)]);
+
+/** Same append/sequence contract as build_log_chunks. */
+export const deployLogChunks = mysqlTable('deploy_log_chunks', {
+  deploymentId: varchar('deployment_id', { length: 36 }).notNull().references(() => deployments.id, { onDelete: 'cascade' }),
+  seq: int('seq', { unsigned: true }).notNull(),
+  stream: mysqlEnum('stream', ['stdout', 'stderr', 'system']).notNull(),
+  content: text('content').notNull(),
+  ts: timestamp('ts', { fsp: 3 }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.deploymentId, t.seq] })]);
+export const deployAudit = mysqlTable('deploy_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  targetId: varchar('target_id', { length: 36 }).notNull(),
+  deploymentId: varchar('deployment_id', { length: 36 }),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: varchar('action', { length: 24 }).notNull(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [index('deploy_audit_project_time_idx').on(t.projectId, t.createdAt)]);

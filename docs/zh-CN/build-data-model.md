@@ -71,3 +71,5 @@ CI 的 mysql-integration Job 使用同一入口，固定开启 `FORGEKIT_DB_INTE
 ## B11 预览审计增量
 
 迁移 `0010_b11_preview_link_audit` 新增 `preview_link_audit`，记录项目、构建、链接 ID、操作者、动作与时间；创建/撤销和审计同事务提交，不含令牌/URL/摘要。B07 `preview_links` 字段不变，新增有效链接查询、摘要安全比较和访问时间的数据库节流。管理权限、接口与运行方式见 [静态预览](./preview-links.md)。
+
+B12 已通过迁移 0011 扩展上述 B07 部署占位表，新增密文、主机公钥、发布/回滚字段、部署日志与审计；保留原有同项目组合外键。当前实现与兼容/回退说明见 [SSH 部署](./ssh-deploy.md) 和 [ADR-0011](../adr/0011-ssh-static-deployment.md)。

@@ -49,6 +49,8 @@ vi.mock('../src/api/projects', () => {
   };
 });
 
+vi.mock('../src/components/deploys/BuildDeployPanel.vue', () => ({ default: { props: ['projectId', 'slug', 'buildId', 'canManage'], template: '<section data-testid="deploy-panel" />' } }));
+
 vi.mock('../src/api/preview-links', () => ({ listPreviewLinks: vi.fn().mockResolvedValue([]), createPreviewLink: vi.fn(), revokePreviewLink: vi.fn() }));
 
 vi.mock('../src/api/project-members', () => ({

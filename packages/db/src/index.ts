@@ -33,3 +33,5 @@ export function createDatabaseClient(connectionString: string): DatabaseClient {
 }
 
 export * from './build-repository';
+export * from './deploy-secrets';
+export * from './deploy-repository';

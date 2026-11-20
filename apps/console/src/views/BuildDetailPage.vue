@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
+import { defineAsyncComponent, computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute, useRouter } from 'vue-router';
 import type { Build, BuildStreamEnd } from '@forgekit/contracts';
 import { getBuild, cancelBuild as cancelBuildApi } from '../api/builds';
@@ -10,6 +10,8 @@ import BuildStatusBadge from '../components/builds/BuildStatusBadge.vue';
 import BuildTriggerForm from '../components/builds/BuildTriggerForm.vue';
 import BuildLogViewer from '../components/builds/BuildLogViewer.vue';
 import PreviewLinkPanel from '../components/builds/PreviewLinkPanel.vue';
+
+const BuildDeployPanel = defineAsyncComponent(() => import('../components/deploys/BuildDeployPanel.vue').then(module => module.default));
 
 const route = useRoute();
 const router = useRouter();
@@ -348,6 +350,9 @@ onUnmounted(() => {
           </div>
         </section>
 
+        <BuildDeployPanel v-if="build.status === 'succeeded' && oidcEnabled" :key="`deploy:${project.id}:${build.id}`"
+          :project-id="project.id" :slug="project.slug" :build-id="build.id" :can-manage="canRun"
+          @unauthorized="handleUnauthorized" @forbidden="handleForbidden" />
         <PreviewLinkPanel v-if="build.status === 'succeeded' && oidcEnabled"
           :key="`preview:${project.id}:${build.id}`" :project-id="project.id" :build-id="build.id" :can-manage="canRun"
           @unauthorized="handleUnauthorized" @forbidden="refreshAccess" />

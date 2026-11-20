@@ -1,3 +1,9 @@
+import { DeploysController } from './deploys.controller';
+import { DeploysService } from './deploys.service';
+import { DeployQueueService } from './deploy-queue.service';
+import { DeployStreamsController } from './deploy-streams.controller';
+import { DeployStreamsService } from './deploy-streams.service';
+import { DeployStreamTickets } from './deploy-stream-tickets';
 import { PreviewLinksController } from './preview-links.controller';
 import { PreviewLinksService } from './preview-links.service';
 import { PreviewArtifactsService } from './preview-artifacts.service';
@@ -26,7 +32,7 @@ import { InvitationRateLimiter } from './invitation-rate-limiter';
 import { IdentityAccountsService } from './identity-accounts.service';
 
 @Module({
-  controllers: [PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
-  providers: [PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
+  controllers: [DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
+  providers: [DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
 })
 export class AppModule {}
