@@ -11,7 +11,7 @@ import { NestFactory } from '@nestjs/core';
 import { migrate } from 'drizzle-orm/mysql2/migrator';
 import { eq, inArray } from 'drizzle-orm';
 import { LocalFsArtifactStore } from '@forgekit/artifact-store';
-import { BuildRepository, DeployRepository, createDatabaseClient, requireDisposableTestDatabase, deployTargets, deployLogChunks,
+import { EnvironmentVariableRepository, encryptVariable, BuildRepository, DeployRepository, createDatabaseClient, requireDisposableTestDatabase, deployTargets, deployLogChunks,
   deployAudit, projects, users, externalIdentities, projectMemberships, invitationRateBuckets } from '@forgekit/db';
 import type { Deployment, DeployTarget } from '@forgekit/contracts';
 import { DeploysController } from '../src/deploys.controller';
@@ -108,6 +108,9 @@ describe.skipIf(process.env.FORGEKIT_SSH_DEPLOY_INTEGRATION !== '1')('B12 API + 
       const first = await firstResponse.json() as Deployment;
       expect((await request('/deployments', 'POST', { buildId: build1.id, deployTargetId: target.id })).status).toBe(409);
       expect((await request('/deploy-targets/' + target.id, 'DELETE')).status).toBe(409);
+      const b14Secret = 'b14-ssh-fixture-secret';
+      await new EnvironmentVariableRepository(client.db).save(projectId, 'production', 'APP_TOKEN', { kind: 'secret', value: b14Secret }, ownerId,
+        (value, eid) => encryptVariable(value, Buffer.from(process.env.FORGEKIT_DEPLOY_ENCRYPTION_KEY!, 'hex'), projectId, eid, 'APP_TOKEN'));
       worker = await startDeployWorker(client, resolveWorkerConfig(process.env), process.env, event => { events.push(event); });
       async function finish(id: string, expected = 'succeeded') {
         for (let attempt = 0; attempt < 200; attempt++) {
@@ -122,12 +125,16 @@ describe.skipIf(process.env.FORGEKIT_SSH_DEPLOY_INTEGRATION !== '1')('B12 API + 
       const readCurrent = () => docker('exec', container, 'cat', remoteRoot + '/current/index.html');
       expect(docker('exec', container, 'readlink', remoteRoot + '/current')).toBe('releases/' + first.releaseId);
       expect(readCurrent()).toContain('release one');
+      const envPath = remoteRoot + '/environments/' + first.releaseId + '/.env';
+      expect(docker('exec', container, 'stat', '-c', '%a', envPath)).toBe('600');
+      expect(docker('exec', container, 'cat', envPath)).toBe("APP_TOKEN='" + b14Secret + "'");
+      expect(docker('exec', container, 'ls', '-a', remoteRoot + '/current')).not.toContain('.forgekit-env');
       expect(docker('exec', container, 'cat', remoteRoot + '/current/assets/app.js')).toBe('window.fixture=true');
       const ticketResponse = await request(`/deployments/${first.id}/log-stream-ticket`, 'POST', undefined, viewerId);
       const ticket = await ticketResponse.json() as { ticket: string };
       const stream = await fetch(`${base}/deployments/${first.id}/logs/stream?ticket=${ticket.ticket}`, { signal: AbortSignal.timeout(5000) });
       const streamed = await stream.text(); expect(streamed).toContain('event: log'); expect(streamed).toContain('event: end');
-      expect(streamed).not.toContain(privateKey);
+      expect(streamed).not.toContain(privateKey); expect(streamed).not.toContain(b14Secret);
       expect((await fetch(`${base}/deployments/${first.id}/logs/stream?ticket=${ticket.ticket}`)).status).toBe(401);
       const build2 = await successfulBuild('release two');
       const second = await (await request('/deployments', 'POST', { buildId: build2.id, deployTargetId: target.id })).json() as Deployment;

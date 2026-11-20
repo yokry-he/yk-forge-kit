@@ -11,7 +11,7 @@ export function retentionPlan(releaseId: string, retainedIds: string[], retentio
   return { keep: all.slice(0, retention), prune: all.slice(retention) };
 }
 /** GNU Linux: flock protects the whole transfer/switch/prune, timeout bounds abandoned remote sessions. */
-export function releaseScript(root: string, operationId: string, releaseId: string, rollback: boolean, prune: string[]): string {
+export function releaseScript(root: string, operationId: string, releaseId: string, rollback: boolean, prune: string[], withEnvironment = false): string {
   BuildIdSchema.parse(operationId); BuildIdSchema.parse(releaseId); prune.forEach(id => BuildIdSchema.parse(id));
   // root comes exclusively from releaseRoot (or a private temp directory in script tests).
   const body = `set -eu
@@ -23,9 +23,12 @@ staging=releases/.staging-${operationId}
 release=releases/${releaseId}
 link=.current-${operationId}
 created=0
+env_created=0
 cleanup() {
   rm -rf -- "$staging"
   rm -f -- "$link"
+  rm -rf -- environments/.staging-${operationId}
+  if [ "$(readlink current || true)" != "$release" ] && [ "$env_created" = 1 ]; then rm -rf -- environments/${releaseId}; fi
   if [ "$(readlink current || true)" != "$release" ] && [ "$created" = 1 ] && [ "${rollback ? 'rollback' : 'deploy'}" = deploy ]; then rm -rf -- "$release"; fi
 }
 trap cleanup EXIT
@@ -36,6 +39,18 @@ ${rollback ? '[ ! -L "$release" ] && [ -f "$release/.forgekit-complete" ] && [ -
   mkdir -- "$staging"
   tar --extract --file=- --directory="$staging" --no-same-owner --no-same-permissions
   [ -f "$staging/index.html" ] && [ ! -L "$staging/index.html" ] || exit 1
+  ${withEnvironment ? `
+  [ -f "$staging/.forgekit-env" ] && [ ! -L "$staging/.forgekit-env" ] || exit 1
+  [ ! -L environments ] || exit 1
+  mkdir -p -m 700 environments
+  chmod 700 environments
+  [ ! -e environments/${releaseId} ] && [ ! -L environments/${releaseId} ] || exit 1
+  mkdir -m 700 environments/.staging-${operationId}
+  chmod 600 "$staging/.forgekit-env"
+  mv -- "$staging/.forgekit-env" environments/.staging-${operationId}/.env
+  mv -T -- environments/.staging-${operationId} environments/${releaseId}
+  env_created=1
+  ` : ''}
   touch "$staging/.forgekit-complete"
   mv -T -- "$staging" "$release"
   created=1
@@ -46,7 +61,7 @@ fi`}
 ln -s -- "$release" "$link"
 mv -Tf -- "$link" current
 printf 'B12_SWITCHED\\n'
-${prune.map(id => `[ "$(readlink current)" = "releases/${id}" ] || rm -rf -- releases/${id}`).join('\n')}
+${prune.map(id => `[ "$(readlink current)" = "releases/${id}" ] || rm -rf -- releases/${id} environments/${id}`).join('\n')}
 printf 'B12_DONE\\n'
 `;
   return `set -eu; umask 022; mkdir -p -- ${shellQuote(root)}; [ ! -L ${shellQuote(root)} ]; mkdir -p -- ${shellQuote(root + '/releases')}; exec timeout --signal=TERM --kill-after=5s 300s flock -w 10 ${shellQuote(root + '/.deploy.lock')} sh -c ${shellQuote(body)}`;

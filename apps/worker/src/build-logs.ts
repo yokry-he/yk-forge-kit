@@ -3,7 +3,9 @@ import type { BuildLogSink } from './runner';
 
 export function redactBuildLog(value: string, secrets: readonly string[] = []): string {
   let result = value;
-  for (const secret of [...secrets].filter(Boolean).sort((a, b) => b.length - a.length)) {
+  const variants = secrets.flatMap(secret => [secret, secret.replace(/\r\n/g, '\n'),
+    JSON.stringify(secret).slice(1, -1), ...secret.split(/[\r\n]+/)]);
+  for (const secret of [...new Set(variants)].filter(secret => secret.length >= 4).sort((a, b) => b.length - a.length)) {
     result = result.split(secret).join('[REDACTED]');
   }
   return result.replace(/(https?:\/\/)[^\s/@]+:[^\s/@]+@/gi, '$1[REDACTED]@')

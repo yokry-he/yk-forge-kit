@@ -17,6 +17,7 @@ export const router = createRouter({
     { path: '/projects', component: ProjectListView },
     { path: '/projects/new', component: ProjectCreateView },
     { path: '/projects/:slug', name: 'project-detail', component: ProjectDetailView },
+    { path: '/projects/:slug/variables', name: 'project-variables', component: () => import('./views/EnvironmentVariablesPage.vue') },
     { path: '/projects/:slug/domains/:operationId?', name: 'project-domains', component: () => import('./views/DomainsPage.vue') },
     { path: '/projects/:slug/deployments/:deploymentId?', name: 'project-deployments', component: () => import('./views/DeploymentsPage.vue') },
     { path: '/projects/:slug/builds', name: 'project-builds', component: BuildListPage },

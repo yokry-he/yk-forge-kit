@@ -6,7 +6,7 @@ import {
   type BuildStatus, type BuildLogEvent, type RunnerInfo,
 } from '@forgekit/contracts';
 import type { DatabaseClient } from './index';
-import { builds, buildLogChunks, previewLinks, projects, buildAudit, previewLinkAudit } from './schema';
+import { builds, buildLogChunks, previewLinks, projects, buildAudit, previewLinkAudit, environments, buildEnvironments } from './schema';
 
 type Database = DatabaseClient['db'];
 type BuildRow = typeof builds.$inferSelect;
@@ -36,7 +36,7 @@ export class BuildRepository {
     return row ?? null;
   }
 
-  async create(input: { projectId: string; template: string; sourceRef: string; triggeredBy: string }, audit = false): Promise<BuildRow> {
+  async create(input: { projectId: string; template: string; sourceRef: string; triggeredBy: string }, audit = false, environmentName = 'preview'): Promise<BuildRow> {
     const now = new Date();
     const row: BuildRow = {
       ...input, id: randomUUID(), number: 1, status: 'queued', queuedAt: now, startedAt: null,
@@ -55,6 +55,12 @@ export class BuildRepository {
       row.number = (last?.number ?? 0) + 1;
       if (row.number > 4294967295) throw new RangeError('构建编号已耗尽。');
       await tx.insert(builds).values(row);
+      let [environment] = await tx.select().from(environments).where(and(eq(environments.projectId, input.projectId), eq(environments.name, environmentName)));
+      if (!environment) {
+        environment = { id: randomUUID(), projectId: input.projectId, name: environmentName, createdAt: now, updatedAt: now };
+        await tx.insert(environments).values(environment);
+      }
+      await tx.insert(buildEnvironments).values({ buildId: row.id, projectId: input.projectId, environmentId: environment.id });
       if (audit) await tx.insert(buildAudit).values({ projectId: row.projectId, buildId: row.id,
         actorUserId: row.triggeredBy, action: 'triggered' });
       return row;

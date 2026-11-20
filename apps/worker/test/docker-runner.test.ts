@@ -183,3 +183,39 @@ describe('CLI child lifecycle', () => {
     expect(fake.kill.mock.calls.map(([signal]) => signal)).toEqual(['SIGTERM', 'SIGKILL']);
   });
 });
+
+describe('B14 Docker environment and log boundary', () => {
+  it('injects only selected project variables in build phase, without secret argv or the platform key', async () => {
+    const f = await fixture(), secret = 'b14-docker-output-secret';
+    const persisted: string[] = [], runs: string[][] = [];
+    const docker: DockerCommand = { execute: async (args, _signal, logs, variables) => {
+      if (args[0] !== 'run') return 0;
+      runs.push(args);
+      expect(args.join(' ')).not.toContain(secret);
+      expect(args.join(' ')).not.toContain('FORGEKIT_DEPLOY_ENCRYPTION_KEY');
+      if (runs.length === 1) { expect(variables).toBeUndefined(); expect(args).not.toContain('APP_TOKEN'); }
+      else {
+        expect(variables).toEqual({ APP_TOKEN: secret, API_URL: 'https://example.test' });
+        expect(args).toContain('APP_TOKEN'); expect(args).toContain('API_URL');
+        async function* output() { yield Buffer.from('echo ' + secret.slice(0, 8)); yield Buffer.from(secret.slice(8) + '\n'); }
+        await logs!.consume('stdout', output()); await logs!.consume('stderr', output());
+      }
+      return 0;
+    } };
+    const resolve = vi.fn(async () => ({ values: { APP_TOKEN: secret, API_URL: 'https://example.test' }, secrets: [secret] }));
+    const runner = new DockerBuildRunner(f.source, f.store, { ...dockerOptions, workspaceRoot: f.work }, docker, undefined, resolve);
+    const build = buildRecord();
+    expect((await runner.run(build, { write: async (_stream, value) => { persisted.push(value); } }, new AbortController().signal)).exitCode).toBe(0);
+    expect(resolve).toHaveBeenCalledWith(build);
+    expect(persisted.join('')).not.toContain(secret); expect(persisted.join('')).toContain('[REDACTED]');
+    expect(runs).toHaveLength(2);
+  });
+  it('rejects persisted reserved names before invoking Docker', async () => {
+    const f = await fixture(), execute = vi.fn(async () => 0);
+    const runner = new DockerBuildRunner(f.source, f.store, { ...dockerOptions, workspaceRoot: f.work }, { execute }, undefined,
+      async () => ({ values: { FORGEKIT_DEPLOY_ENCRYPTION_KEY: 'must-not-pass' }, secrets: [] }));
+    await expect(runner.run(buildRecord(), sink, new AbortController().signal)).rejects.toThrow();
+    // Install receives no variables; reserved names are rejected before the build container.
+    expect(execute.mock.calls).toHaveLength(3);
+  });
+});

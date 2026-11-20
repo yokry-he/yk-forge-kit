@@ -1,3 +1,5 @@
+import { VariableNameSchema } from '@forgekit/contracts';
+import type { ResolvedVariables } from '@forgekit/db';
 import { randomUUID } from 'node:crypto';
 import { chmod, lstat, mkdir, mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -24,7 +26,7 @@ export interface DockerRunnerOptions {
 
 export function buildDockerArgs(options: DockerRunnerOptions, input: {
   name: string; workspace: string; phase: 'install' | 'build'; script: 'build' | 'generate';
-  uid: number; gid: number;
+  uid: number; gid: number; variableNames?: string[];
 }): string[] {
   if (input.uid <= 0 || input.gid < 0 || /[,\r\n]/.test(input.workspace)) throw new Error('unsafe_docker_workspace_or_user');
   const network = input.phase === 'build' || options.installNetwork === 'none' ? 'none'
@@ -41,6 +43,7 @@ export function buildDockerArgs(options: DockerRunnerOptions, input: {
     '--mount', `type=bind,source=${input.workspace},target=/workspace`, '--workdir', '/workspace',
     '--env', 'HOME=/tmp', '--env', 'CI=1', '--env', 'COREPACK_HOME=/workspace/.corepack',
     '--env', 'COREPACK_ENABLE_DOWNLOAD_PROMPT=0', '--env', 'NUXT_TELEMETRY_DISABLED=1'];
+  if (input.phase === 'build') for (const name of input.variableNames ?? []) args.push('--env', VariableNameSchema.parse(name));
   if (options.runtime) args.push('--runtime', options.runtime);
   if (input.phase === 'install' && options.installNetwork === 'registry') {
     args.push('--env', `HTTP_PROXY=${options.registryProxy}`, '--env', `HTTPS_PROXY=${options.registryProxy}`);
@@ -57,7 +60,8 @@ export function buildDockerArgs(options: DockerRunnerOptions, input: {
 export class DockerBuildRunner implements BuildRunner {
   constructor(private readonly source: WorkspaceSource, private readonly artifacts: ArtifactStore,
     private readonly options: DockerRunnerOptions, private readonly docker: DockerCommand = new DockerCli(),
-    private readonly redact: (value: string) => string = redactBuildLog) {}
+    private readonly redact: (value: string) => string = redactBuildLog,
+    private readonly variables: (build: BuildRecord) => Promise<ResolvedVariables> = async () => ({ values: {}, secrets: [] })) {}
 
   async run(build: BuildRecord, sink: BuildLogSink, signal: AbortSignal) {
     const uid = process.getuid?.() ?? 0;
@@ -68,11 +72,13 @@ export class DockerBuildRunner implements BuildRunner {
     signal.addEventListener('abort', abort, { once: true });
     if (signal.aborted) abort();
     const timer = setTimeout(() => controller.abort(new Error('build_timeout')), this.options.timeoutMs);
-    const logs = new CappedBuildLogs(sink, this.options.maxLogBytes, this.redact);
+    let resolved: ResolvedVariables = { values: {}, secrets: [] };
+    const logs = new CappedBuildLogs(sink, this.options.maxLogBytes, value => this.redact(redactBuildLog(value, resolved.secrets)));
     let root: string | undefined;
     let artifact: ArtifactMetadata | undefined;
     let containersRemoved = true;
     try {
+      resolved = await this.variables(build);
       controller.signal.throwIfAborted();
       root = await mkdtemp(join(this.options.workspaceRoot ?? tmpdir(), 'forgekit-build-'));
       const workspace = join(root, 'workspace');
@@ -81,10 +87,10 @@ export class DockerBuildRunner implements BuildRunner {
       for (const phase of ['install', 'build'] as const) {
         controller.signal.throwIfAborted();
         const name = `forgekit-${build.id}-${phase}-${randomUUID()}`;
-        const args = buildDockerArgs(this.options, { name, workspace, phase, script: plan.script, uid, gid });
+        const args = buildDockerArgs(this.options, { name, workspace, phase, script: plan.script, uid, gid, variableNames: Object.keys(resolved.values) });
         let code: number;
         containersRemoved = false;
-        try { code = await this.docker.execute(args, controller.signal, logs); }
+        try { code = await this.docker.execute(args, controller.signal, logs, phase === 'build' ? resolved.values : undefined); }
         finally {
           // Cleanup uses an independent deadline because the build signal may already be aborted.
           // Kill first (a finished/nonexistent container returns nonzero); rm -f is authoritative.
@@ -115,6 +121,7 @@ export class DockerBuildRunner implements BuildRunner {
     } finally {
       // An unconfirmed daemon cleanup can leave an active writer. Preserve the private directory
       // for operator recovery rather than traversing attacker-mutated paths on the host.
+      resolved.values = {}; resolved.secrets = [];
       try { if (root && containersRemoved) await removeWorkspace(root); }
       finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
     }

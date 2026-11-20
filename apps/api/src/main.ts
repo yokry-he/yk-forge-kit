@@ -1,10 +1,13 @@
 import 'reflect-metadata';
 import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { configureJsonBodyParser } from './json-body-parser';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  configureJsonBodyParser(app);
   app.enableShutdownHooks();
   app.enableCors({ origin: process.env.CONSOLE_ORIGIN ?? 'http://localhost:5173' });
   // Development defaults to loopback until authentication is in place.

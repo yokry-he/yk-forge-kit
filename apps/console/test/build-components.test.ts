@@ -376,3 +376,15 @@ describe('log viewer bounded updates', () => {
     expect(wrapper.get('pre').element.textContent).toBe('partnext\n'); expect(wrapper.text()).not.toContain('first');
   });
 });
+
+describe('B14 build environment choice', () => {
+  it('passes an explicit environment while preserving preview as the default', async () => {
+    mockTriggerBuild.mockResolvedValue(makeBuild());
+    const wrapper = mount(BuildTriggerForm, { props: { projectId: 'project-1', canRun: true } });
+    await wrapper.get('#build-source-ref').setValue('template:vue-web');
+    await wrapper.get('#build-environment').setValue('production'); await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(mockTriggerBuild).toHaveBeenCalledWith('project-1', 'template:vue-web', 'production');
+    mockTriggerBuild.mockClear(); await wrapper.get('#build-environment').setValue('../invalid'); await wrapper.get('form').trigger('submit');
+    expect(mockTriggerBuild).not.toHaveBeenCalled();
+  });
+});
