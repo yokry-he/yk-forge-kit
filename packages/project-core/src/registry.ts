@@ -3,6 +3,7 @@ import { renderVueAdmin } from './vue-admin.js';
 import { renderVueWeb } from './vue-web.js';
 import { renderNuxtSite } from './nuxt-site.js';
 import { renderUniapp } from './uniapp.js';
+import { renderTauriDesktop } from './tauri-desktop.js';
 
 const featureCatalog = {
   theme: { id: 'theme', label: '主题系统', detail: '深色视觉风格与语义设计变量（official.theme 资产）' },
@@ -70,6 +71,22 @@ const templates: ProjectTemplateDefinition[] = [
     commands: ['pnpm install', 'pnpm dev:h5', 'pnpm build:h5', 'pnpm dev:mp-weixin', 'pnpm build:mp-weixin', 'pnpm dev:mp-alipay', 'pnpm build:mp-alipay', 'pnpm dev:app', 'pnpm build:app'],
     build: { script: 'build', outputDirectory: 'dist/build/h5' },
     render: renderUniapp,
+  },
+  {
+    id: 'tauri-desktop',
+    name: 'Tauri 桌面应用',
+    description: 'Tauri 2 + Vue 3 桌面起步工程，支持 Windows / macOS / Linux，包含侧边栏、设置页、受限 Rust IPC 与安装包构建工作流；托盘和自动更新默认关闭。',
+    kind: 'desktop',
+    targets: ['desktop'],
+    stack: ['Tauri 2', 'Vue 3', 'TypeScript', 'Vite', 'Rust'],
+    features: [],
+    defaultFeatures: [],
+    builtIn: ['主窗口与侧边栏', '本地设置', 'greet Rust 命令', '最小权限与 CSP', 'Windows / macOS 安装包工作流'],
+    assetTarget: null,
+    commands: ['pnpm install', 'pnpm tauri dev'],
+    // Isolated platform workers build the frontend only; native bundles use the generated workflow.
+    build: { script: 'build', outputDirectory: 'dist' },
+    render: renderTauriDesktop,
   },
 ];
 

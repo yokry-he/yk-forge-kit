@@ -64,6 +64,10 @@ describe.skipIf(process.env.FORGEKIT_TEMPLATE_SMOKE !== '1')('generated project 
       expect(install.status, `${install.error ?? ''}\n${install.stdout}${install.stderr}`).toBe(0);
       const build = pnpm('run', 'build');
       expect(build.status, `${build.error ?? ''}\n${build.stdout}${build.stderr}`).toBe(0);
+      if (template.id === 'tauri-desktop') {
+        expect(await readFile(join(dir, 'dist/index.html'), 'utf8')).toContain('<div id="app">');
+        expect(await readFile(join(dir, '.github/workflows/release-desktop.yml'), 'utf8')).toContain('matrix:');
+      }
       if (template.id === 'uniapp') {
         // Official CLI output is dist/build/<platform>, rather than HBuilderX's unpackage/dist.
         expect(await readFile(join(dir, 'dist/build/h5/index.html'), 'utf8')).toContain('<div id="app">');

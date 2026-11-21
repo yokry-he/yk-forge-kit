@@ -29,6 +29,7 @@ YKForgeKit 是面向开发者的一体化项目创建、资产组合、跨端构
 - [测试与质量门禁](docs/zh-CN/testing.md)
 - [UI / UX 规范](docs/zh-CN/ui-design.md)
 - [项目模板注册表](docs/zh-CN/project-templates.md)
+- [Tauri 桌面模板（B19）](docs/zh-CN/templates/tauri-desktop.md)
 - [构建队列与 Worker（B08 空构建）](docs/zh-CN/worker-build-queue.md)
 - [Docker 构建 Runner 与本地制品（B09）](docs/zh-CN/docker-build-runner.md)
 - [微信小程序上传与预览（B17）](docs/zh-CN/weapp-upload.md)
