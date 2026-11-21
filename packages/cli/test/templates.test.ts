@@ -64,6 +64,21 @@ describe.skipIf(process.env.FORGEKIT_TEMPLATE_SMOKE !== '1')('generated project 
       expect(install.status, `${install.error ?? ''}\n${install.stdout}${install.stderr}`).toBe(0);
       const build = pnpm('run', 'build');
       expect(build.status, `${build.error ?? ''}\n${build.stdout}${build.stderr}`).toBe(0);
+      if (template.id === 'uniapp') {
+        // Official CLI output is dist/build/<platform>, rather than HBuilderX's unpackage/dist.
+        expect(await readFile(join(dir, 'dist/build/h5/index.html'), 'utf8')).toContain('<div id="app">');
+        const weixin = pnpm('run', 'build:mp-weixin');
+        expect(weixin.status, `${weixin.error ?? ''}\n${weixin.stdout}${weixin.stderr}`).toBe(0);
+        const output = join(dir, 'dist/build/mp-weixin');
+        const config = JSON.parse(await readFile(join(output, 'app.json'), 'utf8'));
+        expect(config.pages).toEqual(['pages/index/index', 'pages/list/index', 'pages/detail/index', 'pages/profile/index']);
+        expect(config.tabBar.list.map((tab: { pagePath: string }) => tab.pagePath)).toEqual([
+          'pages/index/index', 'pages/list/index', 'pages/profile/index',
+        ]);
+        for (const path of ['app.js', 'pages/index/index.wxml', 'pages/list/index.wxml', 'pages/detail/index.wxml', 'pages/profile/index.wxml']) {
+          expect(await readFile(join(output, path), 'utf8'), path).toBeTruthy();
+        }
+      }
       if (template.id === 'nuxt-site') {
         expect(await readFile(join(dir, '.output/server/index.mjs'), 'utf8')).toBeTruthy();
         const pkg = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8'));

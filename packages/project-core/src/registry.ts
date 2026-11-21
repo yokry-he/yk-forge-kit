@@ -2,6 +2,7 @@ import type { ProjectFeatureOption, ProjectTemplateDefinition, ProjectTemplateId
 import { renderVueAdmin } from './vue-admin.js';
 import { renderVueWeb } from './vue-web.js';
 import { renderNuxtSite } from './nuxt-site.js';
+import { renderUniapp } from './uniapp.js';
 
 const featureCatalog = {
   theme: { id: 'theme', label: '主题系统', detail: '深色视觉风格与语义设计变量（official.theme 资产）' },
@@ -54,6 +55,21 @@ const templates: ProjectTemplateDefinition[] = [
     commands: ['pnpm install', 'pnpm dev'],
     build: { script: 'generate', outputDirectory: '.output/public' },
     render: renderNuxtSite,
+  },
+  {
+    id: 'uniapp',
+    name: 'uni-app 跨端应用',
+    description: 'Vue 3 + TypeScript 多端起步工程，包含首页、列表与详情、个人页；支持 H5 与微信小程序构建，预配置 App 和支付宝小程序。',
+    kind: 'miniapp',
+    targets: ['h5', 'miniapp', 'mobile'],
+    stack: ['Vue 3', 'TypeScript', 'Vite', 'uni-app'],
+    features: [],
+    defaultFeatures: [],
+    builtIn: ['多端页面与 tabBar', '共享类型化 API', '内存 mock', '响应式布局'],
+    assetTarget: null,
+    commands: ['pnpm install', 'pnpm dev:h5', 'pnpm build:h5', 'pnpm dev:mp-weixin', 'pnpm build:mp-weixin', 'pnpm dev:mp-alipay', 'pnpm build:mp-alipay', 'pnpm dev:app', 'pnpm build:app'],
+    build: { script: 'build', outputDirectory: 'dist/build/h5' },
+    render: renderUniapp,
   },
 ];
 
