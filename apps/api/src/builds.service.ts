@@ -20,10 +20,10 @@ export class BuildsService {
     if (!id) throw new ForbiddenException('项目成员身份不存在。');
     return id;
   }
-  async trigger(projectId: string, sourceRef: string, auth: ProjectAuthContext, environmentName?: string, target?: 'h5' | 'mp-weixin') {
+  async trigger(projectId: string, sourceRef: string, auth: ProjectAuthContext, environmentName?: string, target?: 'h5' | 'mp-weixin' | 'mp-alipay') {
     const actorId = await this.actor(auth);
     const project = await this.projects.findById(projectId, auth, 'build:run');
-    if (target === 'mp-weixin' && project.template !== 'uniapp') throw new BadRequestException('仅 uniapp 项目支持 mp-weixin 构建。');
+    if ((target === 'mp-weixin' || target === 'mp-alipay') && project.template !== 'uniapp') throw new BadRequestException('仅 uniapp 项目支持小程序构建。');
     this.queue.requireConfigured();
     if (auth.mode === 'oidc') await this.limiter.consume('build-trigger', auth.issuer, auth.subject);
     const repository = this.repository;

@@ -80,3 +80,11 @@ export function encryptAndroidSigning(value: string, key: Buffer, projectId: str
 export function decryptAndroidSigning(value: string, key: Buffer, projectId: string) {
   return decryptAuthenticatedSecret(value, key, `b18:${projectId}`);
 }
+
+/** B20 upload credentials are isolated from B12/B14/B17/B18 and other projects. */
+export function encryptAlipayKey(value: string, key: Buffer, projectId: string) {
+  return encryptAuthenticatedSecret(value, key, `b20:${projectId}`);
+}
+export function decryptAlipayKey(value: string, key: Buffer, projectId: string) {
+  return decryptAuthenticatedSecret(value, key, `b20:${projectId}`);
+}

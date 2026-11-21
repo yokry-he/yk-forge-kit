@@ -1,3 +1,9 @@
+import { AlipayController } from './alipay.controller';
+import { AlipayService } from './alipay.service';
+import { AlipayQueueService } from './alipay-queue.service';
+import { AlipayStreamsController } from './alipay-streams.controller';
+import { AlipayStreamsService } from './alipay-streams.service';
+import { AlipayStreamTickets } from './alipay-stream-tickets';
 import { AndroidController } from './android.controller';
 import { AndroidService } from './android.service';
 import { AndroidQueueService } from './android-queue.service';
@@ -58,7 +64,7 @@ import { InvitationRateLimiter } from './invitation-rate-limiter';
 import { IdentityAccountsService } from './identity-accounts.service';
 
 @Module({
-  controllers: [AndroidController, AndroidStreamsController, WeappController, WeappStreamsController, RuntimeLogsController, RuntimeStreamsController, EnvironmentVariablesController, DomainsController, DomainStreamsController, DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
-  providers: [AndroidService, AndroidQueueService, AndroidStreamsService, AndroidStreamTickets, WeappService, WeappQueueService, WeappStreamsService, WeappStreamTickets, RuntimeLogsService, RuntimeLogQueueService, RuntimeStreamTickets, RuntimeStreamsService, EnvironmentVariablesService, DomainsService, DomainQueueService, DomainStreamsService, DomainStreamTickets, DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
+  controllers: [AlipayController, AlipayStreamsController, AndroidController, AndroidStreamsController, WeappController, WeappStreamsController, RuntimeLogsController, RuntimeStreamsController, EnvironmentVariablesController, DomainsController, DomainStreamsController, DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
+  providers: [AlipayService, AlipayQueueService, AlipayStreamsService, AlipayStreamTickets, AndroidService, AndroidQueueService, AndroidStreamsService, AndroidStreamTickets, WeappService, WeappQueueService, WeappStreamsService, WeappStreamTickets, RuntimeLogsService, RuntimeLogQueueService, RuntimeStreamTickets, RuntimeStreamsService, EnvironmentVariablesService, DomainsService, DomainQueueService, DomainStreamsService, DomainStreamTickets, DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
 })
 export class AppModule {}

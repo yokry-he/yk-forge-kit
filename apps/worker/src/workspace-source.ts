@@ -6,7 +6,7 @@ import type { BuildRecord } from './runner';
 
 export interface WorkspaceSource {
   prepare(build: BuildRecord, workspace: string, signal: AbortSignal): Promise<{
-    script: 'build' | 'generate' | 'build:mp-weixin'; outputDirectory?: string;
+    script: 'build' | 'generate' | 'build:mp-weixin' | 'build:mp-alipay'; outputDirectory?: string;
   }>;
 }
 export type ProjectSourceLoader = (projectId: string) => Promise<{
@@ -34,6 +34,10 @@ export class TemplateWorkspaceSource implements WorkspaceSource {
     if (build.target === 'mp-weixin') {
       if (build.template !== 'uniapp') throw new Error('unsupported_build_target');
       return { script: 'build:mp-weixin' as const, outputDirectory: 'dist/build/mp-weixin' };
+    }
+    if (build.target === 'mp-alipay') {
+      if (build.template !== 'uniapp') throw new Error('unsupported_build_target');
+      return { script: 'build:mp-alipay' as const, outputDirectory: 'dist/build/mp-alipay' };
     }
     return metadata.build ?? { script: 'build' as const };
   }

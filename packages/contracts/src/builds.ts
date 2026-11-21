@@ -29,7 +29,7 @@ export type RunnerInfo = z.infer<typeof RunnerInfoSchema>;
 export const BuildSchema = z.strictObject({
   id, projectId: id, number: z.number().int().min(1).max(4294967295),
   template: z.string().min(1).max(32), sourceRef: key,
-  target: z.enum(['h5', 'mp-weixin']).optional(),
+  target: z.enum(['h5', 'mp-weixin', 'mp-alipay']).optional(),
   status: BuildStatusSchema, triggeredBy: id,
   queuedAt: time, startedAt: time.nullable(), finishedAt: time.nullable(),
   createdAt: time, updatedAt: time,
@@ -103,7 +103,7 @@ export const BUILD_QUEUE_NAME = 'builds';
 export const BUILD_JOB_NAME = 'build';
 export const BuildJobPayloadSchema = z.strictObject({ buildId: id });
 export type BuildJobPayload = z.infer<typeof BuildJobPayloadSchema>;
-export const BuildCreateRequestSchema = z.strictObject({ sourceRef: key, target: z.enum(['h5', 'mp-weixin']).optional(), environmentName: z.string().min(1).max(64).regex(/^[a-z][a-z0-9_-]*$/).optional() });
+export const BuildCreateRequestSchema = z.strictObject({ sourceRef: key, target: z.enum(['h5', 'mp-weixin', 'mp-alipay']).optional(), environmentName: z.string().min(1).max(64).regex(/^[a-z][a-z0-9_-]*$/).optional() });
 export const BuildListQuerySchema = z.strictObject({
   beforeNumber: z.coerce.number().int().min(1).max(4294967295).optional(),
   limit: z.coerce.number().int().min(1).max(1000).default(50),

@@ -26,7 +26,7 @@ export function getBuild(projectId: string, buildId: string): Promise<Build> {
   return projectRequest<unknown>(buildPath(projectId, buildId)).then((data) => BuildSchema.parse(data));
 }
 
-export function triggerBuild(projectId: string, sourceRef: string, environmentName?: string, target?: 'h5' | 'mp-weixin'): Promise<Build> {
+export function triggerBuild(projectId: string, sourceRef: string, environmentName?: string, target?: 'h5' | 'mp-weixin' | 'mp-alipay'): Promise<Build> {
   return projectRequest<unknown>(buildsPath(projectId), {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

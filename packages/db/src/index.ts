@@ -44,3 +44,6 @@ export * from './weapp-log-repository';
 
 export * from './android-repository';
 export * from './android-log-repository';
+
+export * from './alipay-repository';
+export * from './alipay-log-repository';

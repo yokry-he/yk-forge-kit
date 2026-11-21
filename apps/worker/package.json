@@ -21,6 +21,7 @@
     "@forgekit/project-core": "workspace:*",
     "bullmq": "^5.0.0",
     "dotenv": "^16.6.0",
+    "minidev": "2.2.5",
     "miniprogram-ci": "2.1.31"
   },
   "devDependencies": {

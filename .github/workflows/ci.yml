@@ -151,6 +151,10 @@ jobs:
           docker build --target test -f infra/weapp/Dockerfile -t forgekit-weapp-test:b17 .
       - name: B17 isolated upload and QR artifact with mocked SDK (no WeChat network)
         run: corepack pnpm --filter @forgekit/worker exec vitest run test/weapp-runner.integration.test.ts
+      - name: B20 isolated Alipay upload with offline SDK and QR fixture (no Alipay network)
+        run: |
+          docker build --target test -f infra/alipay/Dockerfile -t forgekit-alipay-test:b20 .
+          corepack pnpm --filter @forgekit/worker exec vitest run test/alipay-runner.integration.test.ts
       - name: B09 real Vue and Nuxt builds, artifacts and build network isolation
         run: corepack pnpm --filter @forgekit/worker exec vitest run test/docker-runner.integration.test.ts
 

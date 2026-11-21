@@ -25,7 +25,7 @@ export interface DockerRunnerOptions {
 }
 
 export function buildDockerArgs(options: DockerRunnerOptions, input: {
-  name: string; workspace: string; phase: 'install' | 'build'; script: 'build' | 'generate' | 'build:mp-weixin' | 'build:app';
+  name: string; workspace: string; phase: 'install' | 'build'; script: 'build' | 'generate' | 'build:mp-weixin' | 'build:mp-alipay' | 'build:app';
   uid: number; gid: number; variableNames?: string[];
 }): string[] {
   if (input.uid <= 0 || input.gid < 0 || /[,\r\n]/.test(input.workspace)) throw new Error('unsafe_docker_workspace_or_user');
@@ -111,7 +111,7 @@ export class DockerBuildRunner implements BuildRunner {
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       }
       if (!output) throw new Error('build_output_missing');
-      for (const path of build.target === 'mp-weixin' ? ['app.js', 'app.json', 'project.config.json'] : ['index.html']) await checkedPath(output, path);
+      for (const path of build.target === 'mp-weixin' ? ['app.js', 'app.json', 'project.config.json'] : build.target === 'mp-alipay' ? ['app.js', 'app.json', 'mini.project.json'] : ['index.html']) await checkedPath(output, path);
       artifact = await this.artifacts.put(build.id, output, controller.signal);
       controller.signal.throwIfAborted();
       return { exitCode: 0, artifact, runnerInfo: { runnerId: 'docker-cli', image: this.options.image } };

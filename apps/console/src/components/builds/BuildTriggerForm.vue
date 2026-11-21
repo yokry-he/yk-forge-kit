@@ -8,7 +8,7 @@ const props = defineProps<{
   projectId: string;
   canRun: boolean;
   initialSourceRef?: string;
-  initialTarget?: 'h5' | 'mp-weixin';
+  initialTarget?: 'h5' | 'mp-weixin' | 'mp-alipay';
 }>();
 
 const emit = defineEmits<{
@@ -19,7 +19,7 @@ const emit = defineEmits<{
 
 const sourceRef = ref(props.initialSourceRef ?? '');
 const environmentName = ref('');
-const target = ref<'h5' | 'mp-weixin'>(props.initialTarget ?? 'h5');
+const target = ref<'h5' | 'mp-weixin' | 'mp-alipay'>(props.initialTarget ?? 'h5');
 const submitting = ref(false);
 const error = ref('');
 
@@ -44,8 +44,8 @@ async function submitBuild(): Promise<void> {
   error.value = '';
 
   try {
-    const build = target.value === 'mp-weixin' && trimmed === 'template:uniapp'
-      ? await triggerBuild(props.projectId, trimmed, environment || undefined, 'mp-weixin')
+    const build = (target.value === 'mp-weixin' || target.value === 'mp-alipay') && trimmed === 'template:uniapp'
+      ? await triggerBuild(props.projectId, trimmed, environment || undefined, target.value)
       : await triggerBuild(props.projectId, trimmed, ...(environment ? [environment] : []));
     if (current === epoch) emit('created', build);
   } catch (reason) {
@@ -90,7 +90,7 @@ async function submitBuild(): Promise<void> {
     </div>
     <div v-if="sourceRef === 'template:uniapp'" class="build-trigger-form__field">
       <label for="build-target">构建目标</label>
-      <select id="build-target" v-model="target" :disabled="!canRun || submitting"><option value="h5">H5</option><option value="mp-weixin">微信小程序</option></select>
+      <select id="build-target" v-model="target" :disabled="!canRun || submitting"><option value="h5">H5</option><option value="mp-weixin">微信小程序</option><option value="mp-alipay">支付宝小程序</option></select>
     </div>
     <div v-if="error" class="build-trigger-form__error" role="alert">
       {{ error }}

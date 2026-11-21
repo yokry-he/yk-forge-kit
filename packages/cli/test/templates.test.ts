@@ -83,6 +83,13 @@ describe.skipIf(process.env.FORGEKIT_TEMPLATE_SMOKE !== '1')('generated project 
           expect(await readFile(join(output, path), 'utf8'), path).toBeTruthy();
         }
       }
+      if (template.id === 'uniapp') {
+        const alipay = pnpm('run', 'build:mp-alipay');
+        expect(alipay.status, `${alipay.error ?? ''}\n${alipay.stdout}${alipay.stderr}`).toBe(0);
+        const output = join(dir, 'dist/build/mp-alipay');
+        expect(JSON.parse(await readFile(join(output, 'app.json'), 'utf8')).pages).toContain('pages/index/index');
+        for (const path of ['app.js', 'mini.project.json', 'pages/index/index.axml']) expect(await readFile(join(output, path), 'utf8')).toBeTruthy();
+      }
       if (template.id === 'nuxt-site') {
         expect(await readFile(join(dir, '.output/server/index.mjs'), 'utf8')).toBeTruthy();
         const pkg = JSON.parse(await readFile(join(dir, 'package.json'), 'utf8'));

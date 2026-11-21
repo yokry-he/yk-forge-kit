@@ -354,10 +354,11 @@ onUnmounted(() => {
         </section>
 
         <RouterLink v-if="build.target === 'mp-weixin' && build.status === 'succeeded'" :to="{ name: 'project-weapp', params: { slug: project.slug }, query: { buildId: build.id } }">微信上传与预览</RouterLink>
-        <BuildDeployPanel v-if="build.target !== 'mp-weixin' && build.status === 'succeeded' && oidcEnabled" :key="`deploy:${project.id}:${build.id}`"
+        <RouterLink v-if="build.target === 'mp-alipay' && build.status === 'succeeded'" :to="{ name: 'project-alipay', params: { slug: project.slug }, query: { buildId: build.id } }">支付宝上传与预览</RouterLink>
+        <BuildDeployPanel v-if="build.target !== 'mp-weixin' && build.target !== 'mp-alipay' && build.status === 'succeeded' && oidcEnabled" :key="`deploy:${project.id}:${build.id}`"
           :project-id="project.id" :slug="project.slug" :build-id="build.id" :can-manage="canRun"
           @unauthorized="handleUnauthorized" @forbidden="handleForbidden" />
-        <PreviewLinkPanel v-if="build.target !== 'mp-weixin' && build.status === 'succeeded' && oidcEnabled"
+        <PreviewLinkPanel v-if="build.target !== 'mp-weixin' && build.target !== 'mp-alipay' && build.status === 'succeeded' && oidcEnabled"
           :key="`preview:${project.id}:${build.id}`" :project-id="project.id" :build-id="build.id" :can-manage="canRun"
           @unauthorized="handleUnauthorized" @forbidden="refreshAccess" />
         <BuildLogViewer
