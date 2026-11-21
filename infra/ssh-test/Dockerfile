@@ -1,6 +1,6 @@
 # Disposable fake Linux host. No cloud account or embedded private key.
 FROM debian:bookworm-slim
-RUN apt-get update && apt-get install -y --no-install-recommends openssh-server coreutils util-linux tar \
+RUN apt-get update && apt-get install -y --no-install-recommends openssh-server coreutils util-linux tar python3 \
     && rm -rf /var/lib/apt/lists/* \
     && useradd --create-home --shell /bin/sh deploy && passwd -d deploy \
     && install -d -m 0755 /run/sshd \

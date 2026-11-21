@@ -1,3 +1,4 @@
+import { startRuntimeLogWorker } from './runtime-log-worker';
 import { startDomainWorker } from './domain-worker';
 import { startDeployWorker } from './deploy-worker';
 import { Queue, Worker } from 'bullmq';
@@ -77,6 +78,9 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
   let domainWorker;
   try { domainWorker = await startDomainWorker(client, config, process.env, log); }
   catch (error) { await Promise.allSettled([deployWorker.close(), worker.close(true), queue.close()]); throw error; }
+  let runtimeWorker;
+  try { runtimeWorker = await startRuntimeLogWorker(client, config, process.env, log); }
+  catch (error) { await Promise.allSettled([domainWorker.close(), deployWorker.close(), worker.close(true), queue.close()]); throw error; }
   const running = worker.run().catch(() => log({ event: 'worker_run_error' }));
   const tick = async () => {
     try {
@@ -98,7 +102,7 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
       // Stop intake first, but keep active jobs/lock renewal alive while their runners abort.
       await worker.pause(true);
       processor.shutdown();
-      await Promise.all([deployWorker.close(), domainWorker.close(), (async () => {
+      await Promise.all([runtimeWorker.close(), deployWorker.close(), domainWorker.close(), (async () => {
         await healthTask;
         await worker.close();
         await running;

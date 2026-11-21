@@ -80,6 +80,7 @@ onBeforeUnmount(() => { disposed = true; ++generation; clearTimeout(timer); clea
   <main class="content domains-page">
     <RouterLink class="inline-link" :to="{ name: 'project-deployments', params: { slug } }">← 返回 SSH 部署</RouterLink>
     <h1>自定义域名与 HTTPS</h1>
+    <RouterLink class="inline-link" :to="{ name: 'project-runtime-logs', params: { slug } }">查看运行日志 →</RouterLink>
     <p v-if="loading" role="status">正在加载项目权限…</p>
     <ElAlert v-if="accessError || error" :title="accessError || error" type="error" :closable="false" role="alert" />
     <template v-if="project && accessVerified">

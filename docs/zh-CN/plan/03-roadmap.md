@@ -8,7 +8,7 @@
 ## 0. 阅读须知
 
 - **现状基线**：仓库为 pnpm monorepo（Node 22+、TypeScript），已实现 [apps/console](../../../apps/console)、[apps/api](../../../apps/api)、[packages/contracts](../../../packages/contracts)、[packages/project-core](../../../packages/project-core)、[packages/asset-core](../../../packages/asset-core)、[packages/cli](../../../packages/cli)、[packages/identity-core](../../../packages/identity-core)、[packages/db](../../../packages/db)，规划基线记录为 115 个单元测试通过；CI 已配置 MySQL 8 集成测试，真实 Keycloak 端到端验证仍待完成。当前 `project-core` 仅有 `vue-web` 一个模板，`asset-core` 仅内置 `official.theme` 一个资产，`AUTH_MODE` 支持 `local`/`oidc`。
-- **实施范围**：以下按阶段列出交付范围、实施顺序与验收条件。B08–B12 已实现模板构建、实时构建日志、静态产物预览与 SSH 静态发布/回滚（见 [SSH 部署](../ssh-deploy.md)，真实 Docker sshd 验证由独立 CI 执行）；应用在线日志、AI、计费、组织与多端模板仍按后续阶段推进。现有创建向导（`/projects/new`）在浏览器预览文件计划，通过 API 登记项目配置。本地工程文件由 `forgekit create` 生成。
+- **实施范围**：以下按阶段列出交付范围、实施顺序与验收条件。B08–B12 已实现模板构建、实时构建日志、静态产物预览与 SSH 静态发布/回滚（见 [SSH 部署](../ssh-deploy.md)，真实 Docker sshd 验证由独立 CI 执行）；B15 已实现 Caddy 站点运行日志（见 [运行日志](../runtime-logs.md)）；AI、计费、组织与多端模板仍按后续阶段推进。现有创建向导（`/projects/new`）在浏览器预览文件计划，通过 API 登记项目配置。本地工程文件由 `forgekit create` 生成。
 - **估算口径**：所有工期均为“单人 + AI 协作”的粗估，含设计、编码、测试、文档，不含外部等待（如 ICP 备案、云账号审批、平台审核）。实际以迭代中复盘为准。
 - **总体风险**：范围过大是最大风险（见各阶段“主要风险”与 [04-open-questions.md](./04-open-questions.md)）。本路线图的核心策略是**先收窄到 Web 类项目闭环**，再逐步扩展多端与运维能力。
 
@@ -244,7 +244,7 @@ gantt
 | B12 | SSH 静态部署与目标管理（已实现指定范围） | 专用密钥导入/加密、主机公钥固定、静态上传/原子切换、保留/手动回滚、部署日志；[实现边界](../ssh-deploy.md) | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 目标权限/密文、部署/回滚/保留、SSE 与本地 Docker sshd CI（本地未运行真实容器） | B07、B09–B11 | L |
 | B13 | SSH 发布运维增强（剩余规划） | B12 已含 `releases/current` 和手动回滚；后续 Caddy 配置、Web 健康检查与自动回滚 | `adapters/deploy-ssh`、[apps/api](../../../apps/api)、`apps/worker` | 部署成功可访问；健康检查失败自动回滚；一键回滚 | B12、B09 | L |
 | B14 | 环境变量/秘密值管理（已实现 MVP） | 复用 B12 AES-GCM、秘密只写、按环境、审计、构建注入与私有主机 .env；[边界说明](../environment-variables.md) | [apps/api](../../../apps/api)、[packages/db](../../../packages/db)、[packages/contracts](../../../packages/contracts)、[apps/console](../../../apps/console) | 注入生效，不可读回明文，审计可查 | B07 | M |
-| B15 | 在线应用日志 + 部署历史页 | SSH tail 限速只读 + 部署历史页面 | [apps/api](../../../apps/api)、[apps/console](../../../apps/console)、`adapters/deploy-ssh` | 应用日志可查看（只读限速）；部署历史可查可回滚 | B13 | M |
+| B15 | 在线站点运行日志（已实现 MVP） | 固定 SSH 读取 Caddy 访问/请求错误日志、脱敏、限额、短时缓冲及 SSE；[边界说明](../runtime-logs.md)；部署历史/回滚沿用 B12 | [apps/api](../../../apps/api)、[apps/worker](../../../apps/worker)、[apps/console](../../../apps/console)、[packages/db](../../../packages/db) | 最近行与实时跟随、筛选、权限、取消、脱敏及本地 sshd CI | B12–B14 | M |
 
 > 说明：B01–B08 属 Phase 0，B09–B15 属 MVP。V1/V2+ 的 backlog 在对应阶段启动前细化，避免过早锁定细节。
 

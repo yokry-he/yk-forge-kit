@@ -1,3 +1,9 @@
+import { RuntimeLogsController } from './runtime-logs.controller';
+import { RuntimeLogsService } from './runtime-logs.service';
+import { RuntimeLogQueueService } from './runtime-log-queue.service';
+import { RuntimeStreamTickets } from './runtime-stream-tickets';
+import { RuntimeStreamsController } from './runtime-streams.controller';
+import { RuntimeStreamsService } from './runtime-streams.service';
 import { EnvironmentVariablesController } from './environment-variables.controller';
 import { EnvironmentVariablesService } from './environment-variables.service';
 import { DomainsController } from './domains.controller';
@@ -40,7 +46,7 @@ import { InvitationRateLimiter } from './invitation-rate-limiter';
 import { IdentityAccountsService } from './identity-accounts.service';
 
 @Module({
-  controllers: [EnvironmentVariablesController, DomainsController, DomainStreamsController, DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
-  providers: [EnvironmentVariablesService, DomainsService, DomainQueueService, DomainStreamsService, DomainStreamTickets, DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
+  controllers: [RuntimeLogsController, RuntimeStreamsController, EnvironmentVariablesController, DomainsController, DomainStreamsController, DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
+  providers: [RuntimeLogsService, RuntimeLogQueueService, RuntimeStreamTickets, RuntimeStreamsService, EnvironmentVariablesService, DomainsService, DomainQueueService, DomainStreamsService, DomainStreamTickets, DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
 })
 export class AppModule {}

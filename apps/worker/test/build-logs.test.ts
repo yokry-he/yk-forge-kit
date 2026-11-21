@@ -3,6 +3,17 @@ import { CappedBuildLogs, redactBuildLog } from '../src/build-logs';
 
 async function* chunks(...values: string[]) { for (const value of values) yield Buffer.from(value); }
 describe('build log boundary', () => {
+  it.each(['clearly-fake-test-secret', 'clearly-fake-quoted-"secret}tail'])('preserves JSON string boundaries while redacting credentials: %s', secret => {
+    const escapedSecret = 'fake-quoted-"secret';
+    const line = JSON.stringify({ request: { uri: '/?token=' + secret }, msg: 'Authorization: Bearer ' + secret,
+      registry: 'https://user:password@registry.test/a', explicit: escapedSecret });
+    const result = redactBuildLog(line, [escapedSecret]);
+    expect(JSON.parse(result)).toEqual({ request: { uri: '/?token=[REDACTED]' }, msg: 'Authorization: Bearer [REDACTED]',
+      registry: 'https://[REDACTED]@registry.test/a', explicit: '[REDACTED]' });
+    expect(result).not.toContain(secret);
+    expect(result).not.toContain('user:password');
+    expect(result).not.toContain('fake-quoted-');
+  });
   it('redacts explicit secrets, authorization and URL credentials across input chunks', async () => {
     const written: string[] = [];
     const logs = new CappedBuildLogs({ write: async (_stream, value) => { written.push(value); } }, 1000,

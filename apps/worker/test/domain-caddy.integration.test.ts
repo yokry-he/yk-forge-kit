@@ -55,9 +55,9 @@ describe.skipIf(process.env.FORGEKIT_CADDY_INTEGRATION !== '1')('B13 real Caddy 
       expect(curl.error, curl.stderr).toBeUndefined();
       expect(curl.status, curl.stderr).toBe(0);
       expect(curl.stdout).toBe('B13 healthy static site');
-      const fetchSite = (hostname: string) => new Promise<{ status: number; body: string }>((resolve, reject) => {
+      const fetchSite = (hostname: string, path = '/') => new Promise<{ status: number; body: string }>((resolve, reject) => {
         const request = httpsRequest({ hostname: '127.0.0.1', port: settings.httpsPort, servername: hostname, ca,
-          headers: { host: hostname }, agent: false }, response => {
+          headers: { host: hostname }, path, agent: false }, response => {
           let body = ''; response.setEncoding('utf8');
           response.on('data', (chunk: string) => { body += chunk; });
           response.on('end', () => resolve({ status: response.statusCode ?? 0, body }));
@@ -70,6 +70,16 @@ describe.skipIf(process.env.FORGEKIT_CADDY_INTEGRATION !== '1')('B13 real Caddy 
       expect(await execute({ ...input, action: 'refresh' })).toBe(issued);
       const second = { ...input, id: randomUUID(), hostname: 'two.b13.test' };
       expect(await execute(second)).toContain('B13_RESULT:');
+      expect((await fetchSite(input.hostname, '/b15-missing-one')).status).toBe(404);
+      expect((await fetchSite(second.hostname, '/b15-missing-two')).status).toBe(404);
+      // B15 uses per-host access AND request error loggers; never share one host-wide file across projects.
+      await delay(100);
+      for (const source of ['access', 'error']) {
+        const one = await readFile(join(root, 'logs', input.id, source + '.jsonl'), 'utf8');
+        const two = await readFile(join(root, 'logs', second.id, source + '.jsonl'), 'utf8');
+        expect(one).toContain('/b15-missing-one'); expect(one).not.toContain('/b15-missing-two');
+        expect(two).toContain('/b15-missing-two'); expect(two).not.toContain('/b15-missing-one');
+      }
       const before = await readFile(join(root, 'caddy.json'), 'utf8');
       const stateBefore = await readFile(join(root, 'state.json'), 'utf8');
       const missing = await execute({ ...input, id: randomUUID(), hostname: 'missing.b13.test', siteRoot: join(work, 'missing') });
@@ -85,6 +95,13 @@ describe.skipIf(process.env.FORGEKIT_CADDY_INTEGRATION !== '1')('B13 real Caddy 
       expect(await readFile(join(root, 'state.json'), 'utf8')).toBe(stateBefore);
       await writeFile(join(root, 'settings.json'), JSON.stringify(settings));
       expect(await execute({ ...input, action: 'refresh' })).toBe(issued);
+      // B15 upgrades a previously confirmed B13 config on refresh, including crash recovery first.
+      const legacy = JSON.parse(before) as { logging?: unknown; apps: { http: { servers: Record<string, { logs?: unknown }> } } };
+      delete legacy.logging;
+      for (const server of Object.values(legacy.apps.http.servers)) delete server.logs;
+      await writeFile(join(root, 'previous.json'), JSON.stringify({ config: legacy, state: JSON.parse(stateBefore) }));
+      expect(await execute({ ...input, action: 'refresh' })).toBe(issued);
+      expect(JSON.parse(await readFile(join(root, 'caddy.json'), 'utf8'))).toHaveProperty('logging.logs');
       // Recover an interrupted apply's config + state before inspecting another certificate.
       await writeFile(join(root, 'previous.json'), JSON.stringify({ config: JSON.parse(before), state: JSON.parse(stateBefore) }));
       await writeFile(join(root, 'state.json'), '{}');

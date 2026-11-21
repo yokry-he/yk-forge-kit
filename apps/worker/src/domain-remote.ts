@@ -37,6 +37,19 @@ def admin(config):
 
 def config(entries, http_port, https_port):
     routes, redirects, policies = [], [], []
+    loggers, names = {}, {}
+    for key, entry in entries.items():
+        if not re.fullmatch(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', key): raise RuntimeError('domain_config_invalid')
+        directory = root / 'logs' / key
+        directory.mkdir(parents=True, exist_ok=True, mode=0o700)
+        names[entry['hostname']] = ['site_' + key]
+        for source in ['access', 'error']:
+            loggers[source + '_' + key] = {
+              'writer': {'output': 'file', 'filename': str(directory / (source + '.jsonl')), 'roll_size_mb': 16, 'roll_keep': 3, 'roll_keep_days': 7},
+              'encoder': {'format': 'json'}, 'level': 'DEBUG' if source == 'error' else 'INFO',
+              'include': ['http.log.' + source + '.site_' + key]}
+    loggers['default'] = {'exclude': ['http.log.access', 'http.log.error']}
+    server_logs = {'logger_names': names, 'skip_unmapped_hosts': True}
     for entry in sorted(entries.values(), key=lambda e: e['hostname']):
         name = entry['hostname']
         mode = entry['tlsMode']
@@ -46,14 +59,14 @@ def config(entries, http_port, https_port):
         if entry.get('serving'):
             routes.append({'match': [{'host': [name]}], 'handle': [{'handler': 'file_server', 'root': entry['siteRoot'], 'hide': ['.forgekit-complete']}], 'terminal': True})
             redirects.append({'match': [{'host': [name]}], 'handle': [{'handler': 'static_response', 'status_code': 308, 'headers': {'Location': ['https://' + name + '{http.request.uri}']}}], 'terminal': True})
-    return {'admin': {'listen': 'unix/' + str(root / 'admin.sock')},
+    return {'logging': {'logs': loggers}, 'admin': {'listen': 'unix/' + str(root / 'admin.sock')},
       'storage': {'module': 'file_system', 'root': str(root / 'data')},
       'apps': {'pki': {'certificate_authorities': {'local': {'install_trust': False}}},
         'tls': {'certificates': {'automate': [e['hostname'] for e in entries.values()]}, 'automation': {'policies': policies}},
         'http': {'http_port': http_port, 'https_port': https_port, 'servers': {
           'https': {'listen': [':' + str(https_port)], 'tls_connection_policies': [{}], 'strict_sni_host': True,
-            'automatic_https': {'disable_redirects': True}, 'routes': routes + [{'handle': [{'handler': 'static_response', 'status_code': 404}]}]},
-          'http': {'listen': [':' + str(http_port)], 'routes': redirects + [{'handle': [{'handler': 'static_response', 'status_code': 404}]}]}}}}}
+            'automatic_https': {'disable_redirects': True}, 'logs': server_logs, 'routes': routes + [{'handle': [{'handler': 'static_response', 'status_code': 404}]}]},
+          'http': {'listen': [':' + str(http_port)], 'logs': server_logs, 'routes': redirects + [{'handle': [{'handler': 'static_response', 'status_code': 404}]}]}}}}}
 
 def apply(value):
     write(candidate, value)
@@ -103,6 +116,18 @@ try:
     if p['action'] == 'refresh':
         if p['id'] not in entries or not entries[p['id']].get('serving'): raise RuntimeError('domain_not_configured')
         result = certificate(sp, True)
+        if old.get('logging') != config(entries, hp, sp).get('logging'):
+            write(previous, {'config': old, 'state': entries})
+            try:
+                value = config(entries, hp, sp)
+                apply(value)
+                write(working, value)
+                previous.unlink()
+            except BaseException:
+                admin(old)
+                write(working, old)
+                previous.unlink()
+                raise
     else:
         # Never overwrite another record's route, even if the database was restored from an old backup.
         if p['action'] == 'verify' and any(e['hostname'] == p['hostname'] and key != p['id'] for key, e in entries.items()): raise RuntimeError('domain_host_claim_conflict')

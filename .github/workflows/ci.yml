@@ -198,11 +198,11 @@ jobs:
       - run: corepack pnpm install --frozen-lockfile
       - run: corepack pnpm db:migrations:check
       - run: corepack pnpm --filter @forgekit/api... --filter @forgekit/worker build
-      - name: B13 MySQL hostname claims, target locks and log ordering
-        run: corepack pnpm --filter @forgekit/db exec vitest run test/domain-repositories.mysql.test.ts
+      - name: B13/B15 MySQL claims, target locks, log ordering and runtime quotas
+        run: corepack pnpm --filter @forgekit/db exec vitest run --no-file-parallelism test/domain-repositories.mysql.test.ts test/runtime-log-repositories.mysql.test.ts
       - name: Build disposable Linux sshd (no cloud credentials)
         run: docker build -t forgekit-sshd-test:b12 infra/ssh-test
-      - name: B12 SSH deployment, rollback, retention, pinning and persisted SSE logs
+      - name: B12/B15 SSH deploy, runtime tail/follow redaction, cancellation, pinning and SSE
         run: corepack pnpm --filter @forgekit/api exec vitest run test/ssh-deploy.integration.test.ts
       - name: Build disposable sshd and Caddy with offline internal CA
         run: docker build -t forgekit-https-test:b13 -f infra/https-test/Dockerfile .
