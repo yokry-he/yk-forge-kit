@@ -94,3 +94,7 @@ API 允许的开发前端 Origin 默认为 `http://localhost:5173`，可通过 `
 此版本没有认证、数据库或用户代码执行能力，不能作为生产系统部署。
 
 构建队列开发：根 `pnpm dev` 同时启动 worker；没有 DATABASE_URL 或 REDIS_URL 时 worker dev 打印 disabled。使用真实队列需要 Redis 7 和完成迁移的 MySQL，详见 [构建队列与 Worker](./worker-build-queue.md)。当前空构建不执行用户源码。
+
+## Android 打包
+
+uniapp 项目可通过控制台「Android 打包」配置包名、版本与只写发布签名，触发自有 Docker 执行机上的 APK / AAB 任务，查看日志并下载带 SHA-256 的安装包。需预先准备匹配的官方离线 SDK 镜像与 DCloud AppKey；平台当前仍从模板生成源码。真实原生工具链和真机需按 [Android 打包指南](./android-packaging.md) 验收，iOS 为后续工作。

@@ -1,5 +1,5 @@
 import type { RunnerInfo } from '@forgekit/contracts';
-import { bigint, boolean, index, int, json, mysqlEnum, mysqlTable, primaryKey, foreignKey, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
+import { bigint, boolean, index, int, json, mediumtext, mysqlEnum, mysqlTable, primaryKey, foreignKey, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
 
 /** Initial metadata only; no user/auth schema is assumed at this stage. */
 export const projects = mysqlTable('projects', {
@@ -375,3 +375,43 @@ export const weappAudit = mysqlTable('weapp_audit', {
   action: mysqlEnum('action', ['config_saved', 'config_deleted', 'triggered']).notNull(),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
 }, t => [index('weapp_audit_project_time_idx').on(t.projectId, t.createdAt)]);
+
+export const androidConfigs = mysqlTable('android_configs', {
+  projectId: varchar('project_id', { length: 36 }).primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+  settings: json('settings').$type<import('@forgekit/contracts').AndroidSettings>().notNull(),
+  encryptedSigning: mediumtext('encrypted_signing'),
+  updatedBy: varchar('updated_by', { length: 36 }).notNull(),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow(),
+});
+export const androidJobs = mysqlTable('android_jobs', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull(),
+  settings: json('settings').$type<import('@forgekit/contracts').AndroidSettings>().notNull(),
+  source: json('source').$type<{ name: string; features: Array<'theme' | 'router' | 'pinia'> }>().notNull(),
+  input: json('input').$type<import('@forgekit/contracts').AndroidJobInput>().notNull(),
+  status: mysqlEnum('status', ['queued', 'running', 'succeeded', 'failed']).notNull().default('queued'),
+  triggeredBy: varchar('triggered_by', { length: 36 }).notNull(),
+  errorCode: varchar('error_code', { length: 64 }),
+  artifactKey: varchar('artifact_key', { length: 1024 }),
+  artifact: json('artifact').$type<import('@forgekit/contracts').AndroidArtifact>(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+  startedAt: timestamp('started_at', { fsp: 3 }),
+  finishedAt: timestamp('finished_at', { fsp: 3 }),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [foreignKey({ columns: [t.projectId], foreignColumns: [projects.id], name: 'android_project_fk' }).onDelete('cascade'),
+  index('android_jobs_status_updated_idx').on(t.status, t.updatedAt), index('android_jobs_project_created_idx').on(t.projectId, t.createdAt)]);
+export const androidLogChunks = mysqlTable('android_log_chunks', {
+  jobId: varchar('job_id', { length: 36 }).notNull().references(() => androidJobs.id, { onDelete: 'cascade' }),
+  seq: int('seq', { unsigned: true }).notNull(),
+  stream: mysqlEnum('stream', ['stdout', 'stderr', 'system']).notNull(),
+  content: text('content').notNull(),
+  ts: timestamp('ts', { fsp: 3 }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.jobId, t.seq] })]);
+export const androidAudit = mysqlTable('android_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  jobId: varchar('job_id', { length: 36 }),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: mysqlEnum('action', ['config_saved', 'config_deleted', 'triggered', 'cancel_requested']).notNull(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [index('android_audit_project_time_idx').on(t.projectId, t.createdAt)]);

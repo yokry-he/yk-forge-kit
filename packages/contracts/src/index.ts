@@ -95,3 +95,5 @@ export * from './environment-variables';
 export * from './environment-variables';
 export * from './runtime-logs';
 export * from './weapp';
+
+export * from './android';

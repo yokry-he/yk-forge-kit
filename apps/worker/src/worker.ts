@@ -1,3 +1,4 @@
+import { startAndroidWorker } from './android-worker';
 import { startWeappWorker } from './weapp-worker';
 import { startRuntimeLogWorker } from './runtime-log-worker';
 import { startDomainWorker } from './domain-worker';
@@ -85,6 +86,9 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
   let weappWorker;
   try { weappWorker = await startWeappWorker(client, config, process.env, log); }
   catch (error) { await Promise.allSettled([runtimeWorker.close(), domainWorker.close(), deployWorker.close(), worker.close(true), queue.close()]); throw error; }
+  let androidWorker;
+  try { androidWorker = await startAndroidWorker(client, config, process.env, log); }
+  catch (error) { await Promise.allSettled([weappWorker.close(), runtimeWorker.close(), domainWorker.close(), deployWorker.close(), worker.close(true), queue.close()]); throw error; }
   const running = worker.run().catch(() => log({ event: 'worker_run_error' }));
   const tick = async () => {
     try {
@@ -106,7 +110,7 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
       // Stop intake first, but keep active jobs/lock renewal alive while their runners abort.
       await worker.pause(true);
       processor.shutdown();
-      await Promise.all([weappWorker.close(), runtimeWorker.close(), deployWorker.close(), domainWorker.close(), (async () => {
+      await Promise.all([androidWorker.close(), weappWorker.close(), runtimeWorker.close(), deployWorker.close(), domainWorker.close(), (async () => {
         await healthTask;
         await worker.close();
         await running;

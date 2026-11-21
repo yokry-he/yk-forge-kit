@@ -72,3 +72,11 @@ export function encryptWeappKey(value: string, key: Buffer, projectId: string) {
 export function decryptWeappKey(value: string, key: Buffer, projectId: string) {
   return decryptAuthenticatedSecret(value, key, `b17:${projectId}`);
 }
+
+/** B18 signing credentials cannot be substituted across projects or B14/B17 purposes. */
+export function encryptAndroidSigning(value: string, key: Buffer, projectId: string) {
+  return encryptAuthenticatedSecret(value, key, `b18:${projectId}`);
+}
+export function decryptAndroidSigning(value: string, key: Buffer, projectId: string) {
+  return decryptAuthenticatedSecret(value, key, `b18:${projectId}`);
+}

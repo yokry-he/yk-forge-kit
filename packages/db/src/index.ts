@@ -41,3 +41,6 @@ export * from './environment-variable-repository';
 export * from './runtime-log-repository';
 export * from './weapp-repository';
 export * from './weapp-log-repository';
+
+export * from './android-repository';
+export * from './android-log-repository';
