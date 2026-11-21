@@ -156,7 +156,7 @@ jobs:
 
   template-smoke:
     runs-on: ubuntu-latest
-    timeout-minutes: 35
+    timeout-minutes: 45
     env:
       FORGEKIT_TEMPLATE_SMOKE: '1'
     steps:
@@ -169,6 +169,34 @@ jobs:
       - run: corepack pnpm build
       - name: Generate, install, build and check static output of project templates
         run: corepack pnpm --filter @forgekit/cli exec vitest run test/templates.test.ts
+      # B19 checks generated Rust on Linux; Windows/macOS installer jobs live INSIDE the template.
+      - name: Install Tauri Linux development dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends build-essential pkg-config libwebkit2gtk-4.1-dev libxdo-dev libssl-dev librsvg2-dev
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            ${{ runner.temp }}/forgekit-desktop-target
+          # Keep old cache archives from restoring files into the project destination.
+          key: ${{ runner.os }}-b19-cargo-v2-${{ hashFiles('packages/project-core/src/tauri-desktop.ts') }}
+          restore-keys: ${{ runner.os }}-b19-cargo-v2-
+      - name: Generate desktop project and check Rust backend
+        timeout-minutes: 20
+        env:
+          CARGO_TARGET_DIR: ${{ runner.temp }}/forgekit-desktop-target
+          CARGO_BUILD_JOBS: '2'
+          CARGO_PROFILE_DEV_DEBUG: '0'
+        run: |
+          mkdir -p "$RUNNER_TEMP/forgekit-desktop-smoke"
+          node packages/cli/dist/index.js create desktop-check --template tauri-desktop --dir "$RUNNER_TEMP/forgekit-desktop-smoke"
+          cd "$RUNNER_TEMP/forgekit-desktop-smoke/desktop-check"
+          corepack pnpm install --no-frozen-lockfile
+          corepack pnpm icons
+          cargo check --manifest-path src-tauri/Cargo.toml
 
   ssh-deploy-integration:
     runs-on: ubuntu-latest

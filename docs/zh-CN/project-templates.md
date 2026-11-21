@@ -28,8 +28,7 @@
 | `vue-admin` | Vue 后台管理系统 | admin | Vue 3 + Element Plus 后台，详见 [vue-admin 模板](./templates/vue-admin.md) |
 | `nuxt-site` | Nuxt 企业官网 / 博客 | content-site | Nuxt 4 + Markdown，支持 SSR / SSG、SEO 与站点地图，详见 [nuxt-site 模板](./templates/nuxt-site.md) |
 | `uniapp` | uni-app 跨端应用 | miniapp | Vue 3 + TypeScript + Vite，H5 / 小程序 / 移动端，详见 [uniapp 模板](./templates/uniapp.md) |
-
-后续计划：V2 的 Tauri 2 模板。
+| `tauri-desktop` | Tauri 桌面应用 | desktop | Tauri 2 + Vue 3，Windows / macOS / Linux，详见 [tauri-desktop 模板](./templates/tauri-desktop.md) |
 
 ## 使用
 
