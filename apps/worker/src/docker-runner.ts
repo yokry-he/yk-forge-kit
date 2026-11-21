@@ -25,7 +25,7 @@ export interface DockerRunnerOptions {
 }
 
 export function buildDockerArgs(options: DockerRunnerOptions, input: {
-  name: string; workspace: string; phase: 'install' | 'build'; script: 'build' | 'generate' | 'build:mp-weixin';
+  name: string; workspace: string; phase: 'install' | 'build'; script: 'build' | 'generate' | 'build:mp-weixin' | 'build:app';
   uid: number; gid: number; variableNames?: string[];
 }): string[] {
   if (input.uid <= 0 || input.gid < 0 || /[,\r\n]/.test(input.workspace)) throw new Error('unsafe_docker_workspace_or_user');
@@ -129,7 +129,7 @@ export class DockerBuildRunner implements BuildRunner {
 }
 
 /** Only after container removal: restore owner directory permissions without following symlinks. */
-async function removeWorkspace(root: string): Promise<void> {
+export async function removeWorkspace(root: string): Promise<void> {
   const pending = [root];
   while (pending.length) {
     const path = pending.pop()!;

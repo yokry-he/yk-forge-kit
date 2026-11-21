@@ -78,7 +78,7 @@
 | 构建日志实时流 | SSE/WebSocket 实时回传构建日志 | MVP | 未开始 |
 | Artifact Store | 阿里云 OSS / 腾讯云 COS / S3 兼容；MVP 可先本地磁盘或 MinIO | MVP | 未开始 |
 | 构建缓存 | 依赖与构建缓存加速 | V1 | 未开始 |
-| 多目标构建 | V1 构建 H5 和小程序，V2+ 评估 Android 和 Windows 构建 | V1 | 未开始 |
+| 多目标构建 | H5 / 微信已实现；Android 提供离线任务流程，真实 SDK 验收待完成；Windows 待评估 | V1 / V2+ | 部分实现 |
 | macOS Runner | iOS/macOS 构建（自建 Mac mini 或云 Mac） | V2+ | 未开始 |
 | 更强隔离 | gVisor/Kata/firecracker 评估 | V2+ | 未开始 |
 
@@ -96,7 +96,7 @@
 | Web（SSR/SSG 内容站） | Nuxt，SEO 友好 | MVP | 未开始 |
 | H5 | uni-app H5 产物 | V1 | 未开始 |
 | 小程序（微信/支付宝等） | uni-app，官方 CI 上传（miniprogram-ci / minidev），提审需用户平台账号与密钥 | V1 | 未开始 |
-| 移动 App（iOS/Android） | uni-app 打包；uni-app x 以后再评估 | V2+ | 未开始 |
+| 移动 App（iOS/Android） | Android 见 B18，需私有工具镜像和真机验收；iOS / uni-app x 后续评估 | V2+ | Android 条件实现，iOS 未开始 |
 | 桌面（Windows/macOS/Linux） | Tauri 2 + Vue；Electron 作备选 | V2+ | 未开始 |
 | 共享 TS 业务逻辑包 + 设计 Token | 跨端复用 | V1 | 未开始 |
 | 契约层 targets 字段 | `web、h5、mobile、miniapp、desktop` | — | 部分（仅契约字段，无对应构建） |
@@ -260,3 +260,7 @@ MVP 目标：静态 Web 项目闭环——模板生成 → 云端构建 → 静�
 - 移动 App 打包签名、Tauri 桌面、iOS/macOS Runner、计费、私有化部署、插件市场、桌面客户端（V2+）。
 
 > 时间估算（单人+AI 协作粗估，需标注为估算）：Phase 0 约 2–3 周，MVP 约 8–10 周，V1 约 3–4 个月，V2+ 估算 4–6 个月以上，详见 [03-roadmap.md](./03-roadmap.md)。最大风险为范围过大与单人开发带宽，见 [04-open-questions.md](./04-open-questions.md)。
+
+## B18 实现状态补充
+
+Android 增加模板重建 → App 资源编译 → 自有离线 SDK/Gradle → 隔离签名 → 私有 APK/AAB 下载的任务、API 与控制台闭环，并提供日志及校验摘要。需要部署私有工具镜像和 AppKey；自动测试使用 mock，真实工具链和真机验收待完成，不能标为原生端完整交付。iOS 仍未开始。详见 [Android 打包](../android-packaging.md)。

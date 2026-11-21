@@ -1,3 +1,9 @@
+import { AndroidController } from './android.controller';
+import { AndroidService } from './android.service';
+import { AndroidQueueService } from './android-queue.service';
+import { AndroidStreamsController } from './android-streams.controller';
+import { AndroidStreamsService } from './android-streams.service';
+import { AndroidStreamTickets } from './android-stream-tickets';
 import { WeappController } from './weapp.controller';
 import { WeappService } from './weapp.service';
 import { WeappQueueService } from './weapp-queue.service';
@@ -52,7 +58,7 @@ import { InvitationRateLimiter } from './invitation-rate-limiter';
 import { IdentityAccountsService } from './identity-accounts.service';
 
 @Module({
-  controllers: [WeappController, WeappStreamsController, RuntimeLogsController, RuntimeStreamsController, EnvironmentVariablesController, DomainsController, DomainStreamsController, DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
-  providers: [WeappService, WeappQueueService, WeappStreamsService, WeappStreamTickets, RuntimeLogsService, RuntimeLogQueueService, RuntimeStreamTickets, RuntimeStreamsService, EnvironmentVariablesService, DomainsService, DomainQueueService, DomainStreamsService, DomainStreamTickets, DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
+  controllers: [AndroidController, AndroidStreamsController, WeappController, WeappStreamsController, RuntimeLogsController, RuntimeStreamsController, EnvironmentVariablesController, DomainsController, DomainStreamsController, DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
+  providers: [AndroidService, AndroidQueueService, AndroidStreamsService, AndroidStreamTickets, WeappService, WeappQueueService, WeappStreamsService, WeappStreamTickets, RuntimeLogsService, RuntimeLogQueueService, RuntimeStreamTickets, RuntimeStreamsService, EnvironmentVariablesService, DomainsService, DomainQueueService, DomainStreamsService, DomainStreamTickets, DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
 })
 export class AppModule {}

@@ -113,6 +113,13 @@
       "when": 1795286931327,
       "tag": "0015_b17_weapp_upload",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1795290849710,
+      "tag": "0016_b18_android_packaging",
+      "breakpoints": true
     }
   ]
 }
