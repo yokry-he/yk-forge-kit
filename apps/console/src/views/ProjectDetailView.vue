@@ -277,6 +277,7 @@ watch(() => route.params.slug, refresh);
       <div class="project-card-top"><span class="project-mark">V</span><span class="asset-tag verified">已保存元数据</span></div>
       <h2>{{ project.name }}</h2>
       <RouterLink v-if="accessVerified" class="inline-link" :to="{ name: 'project-deployments', params: { slug: project.slug } }">部署目标与历史</RouterLink>
+      <RouterLink v-if="accessVerified && project.template === 'uniapp'" class="inline-link" :to="`/projects/${project.slug}/weapp`">微信上传与预览</RouterLink>
       <RouterLink v-if="accessVerified" class="inline-link" :to="`/projects/${project.slug}/variables`">环境变量</RouterLink>
       <RouterLink v-if="accessVerified" class="inline-link" :to="{ name: 'project-builds', params: { slug: project.slug } }">查看构建</RouterLink>
       <div class="summary">

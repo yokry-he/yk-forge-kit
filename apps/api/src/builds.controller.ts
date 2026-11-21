@@ -14,7 +14,7 @@ export class BuildsController {
   @Post()
   trigger(@Param('id') id: string, @Body() body: unknown, @Req() req: ProjectAuthRequest) {
     const input = parseBuildInput(BuildCreateRequestSchema, body);
-    return this.builds.trigger(parseBuildInput(BuildIdSchema, id), input.sourceRef, requireProjectAuth(req), input.environmentName);
+    return this.builds.trigger(parseBuildInput(BuildIdSchema, id), input.sourceRef, requireProjectAuth(req), input.environmentName, input.target);
   }
   @Get()
   list(@Param('id') id: string, @Query() query: unknown, @Req() req: ProjectAuthRequest) {

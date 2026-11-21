@@ -1,3 +1,9 @@
+import { WeappController } from './weapp.controller';
+import { WeappService } from './weapp.service';
+import { WeappQueueService } from './weapp-queue.service';
+import { WeappStreamsController } from './weapp-streams.controller';
+import { WeappStreamsService } from './weapp-streams.service';
+import { WeappStreamTickets } from './weapp-stream-tickets';
 import { RuntimeLogsController } from './runtime-logs.controller';
 import { RuntimeLogsService } from './runtime-logs.service';
 import { RuntimeLogQueueService } from './runtime-log-queue.service';
@@ -46,7 +52,7 @@ import { InvitationRateLimiter } from './invitation-rate-limiter';
 import { IdentityAccountsService } from './identity-accounts.service';
 
 @Module({
-  controllers: [RuntimeLogsController, RuntimeStreamsController, EnvironmentVariablesController, DomainsController, DomainStreamsController, DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
-  providers: [RuntimeLogsService, RuntimeLogQueueService, RuntimeStreamTickets, RuntimeStreamsService, EnvironmentVariablesService, DomainsService, DomainQueueService, DomainStreamsService, DomainStreamTickets, DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
+  controllers: [WeappController, WeappStreamsController, RuntimeLogsController, RuntimeStreamsController, EnvironmentVariablesController, DomainsController, DomainStreamsController, DeploysController, DeployStreamsController, PreviewLinksController, BuildStreamsController, BuildsController, HealthController, ReadyController, ProjectsController, ProjectAssetsController, ProjectMembersController, ProjectInvitationsController, InvitationRedemptionController, AuthController],
+  providers: [WeappService, WeappQueueService, WeappStreamsService, WeappStreamTickets, RuntimeLogsService, RuntimeLogQueueService, RuntimeStreamTickets, RuntimeStreamsService, EnvironmentVariablesService, DomainsService, DomainQueueService, DomainStreamsService, DomainStreamTickets, DeploysService, DeployQueueService, DeployStreamsService, DeployStreamTickets, PreviewLinksService, PreviewArtifactsService, BuildStreamsService, BuildStreamTickets, BuildsService, BuildQueueService, DatabaseService, IdentityAccountsService, ProjectsService, ProjectAssetsService, ProjectMembersService, ProjectInvitationsService, InvitationRateLimiter, AuthService, ProjectApiGuard],
 })
 export class AppModule {}

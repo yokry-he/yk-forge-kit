@@ -36,10 +36,10 @@ export class BuildRepository {
     return row ?? null;
   }
 
-  async create(input: { projectId: string; template: string; sourceRef: string; triggeredBy: string }, audit = false, environmentName = 'preview'): Promise<BuildRow> {
+  async create(input: { projectId: string; template: string; sourceRef: string; triggeredBy: string; target?: 'h5' | 'mp-weixin' }, audit = false, environmentName = 'preview'): Promise<BuildRow> {
     const now = new Date();
     const row: BuildRow = {
-      ...input, id: randomUUID(), number: 1, status: 'queued', queuedAt: now, startedAt: null,
+      ...input, target: input.target ?? 'h5', id: randomUUID(), number: 1, status: 'queued', queuedAt: now, startedAt: null,
       finishedAt: null, exitCode: null, errorMessage: null, artifactKey: null, artifactSize: null,
       artifactSha256: null, logStorageKey: null, runnerInfo: null, createdAt: now, updatedAt: now,
     };

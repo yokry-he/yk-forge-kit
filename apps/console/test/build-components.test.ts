@@ -149,6 +149,14 @@ describe('BuildTriggerForm', () => {
     expect(wrapper.emitted('created')?.[0]?.[0]).toEqual(build);
   });
 
+  it('B17 preserves the mini-program target on rebuild', async () => {
+    mockTriggerBuild.mockResolvedValue(makeBuild({ target: 'mp-weixin' }));
+    const wrapper = mount(BuildTriggerForm, { props: { projectId: 'project-1', canRun: true, initialSourceRef: 'template:uniapp', initialTarget: 'mp-weixin' } });
+    expect((wrapper.get('#build-target').element as HTMLSelectElement).value).toBe('mp-weixin');
+    await wrapper.get('form').trigger('submit'); await flushPromises();
+    expect(mockTriggerBuild).toHaveBeenCalledWith('project-1', 'template:uniapp', undefined, 'mp-weixin');
+  });
+
   it('失败时显示错误并保留输入', async () => {
     mockTriggerBuild.mockRejectedValue(new Error('网络错误'));
     const wrapper = mount(BuildTriggerForm, {

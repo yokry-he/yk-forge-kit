@@ -292,6 +292,8 @@ onUnmounted(() => {
             <dd>{{ project.name }}</dd>
             <dt>来源引用</dt>
             <dd>{{ build.sourceRef }}</dd>
+            <dt>构建目标</dt>
+            <dd>{{ build.target || 'h5' }}</dd>
             <dt>模板</dt>
             <dd>{{ build.template }}</dd>
             <dt>触发时间</dt>
@@ -336,6 +338,7 @@ onUnmounted(() => {
               :project-id="project.id"
               :can-run="canRun"
               :initial-source-ref="build.sourceRef"
+              :initial-target="build.target"
               @created="handleBuildCreated"
               @unauthorized="handleUnauthorized"
               @forbidden="refreshAccess"
@@ -350,10 +353,11 @@ onUnmounted(() => {
           </div>
         </section>
 
-        <BuildDeployPanel v-if="build.status === 'succeeded' && oidcEnabled" :key="`deploy:${project.id}:${build.id}`"
+        <RouterLink v-if="build.target === 'mp-weixin' && build.status === 'succeeded'" :to="{ name: 'project-weapp', params: { slug: project.slug }, query: { buildId: build.id } }">微信上传与预览</RouterLink>
+        <BuildDeployPanel v-if="build.target !== 'mp-weixin' && build.status === 'succeeded' && oidcEnabled" :key="`deploy:${project.id}:${build.id}`"
           :project-id="project.id" :slug="project.slug" :build-id="build.id" :can-manage="canRun"
           @unauthorized="handleUnauthorized" @forbidden="handleForbidden" />
-        <PreviewLinkPanel v-if="build.status === 'succeeded' && oidcEnabled"
+        <PreviewLinkPanel v-if="build.target !== 'mp-weixin' && build.status === 'succeeded' && oidcEnabled"
           :key="`preview:${project.id}:${build.id}`" :project-id="project.id" :build-id="build.id" :can-manage="canRun"
           @unauthorized="handleUnauthorized" @forbidden="refreshAccess" />
         <BuildLogViewer

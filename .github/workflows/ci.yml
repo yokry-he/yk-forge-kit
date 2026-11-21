@@ -143,6 +143,12 @@ jobs:
       - run: corepack pnpm --filter @forgekit/worker... build
       - name: Pull trusted Node image before isolated builds
         run: docker pull node:22
+      - name: Build B17 trusted upload image and offline SDK fixture
+        run: |
+          docker build --target final -f infra/weapp/Dockerfile -t forgekit-weapp:b17 .
+          docker build --target test -f infra/weapp/Dockerfile -t forgekit-weapp-test:b17 .
+      - name: B17 isolated upload and QR artifact with mocked SDK (no WeChat network)
+        run: corepack pnpm --filter @forgekit/worker exec vitest run test/weapp-runner.integration.test.ts
       - name: B09 real Vue and Nuxt builds, artifacts and build network isolation
         run: corepack pnpm --filter @forgekit/worker exec vitest run test/docker-runner.integration.test.ts
 
