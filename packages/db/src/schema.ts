@@ -308,3 +308,29 @@ export const buildEnvironments = mysqlTable('build_environments', {
   environmentId: varchar('environment_id', { length: 36 }).notNull(),
 }, t => [foreignKey({ columns: [t.projectId, t.buildId], foreignColumns: [builds.projectId, builds.id], name: 'build_environment_build_fk' }).onDelete('cascade'),
   foreignKey({ columns: [t.projectId, t.environmentId], foreignColumns: [environments.projectId, environments.id], name: 'build_environment_environment_fk' }).onDelete('cascade')]);
+
+/** Short-lived, bounded redacted tails. The customer's host remains the primary log store. */
+export const runtimeLogSessions = mysqlTable('runtime_log_sessions', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  domainId: varchar('domain_id', { length: 36 }).notNull().references(() => domains.id, { onDelete: 'cascade' }),
+  deployTargetId: varchar('deploy_target_id', { length: 36 }).notNull(),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  hostHash: varchar('host_hash', { length: 64 }).notNull(),
+  input: json('input').$type<import('@forgekit/contracts').RuntimeLogInput>().notNull(),
+  status: mysqlEnum('status', ['pending', 'running', 'ended', 'canceled', 'failed']).notNull().default('pending'),
+  errorCode: varchar('error_code', { length: 64 }),
+  bytes: int('bytes', { unsigned: true }).notNull().default(0),
+  lastSeq: int('last_seq', { unsigned: true }).notNull().default(0),
+  leaseOwner: varchar('lease_owner', { length: 36 }),
+  leaseUntil: timestamp('lease_until', { fsp: 3 }).notNull(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+  expiresAt: timestamp('expires_at', { fsp: 3 }).notNull(),
+}, t => [index('runtime_sessions_expiry_idx').on(t.expiresAt), index('runtime_sessions_status_idx').on(t.status)]);
+export const runtimeLogChunks = mysqlTable('runtime_log_chunks', {
+  sessionId: varchar('session_id', { length: 36 }).notNull().references(() => runtimeLogSessions.id, { onDelete: 'cascade' }),
+  seq: int('seq', { unsigned: true }).notNull(),
+  stream: mysqlEnum('stream', ['stdout', 'stderr', 'system']).notNull(),
+  content: text('content').notNull(),
+  ts: timestamp('ts', { fsp: 3 }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.sessionId, t.seq] })]);

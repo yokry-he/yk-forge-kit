@@ -12,8 +12,8 @@ import { migrate } from 'drizzle-orm/mysql2/migrator';
 import { eq, inArray } from 'drizzle-orm';
 import { LocalFsArtifactStore } from '@forgekit/artifact-store';
 import { EnvironmentVariableRepository, encryptVariable, BuildRepository, DeployRepository, createDatabaseClient, requireDisposableTestDatabase, deployTargets, deployLogChunks,
-  deployAudit, projects, users, externalIdentities, projectMemberships, invitationRateBuckets } from '@forgekit/db';
-import type { Deployment, DeployTarget } from '@forgekit/contracts';
+  deployAudit, domains, runtimeLogChunks, RuntimeLogRepository, projects, users, externalIdentities, projectMemberships, invitationRateBuckets } from '@forgekit/db';
+import type { Deployment, DeployTarget, RuntimeLogSession } from '@forgekit/contracts';
 import { DeploysController } from '../src/deploys.controller';
 import { DeploysService } from '../src/deploys.service';
 import { DeployQueueService } from '../src/deploy-queue.service';
@@ -26,6 +26,13 @@ import { IdentityAccountsService } from '../src/identity-accounts.service';
 import { InvitationRateLimiter, invitationBucketKey } from '../src/invitation-rate-limiter';
 import { ProjectApiGuard } from '../src/project-api.guard';
 import { AuthService } from '../src/auth.service';
+import { RuntimeLogsController } from '../src/runtime-logs.controller';
+import { RuntimeLogsService } from '../src/runtime-logs.service';
+import { RuntimeLogQueueService } from '../src/runtime-log-queue.service';
+import { RuntimeStreamTickets } from '../src/runtime-stream-tickets';
+import { RuntimeStreamsController } from '../src/runtime-streams.controller';
+import { RuntimeStreamsService } from '../src/runtime-streams.service';
+import { startRuntimeLogWorker } from '../../worker/src/runtime-log-worker';
 import { startDeployWorker } from '../../worker/src/deploy-worker';
 import { resolveWorkerConfig } from '../../worker/src/config';
 
@@ -43,8 +50,9 @@ describe.skipIf(process.env.FORGEKIT_SSH_DEPLOY_INTEGRATION !== '1')('B12 API + 
     vi.stubEnv('FORGEKIT_ARTIFACT_DIR', join(work, 'artifacts'));
     const builds = new BuildRepository(client.db), repository = new DeployRepository(client.db);
     let app: INestApplication | undefined, worker: Awaited<ReturnType<typeof startDeployWorker>> | undefined;
+    let runtimeWorker: Awaited<ReturnType<typeof startRuntimeLogWorker>> | undefined;
     const events: Record<string, unknown>[] = [];
-    @Module({ controllers: [DeploysController, DeployStreamsController], providers: [DeploysService, DeployQueueService, DeployStreamTickets, DeployStreamsService,
+    @Module({ controllers: [RuntimeLogsController, RuntimeStreamsController, DeploysController, DeployStreamsController], providers: [RuntimeLogsService, RuntimeLogQueueService, RuntimeStreamTickets, RuntimeStreamsService, DeploysService, DeployQueueService, DeployStreamTickets, DeployStreamsService,
       ProjectsService, IdentityAccountsService, InvitationRateLimiter, ProjectApiGuard,
       { provide: DatabaseService, useValue: { db: client.db } },
       { provide: AuthService, useValue: { authenticate: async (header?: string) => {
@@ -109,7 +117,7 @@ describe.skipIf(process.env.FORGEKIT_SSH_DEPLOY_INTEGRATION !== '1')('B12 API + 
       expect((await request('/deployments', 'POST', { buildId: build1.id, deployTargetId: target.id })).status).toBe(409);
       expect((await request('/deploy-targets/' + target.id, 'DELETE')).status).toBe(409);
       const b14Secret = 'b14-ssh-fixture-secret';
-      await new EnvironmentVariableRepository(client.db).save(projectId, 'production', 'APP_TOKEN', { kind: 'secret', value: b14Secret }, ownerId,
+      const b14Variable = await new EnvironmentVariableRepository(client.db).save(projectId, 'production', 'APP_TOKEN', { kind: 'secret', value: b14Secret }, ownerId,
         (value, eid) => encryptVariable(value, Buffer.from(process.env.FORGEKIT_DEPLOY_ENCRYPTION_KEY!, 'hex'), projectId, eid, 'APP_TOKEN'));
       worker = await startDeployWorker(client, resolveWorkerConfig(process.env), process.env, event => { events.push(event); });
       async function finish(id: string, expected = 'succeeded') {
@@ -136,6 +144,47 @@ describe.skipIf(process.env.FORGEKIT_SSH_DEPLOY_INTEGRATION !== '1')('B12 API + 
       const streamed = await stream.text(); expect(streamed).toContain('event: log'); expect(streamed).toContain('event: end');
       expect(streamed).not.toContain(privateKey); expect(streamed).not.toContain(b14Secret);
       expect((await fetch(`${base}/deployments/${first.id}/logs/stream?ticket=${ticket.ticket}`)).status).toBe(401);
+      // B15: seed deterministic per-site Caddy files on the disposable SSH host (no systemd required).
+      const domainId = randomUUID();
+      await client.db.insert(domains).values({ id: domainId, projectId, deployTargetId: target.id, hostname: `site-${domainId}.b15.test`,
+        claimedHostname: `site-${domainId}.b15.test`, verificationToken: 'a'.repeat(64), status: 'active', verifiedAt: new Date(), tlsMode: 'internal' });
+      const logDir = `/srv/forgekit/.forgekit-caddy/logs/${domainId}`;
+      const seed = (file: string, text: string, append = false) => docker('exec', '-u', 'deploy', container, 'python3', '-c',
+        'import pathlib,sys; p=pathlib.Path(sys.argv[1]); p.parent.mkdir(parents=True,exist_ok=True); f=p.open(sys.argv[3]); f.write(sys.argv[2]); f.close()',
+        logDir + '/' + file + '.jsonl', text, append ? 'a' : 'w');
+      seed('access', JSON.stringify({ ts: Date.now() / 1000, level: 'info', msg: 'recent ' + b14Secret + ' ' + b14Variable.encryptedValue }) + '\n');
+      seed('error', JSON.stringify({ ts: Date.now() / 1000, level: 'error', msg: 'request failed' }) + '\n');
+      runtimeWorker = await startRuntimeLogWorker(client, resolveWorkerConfig(process.env), process.env, event => { events.push(event); });
+      const runtimeInput = { domainId, source: 'caddy-access', lines: 200 };
+      expect((await request('/runtime-log-sessions', 'POST', { ...runtimeInput, source: '../../etc/passwd' }, viewerId)).status).toBe(400);
+      expect((await request('/runtime-log-sessions', 'POST', { ...runtimeInput, path: '/etc/passwd' }, viewerId)).status).toBe(400);
+      const runtimeResponse = await request('/runtime-log-sessions', 'POST', runtimeInput, viewerId); expect(runtimeResponse.status).toBe(201);
+      const runtime = await runtimeResponse.json() as RuntimeLogSession;
+      const runtimeTicket = await (await request(`/runtime-log-sessions/${runtime.id}/log-stream-ticket`, 'POST', undefined, viewerId)).json() as { ticket: string };
+      const runtimeStream = await fetch(`${base}/runtime-log-sessions/${runtime.id}/logs/stream?ticket=${runtimeTicket.ticket}`, { signal: AbortSignal.timeout(15000) });
+      expect(runtimeStream.status).toBe(200);
+      const reader = runtimeStream.body!.getReader(), decoder = new TextDecoder();
+      let runtimeText = '';
+      async function until(marker: string) {
+        while (!runtimeText.includes(marker)) {
+          const part = await reader.read(); if (part.done) throw new Error('runtime_stream_ended_early');
+          runtimeText += decoder.decode(part.value, { stream: true });
+        }
+      }
+      await until('recent [REDACTED]');
+      seed('access', JSON.stringify({ ts: Date.now() / 1000, level: 'info', msg: 'live-follow ' + b14Secret }) + '\n', true);
+      await until('live-follow [REDACTED]');
+      expect(runtimeText).toContain('event: log'); expect(runtimeText).not.toContain(b14Secret); expect(runtimeText).not.toContain(privateKey);
+      expect(runtimeText).not.toContain(process.env.FORGEKIT_DEPLOY_ENCRYPTION_KEY!);
+      expect(runtimeText).not.toContain(b14Variable.encryptedValue!);
+      expect((await request(`/runtime-log-sessions/${runtime.id}`, 'DELETE', undefined, viewerId)).status).toBe(204);
+      await until('event: end'); await reader.cancel();
+      const runtimeRows = await client.db.select().from(runtimeLogChunks).where(eq(runtimeLogChunks.sessionId, runtime.id));
+      expect(JSON.stringify(runtimeRows)).toContain('[REDACTED]'); expect(JSON.stringify(runtimeRows)).not.toContain(b14Secret); expect(JSON.stringify(runtimeRows)).not.toContain(b14Variable.encryptedValue!);
+      expect((await new RuntimeLogRepository(client.db).get(runtime.id))?.status).toBe('canceled');
+      expect(JSON.stringify(events)).not.toContain(b14Secret);
+      await runtimeWorker.close(); runtimeWorker = undefined;
+      await client.db.delete(domains).where(eq(domains.id, domainId));
       const build2 = await successfulBuild('release two');
       const second = await (await request('/deployments', 'POST', { buildId: build2.id, deployTargetId: target.id })).json() as Deployment;
       await finish(second.id); expect(readCurrent()).toContain('release two');
@@ -165,12 +214,12 @@ describe.skipIf(process.env.FORGEKIT_SSH_DEPLOY_INTEGRATION !== '1')('B12 API + 
       expect((await repository.list(projectId)).length).toBeGreaterThan(0);
     } finally {
       try {
-        await worker?.close(); await app?.close();
+        await runtimeWorker?.close(); await worker?.close(); await app?.close();
         try { docker('rm', '-f', container); } catch { /* Startup may have failed before container creation. */ }
         await client.db.delete(projects).where(eq(projects.id, projectId));
         await client.db.delete(users).where(inArray(users.id, [ownerId, editorId, viewerId]));
         await client.db.delete(invitationRateBuckets).where(inArray(invitationRateBuckets.key,
-          [ownerId, editorId, viewerId].map(id => invitationBucketKey('deploy-write', issuer, id))));
+          [ownerId, editorId, viewerId].flatMap(id => ['deploy-write', 'runtime-start', 'runtime-poll'].map(type => invitationBucketKey(type as 'deploy-write' | 'runtime-start' | 'runtime-poll', issuer, id)))));
       } finally { await client.close(); await rm(work, { recursive: true, force: true }); vi.unstubAllEnvs(); }
     }
   }, 120000);

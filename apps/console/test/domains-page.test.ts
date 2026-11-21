@@ -29,6 +29,7 @@ const target = DeployTargetSchema.parse({ id, projectId: id, kind: 'ssh', name: 
 async function render(detail = '') {
   const router = createRouter({ history: createMemoryHistory(), routes: [
     { path: '/projects/:slug/domains/:operationId?', name: 'project-domains', component: DomainsPage },
+    { path: '/projects/:slug/runtime-logs', name: 'project-runtime-logs', component: { template: '<div />' } },
     { path: '/projects/:slug/deployments', name: 'project-deployments', component: { template: '<div />' } },
   ] });
   await router.push('/projects/site/domains' + detail); await router.isReady();

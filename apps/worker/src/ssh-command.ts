@@ -61,3 +61,42 @@ export function sshArguments(target: { host: string; port: number; username: str
     '-o', 'ConnectTimeout=10', '-o', 'ConnectionAttempts=1', '-o', 'ServerAliveInterval=5', '-o', 'ServerAliveCountMax=2',
     '-o', 'LogLevel=ERROR', '-i', keyFile, '-p', String(target.port), '-l', target.username, target.host, command];
 }
+
+/** Streaming variant of the same pinned CLI channel. Bounds raw output before line decoding/redaction. */
+export async function streamingCommand(program: string, args: string[], signal: AbortSignal, maxBytes: number,
+  consume: (stream: AsyncIterable<Uint8Array>) => Promise<void>): Promise<void> {
+  signal.throwIfAborted();
+  const child = spawn(program, args, { stdio: ['ignore', 'pipe', 'pipe'], env: { PATH: process.env.PATH, LANG: 'C', LC_ALL: 'C' } });
+  let stderr = '', bytes = 0, escalation: ReturnType<typeof setTimeout> | undefined;
+  const stop = () => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    child.kill('SIGTERM'); escalation ??= setTimeout(() => child.kill('SIGKILL'), 1000);
+  };
+  signal.addEventListener('abort', stop, { once: true });
+  const closed = new Promise<number | null>((resolve, reject) => {
+    child.once('error', () => reject(new SshDeployError('ssh_process_unavailable')));
+    child.once('close', resolve);
+  });
+  async function* stdout() {
+    for await (const chunk of child.stdout) {
+      bytes += chunk.length;
+      if (bytes > maxBytes) throw new SshDeployError('ssh_output_limit');
+      yield chunk as Uint8Array;
+    }
+  }
+  const errors = (async () => {
+    for await (const chunk of child.stderr) {
+      if (Buffer.byteLength(stderr) + chunk.length > 65536) throw new SshDeployError('ssh_output_limit');
+      stderr += Buffer.from(chunk).toString('utf8');
+    }
+  })();
+  const io = Promise.all([consume(stdout()), errors]); void io.catch(stop);
+  try {
+    const [code] = await Promise.all([closed, io]);
+    signal.throwIfAborted();
+    if (code !== 0) throw new SshDeployError(sshFailure(stderr));
+  } finally {
+    stop(); await Promise.allSettled([closed, io]); clearTimeout(escalation);
+    signal.removeEventListener('abort', stop);
+  }
+}
