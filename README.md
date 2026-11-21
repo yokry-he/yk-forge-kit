@@ -31,6 +31,7 @@ YKForgeKit 是面向开发者的一体化项目创建、资产组合、跨端构
 - [项目模板注册表](docs/zh-CN/project-templates.md)
 - [构建队列与 Worker（B08 空构建）](docs/zh-CN/worker-build-queue.md)
 - [Docker 构建 Runner 与本地制品（B09）](docs/zh-CN/docker-build-runner.md)
+- [微信小程序上传与预览（B17）](docs/zh-CN/weapp-upload.md)
 - [静态预览与链接管理（B11）](docs/zh-CN/preview-links.md)
 - [文档与翻译策略](docs/zh-CN/documentation.md)
 - [架构决策记录](docs/adr/0001-engineering-foundations.md)（产品定位与跨端技术栈见 [ADR-0005](docs/adr/0005-product-positioning-and-cross-platform-stack.md)）

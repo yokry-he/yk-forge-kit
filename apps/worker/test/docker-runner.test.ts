@@ -2,7 +2,7 @@ import { EventEmitter } from 'node:events';
 import { chmod, mkdtemp, mkdir, readFile, readdir, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { PassThrough } from 'node:stream';
+import { PassThrough, Writable } from 'node:stream';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { LocalFsArtifactStore } from '../src/artifact-store';
 import { DockerBuildRunner, buildDockerArgs } from '../src/docker-runner';
@@ -140,6 +140,26 @@ describe('Docker runner lifecycle with fake command process', () => {
   });
 });
 describe('CLI child lifecycle', () => {
+  it('sends a synthetic signing key through stdin and closes the pipe', async () => {
+    const stdin = new PassThrough(), stdout = new PassThrough(), stderr = new PassThrough();
+    const chunks: Buffer[] = []; stdin.on('data', chunk => chunks.push(chunk));
+    const fake = Object.assign(new EventEmitter(), { stdin, stdout, stderr, exitCode: null as number | null, signalCode: null, kill: vi.fn() });
+    stdin.on('finish', () => { fake.exitCode = 0; stdout.end(); stderr.end(); fake.emit('close', 0); });
+    const start = vi.fn(() => fake as unknown as ReturnType<DockerSpawn>);
+    const key = Buffer.from('synthetic-b17-stdin-placeholder');
+    expect(await new DockerCli(start).execute(['run', '--interactive'], new AbortController().signal, undefined, undefined, key)).toBe(0);
+    expect(Buffer.concat(chunks)).toEqual(key); expect(stdin.writableEnded).toBe(true);
+    expect(start).toHaveBeenCalledWith(['run', '--interactive'], undefined);
+  });
+  it('stops the CLI and reports a fixed error when secret stdin delivery fails', async () => {
+    const stdin = new Writable({ write(_chunk, _encoding, callback) { callback(new Error('synthetic-secret-do-not-log')); } });
+    const stdout = new PassThrough(), stderr = new PassThrough();
+    const fake = Object.assign(new EventEmitter(), { stdin, stdout, stderr, exitCode: null as number | null, signalCode: null,
+      kill: vi.fn(() => { queueMicrotask(() => { fake.exitCode = 1; stdout.end(); stderr.end(); fake.emit('close', 1); }); return true; }) });
+    const cli = new DockerCli(() => fake as unknown as ReturnType<DockerSpawn>);
+    await expect(cli.execute(['run', '--interactive'], new AbortController().signal, undefined, undefined, Buffer.from('synthetic-placeholder'))).rejects.toThrow('docker_cli_input_error');
+    expect(fake.kill).toHaveBeenCalledWith('SIGTERM');
+  });
   it('aborts and waits for its own fake child to close', async () => {
     const stdout = new PassThrough(); const stderr = new PassThrough();
     const fake = Object.assign(new EventEmitter(), { stdout, stderr, exitCode: null, signalCode: null,

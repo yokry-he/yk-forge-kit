@@ -1,4 +1,4 @@
-import { ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { BuildLogRepository, BuildRepository, BuildTransitionError } from '@forgekit/db';
 import { BuildSchema, BuildLogEventSchema } from '@forgekit/contracts';
 import { DatabaseService } from './database.service';
@@ -20,13 +20,14 @@ export class BuildsService {
     if (!id) throw new ForbiddenException('项目成员身份不存在。');
     return id;
   }
-  async trigger(projectId: string, sourceRef: string, auth: ProjectAuthContext, environmentName?: string) {
+  async trigger(projectId: string, sourceRef: string, auth: ProjectAuthContext, environmentName?: string, target?: 'h5' | 'mp-weixin') {
     const actorId = await this.actor(auth);
     const project = await this.projects.findById(projectId, auth, 'build:run');
+    if (target === 'mp-weixin' && project.template !== 'uniapp') throw new BadRequestException('仅 uniapp 项目支持 mp-weixin 构建。');
     this.queue.requireConfigured();
     if (auth.mode === 'oidc') await this.limiter.consume('build-trigger', auth.issuer, auth.subject);
     const repository = this.repository;
-    const row = await repository.create({ projectId, template: project.template, sourceRef, triggeredBy: actorId }, true, ...(environmentName === undefined ? [] : [environmentName]));
+    const row = await repository.create({ projectId, template: project.template, sourceRef, triggeredBy: actorId, ...(target ? { target } : {}) }, true, ...(environmentName === undefined ? [] : [environmentName]));
     try { await this.queue.enqueue(row.id); }
     catch (error) {
       // An ambiguous enqueue may already have reached Redis. The CAS guard preserves a worker's result.

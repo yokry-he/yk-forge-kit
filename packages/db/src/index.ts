@@ -39,3 +39,5 @@ export * from './domain-repository';
 export * from './domain-log-repository';
 export * from './environment-variable-repository';
 export * from './runtime-log-repository';
+export * from './weapp-repository';
+export * from './weapp-log-repository';

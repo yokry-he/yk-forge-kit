@@ -120,6 +120,7 @@ export const deployTargets = mysqlTable('deploy_targets', {
 }, (t) => [uniqueIndex('deploy_targets_project_id_unique').on(t.projectId, t.id)]);
 
 export const builds = mysqlTable('builds', {
+  target: mysqlEnum('target', ['h5', 'mp-weixin']).notNull().default('h5'),
   id: varchar('id', { length: 36 }).primaryKey(),
   projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
   number: int('number', { unsigned: true }).notNull(),
@@ -334,3 +335,43 @@ export const runtimeLogChunks = mysqlTable('runtime_log_chunks', {
   content: text('content').notNull(),
   ts: timestamp('ts', { fsp: 3 }).notNull().defaultNow(),
 }, t => [primaryKey({ columns: [t.sessionId, t.seq] })]);
+
+export const weappConfigs = mysqlTable('weapp_configs', {
+  projectId: varchar('project_id', { length: 36 }).primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+  appId: varchar('app_id', { length: 32 }).notNull(),
+  encryptedPrivateKey: text('encrypted_private_key').notNull(),
+  ipWhitelistNote: varchar('ip_whitelist_note', { length: 1000 }).notNull().default(''),
+  updatedBy: varchar('updated_by', { length: 36 }).notNull(),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow(),
+});
+export const weappJobs = mysqlTable('weapp_jobs', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull(),
+  buildId: varchar('build_id', { length: 36 }).notNull(),
+  appId: varchar('app_id', { length: 32 }).notNull(),
+  input: json('input').$type<import('@forgekit/contracts').WeappJobInput>().notNull(),
+  status: mysqlEnum('status', ['queued', 'running', 'succeeded', 'failed']).notNull().default('queued'),
+  triggeredBy: varchar('triggered_by', { length: 36 }).notNull(),
+  errorCode: varchar('error_code', { length: 64 }),
+  qrArtifactKey: varchar('qr_artifact_key', { length: 1024 }),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+  startedAt: timestamp('started_at', { fsp: 3 }),
+  finishedAt: timestamp('finished_at', { fsp: 3 }),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [foreignKey({ columns: [t.projectId, t.buildId], foreignColumns: [builds.projectId, builds.id], name: 'weapp_project_build_fk' }).onDelete('cascade'),
+  index('weapp_jobs_status_updated_idx').on(t.status, t.updatedAt), index('weapp_jobs_project_created_idx').on(t.projectId, t.createdAt)]);
+export const weappLogChunks = mysqlTable('weapp_log_chunks', {
+  jobId: varchar('job_id', { length: 36 }).notNull().references(() => weappJobs.id, { onDelete: 'cascade' }),
+  seq: int('seq', { unsigned: true }).notNull(),
+  stream: mysqlEnum('stream', ['stdout', 'stderr', 'system']).notNull(),
+  content: text('content').notNull(),
+  ts: timestamp('ts', { fsp: 3 }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.jobId, t.seq] })]);
+export const weappAudit = mysqlTable('weapp_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  jobId: varchar('job_id', { length: 36 }),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: mysqlEnum('action', ['config_saved', 'config_deleted', 'triggered']).notNull(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [index('weapp_audit_project_time_idx').on(t.projectId, t.createdAt)]);

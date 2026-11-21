@@ -4,7 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { invitationRateBuckets } from '@forgekit/db';
 import { DatabaseService } from './database.service';
 
-type QuotaType = 'runtime-start' | 'runtime-poll' | 'create' | 'redeem' | 'build-trigger' | 'build-cancel' | 'preview-create' | 'preview-revoke' | 'deploy-write' | 'variable-write';
+type QuotaType = 'weapp-write' | 'runtime-start' | 'runtime-poll' | 'create' | 'redeem' | 'build-trigger' | 'build-cancel' | 'preview-create' | 'preview-revoke' | 'deploy-write' | 'variable-write';
 const LIMITS: Record<QuotaType, { attempts: number; windowMs: number }> = {
   'runtime-start': { attempts: 12, windowMs: 60 * 1000 },
   'runtime-poll': { attempts: 120, windowMs: 60 * 1000 },
@@ -13,6 +13,7 @@ const LIMITS: Record<QuotaType, { attempts: number; windowMs: number }> = {
   'build-trigger': { attempts: 30, windowMs: 60 * 60 * 1000 },
   'build-cancel': { attempts: 60, windowMs: 60 * 60 * 1000 },
   'variable-write': { attempts: 60, windowMs: 60 * 60 * 1000 },
+  'weapp-write': { attempts: 60, windowMs: 60 * 60 * 1000 },
   'deploy-write': { attempts: 60, windowMs: 60 * 60 * 1000 },
   create: { attempts: 10, windowMs: 60 * 60 * 1000 },
   redeem: { attempts: 30, windowMs: 15 * 60 * 1000 },

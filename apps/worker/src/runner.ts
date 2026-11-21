@@ -5,7 +5,8 @@ import type { ArtifactMetadata } from './artifact-store';
 
 export type { ArtifactStore } from './artifact-store';
 
-export type BuildRecord = NonNullable<Awaited<ReturnType<BuildRepository['get']>>>;
+type PersistedBuild = NonNullable<Awaited<ReturnType<BuildRepository['get']>>>;
+export type BuildRecord = Omit<PersistedBuild, 'target'> & { target?: PersistedBuild['target'] };
 export interface BuildLogSink {
   write(stream: BuildLogEvent['stream'], content: string): Promise<void>;
 }

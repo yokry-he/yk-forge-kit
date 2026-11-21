@@ -44,7 +44,7 @@ corepack pnpm build:app
 | 支付宝小程序 | `dist/dev/mp-alipay` | `dist/build/mp-alipay` |
 | App | `dist/dev/app` | `dist/build/app`（资源，不是 APK / IPA） |
 
-这是 CLI 工程的 dist 布局，不使用 HBuilderX 工程常见的 `unpackage/dist`。微信开发者工具导入微信产物目录并设置自己的 AppID。注册表的静态构建计划使用 `build` 与 `dist/build/h5`，平台静态预览 / 部署仅处理 H5，不处理小程序与 App 的发布。
+这是 CLI 工程的 dist 布局，不使用 HBuilderX 工程常见的 `unpackage/dist`。微信开发者工具导入微信产物目录并设置自己的 AppID。注册表的静态构建计划使用 `build` 与 `dist/build/h5`，平台静态预览 / 部署仅处理 H5。B17 增加单独的 mp-weixin 构建目标及[微信上传与预览](../weapp-upload.md)；App 发布仍需其他工具。
 
 DCloud 编译 / 运行包固定为 `3.0.0-5030420261029002`；Vue 与 @vue/runtime-core `3.4.21` 匹配编译器；Vite `5.4.21` 包含开发服务器安全修复，虽与插件精确声明的 `5.2.8` peer 不同，已通过 H5 / mp-weixin 构建验证（安装时可能提示 peer 不匹配）；@dcloudio/types `3.4.31` 匹配 uni-app peer，TypeScript `5.9.3`、vue-tsc `3.1.5`。首次安装后应保留锁文件，升级时同步 DCloud 包版本并复跑双端构建。
 
@@ -65,7 +65,7 @@ fetchUserProfile(): Promise<UserProfile>
 ## 限制与下一步
 
 - H5 与 mp-weixin 是自动构建验收目标；App 和 mp-alipay 已配置编译脚本与 manifest，仍需在对应开发者工具与真机验收。
-- **不包含真实 App 打包、签名、证书、小程序上传、审核或发布。** App 编译只生成资源。下一步申请 DCloud AppID、配置 Android 包名 / 权限 / 签名与 iOS 证书，使用匹配版本 HBuilderX / 原生工具链；iOS 需要 Apple 开发者账号及相应构建环境。
+- **模板本身不包含真实 App 打包、签名、证书、小程序上传、审核或发布。** 平台 B17 的微信上传与预览需另行配置项目密钥，不随模板生成。 App 编译只生成资源。下一步申请 DCloud AppID、配置 Android 包名 / 权限 / 签名与 iOS 证书，使用匹配版本 HBuilderX / 原生工具链；iOS 需要 Apple 开发者账号及相应构建环境。
 - 微信 / 支付宝 AppID 留空，后续由使用者填写，并配置合法域名、上传与审核；不内置任何凭证。
 - 暂不支持资产安装（`assetTarget: null`）；没有登录后端、持久化或推送服务。组件留在模板内，不提前抽取公共 UI。
 - 自动构建通过不代表各端运行时、设备安全区、平台权限或真机体验完成验收。

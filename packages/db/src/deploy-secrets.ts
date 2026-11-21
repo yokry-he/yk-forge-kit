@@ -64,3 +64,11 @@ export function encryptVariable(value: string, key: Buffer, projectId: string, e
 export function decryptVariable(value: string, key: Buffer, projectId: string, environmentId: string, name: string) {
   return decryptAuthenticatedSecret(value, key, variableAAD(projectId, environmentId, name));
 }
+
+/** B17 binds the upload key to this project, separate from build environment secrets. */
+export function encryptWeappKey(value: string, key: Buffer, projectId: string) {
+  return encryptAuthenticatedSecret(value, key, `b17:${projectId}`);
+}
+export function decryptWeappKey(value: string, key: Buffer, projectId: string) {
+  return decryptAuthenticatedSecret(value, key, `b17:${projectId}`);
+}

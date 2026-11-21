@@ -8,6 +8,7 @@ const props = defineProps<{
   projectId: string;
   canRun: boolean;
   initialSourceRef?: string;
+  initialTarget?: 'h5' | 'mp-weixin';
 }>();
 
 const emit = defineEmits<{
@@ -18,12 +19,13 @@ const emit = defineEmits<{
 
 const sourceRef = ref(props.initialSourceRef ?? '');
 const environmentName = ref('');
+const target = ref<'h5' | 'mp-weixin'>(props.initialTarget ?? 'h5');
 const submitting = ref(false);
 const error = ref('');
 
 let epoch = 0;
 onBeforeUnmount(() => { ++epoch; });
-watch(() => props.projectId, () => { ++epoch; submitting.value = false; error.value = ''; sourceRef.value = props.initialSourceRef ?? ''; environmentName.value = ''; });
+watch(() => props.projectId, () => { ++epoch; submitting.value = false; error.value = ''; sourceRef.value = props.initialSourceRef ?? ''; environmentName.value = ''; target.value = props.initialTarget ?? 'h5'; });
 async function submitBuild(): Promise<void> {
   if (!props.canRun || submitting.value) {
     return;
@@ -42,7 +44,9 @@ async function submitBuild(): Promise<void> {
   error.value = '';
 
   try {
-    const build = await triggerBuild(props.projectId, trimmed, ...(environment ? [environment] : []));
+    const build = target.value === 'mp-weixin' && trimmed === 'template:uniapp'
+      ? await triggerBuild(props.projectId, trimmed, environment || undefined, 'mp-weixin')
+      : await triggerBuild(props.projectId, trimmed, ...(environment ? [environment] : []));
     if (current === epoch) emit('created', build);
   } catch (reason) {
     if (current !== epoch) return;
@@ -76,13 +80,17 @@ async function submitBuild(): Promise<void> {
         autocomplete="off"
       />
       <p class="build-trigger-form__hint">
-        请输入来源键。当前 Docker Runner 仅支持与项目模板匹配的 template:vue-web、template:vue-admin 或 template:nuxt-site；尚不支持 Git 或源码快照。
+        请输入来源键。当前 Docker Runner 仅支持与项目模板匹配的 template:vue-web、template:vue-admin、template:uniapp 或 template:nuxt-site；尚不支持 Git 或源码快照。
       </p>
     </div>
 
     <div class="build-trigger-form__field">
       <label for="build-environment" class="build-trigger-form__label">构建环境（默认 preview）</label>
       <input id="build-environment" v-model="environmentName" class="build-trigger-form__input" placeholder="preview" maxlength="64" :disabled="!canRun || submitting" />
+    </div>
+    <div v-if="sourceRef === 'template:uniapp'" class="build-trigger-form__field">
+      <label for="build-target">构建目标</label>
+      <select id="build-target" v-model="target" :disabled="!canRun || submitting"><option value="h5">H5</option><option value="mp-weixin">微信小程序</option></select>
     </div>
     <div v-if="error" class="build-trigger-form__error" role="alert">
       {{ error }}

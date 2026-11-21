@@ -6,7 +6,7 @@ import type { BuildRecord } from './runner';
 
 export interface WorkspaceSource {
   prepare(build: BuildRecord, workspace: string, signal: AbortSignal): Promise<{
-    script: 'build' | 'generate'; outputDirectory?: string;
+    script: 'build' | 'generate' | 'build:mp-weixin'; outputDirectory?: string;
   }>;
 }
 export type ProjectSourceLoader = (projectId: string) => Promise<{
@@ -30,6 +30,10 @@ export class TemplateWorkspaceSource implements WorkspaceSource {
       const path = join(workspace, relative);
       await mkdir(dirname(path), { recursive: true, mode: 0o700 });
       await writeFile(path, content, { flag: 'wx', mode: 0o600 });
+    }
+    if (build.target === 'mp-weixin') {
+      if (build.template !== 'uniapp') throw new Error('unsupported_build_target');
+      return { script: 'build:mp-weixin' as const, outputDirectory: 'dist/build/mp-weixin' };
     }
     return metadata.build ?? { script: 'build' as const };
   }
