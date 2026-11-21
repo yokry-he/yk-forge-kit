@@ -149,12 +149,12 @@ describe('BuildTriggerForm', () => {
     expect(wrapper.emitted('created')?.[0]?.[0]).toEqual(build);
   });
 
-  it('B17 preserves the mini-program target on rebuild', async () => {
-    mockTriggerBuild.mockResolvedValue(makeBuild({ target: 'mp-weixin' }));
-    const wrapper = mount(BuildTriggerForm, { props: { projectId: 'project-1', canRun: true, initialSourceRef: 'template:uniapp', initialTarget: 'mp-weixin' } });
-    expect((wrapper.get('#build-target').element as HTMLSelectElement).value).toBe('mp-weixin');
+  it.each(['mp-weixin', 'mp-alipay'] as const)('preserves the %s target on rebuild', async target => {
+    mockTriggerBuild.mockResolvedValue(makeBuild({ target: target }));
+    const wrapper = mount(BuildTriggerForm, { props: { projectId: 'project-1', canRun: true, initialSourceRef: 'template:uniapp', initialTarget: target } });
+    expect((wrapper.get('#build-target').element as HTMLSelectElement).value).toBe(target);
     await wrapper.get('form').trigger('submit'); await flushPromises();
-    expect(mockTriggerBuild).toHaveBeenCalledWith('project-1', 'template:uniapp', undefined, 'mp-weixin');
+    expect(mockTriggerBuild).toHaveBeenCalledWith('project-1', 'template:uniapp', undefined, target);
   });
 
   it('失败时显示错误并保留输入', async () => {

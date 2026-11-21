@@ -120,6 +120,13 @@
       "when": 1795290849710,
       "tag": "0016_b18_android_packaging",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1795299766812,
+      "tag": "0017_b20_alipay_upload",
+      "breakpoints": true
     }
   ]
 }

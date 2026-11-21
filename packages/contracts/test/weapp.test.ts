@@ -8,7 +8,7 @@ describe('B17 contracts', () => {
     for (const patch of [{ target: 'experience' }, { robot: 0 }, { robot: 31 }, { robot: 1.5 }, { version: '$(command)' }, { privateKey: 'secret' }, { action: 'publish' }]) expect(WeappJobInputSchema.safeParse({ ...input, ...patch }).success).toBe(false);
     expect(WeappJobPayloadSchema.safeParse({ jobId: randomUUID(), privateKey: 'secret' }).success).toBe(false);
     expect(BuildCreateRequestSchema.safeParse({ sourceRef: 'template:uniapp', target: 'mp-weixin' }).success).toBe(true);
-    expect(BuildCreateRequestSchema.safeParse({ sourceRef: 'template:uniapp', target: 'mp-alipay' }).success).toBe(false);
+    expect(BuildCreateRequestSchema.safeParse({ sourceRef: 'template:uniapp', target: 'mp-baidu' }).success).toBe(false);
   });
   it('distinguishes write input from public config and excludes encrypted/plaintext secrets', () => {
     expect(WeappConfigInputSchema.parse({ appId: 'wx0000000000000000' })).toEqual({ appId: 'wx0000000000000000', ipWhitelistNote: '' });

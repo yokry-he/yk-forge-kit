@@ -279,6 +279,7 @@ watch(() => route.params.slug, refresh);
       <RouterLink v-if="accessVerified" class="inline-link" :to="{ name: 'project-deployments', params: { slug: project.slug } }">部署目标与历史</RouterLink>
       <RouterLink v-if="accessVerified && project.template === 'uniapp'" class="inline-link" :to="`/projects/${project.slug}/android`">Android 打包</RouterLink>
       <RouterLink v-if="accessVerified && project.template === 'uniapp'" class="inline-link" :to="`/projects/${project.slug}/weapp`">微信上传与预览</RouterLink>
+      <RouterLink v-if="accessVerified && project.template === 'uniapp'" class="inline-link" :to="`/projects/${project.slug}/alipay`">支付宝上传与预览</RouterLink>
       <RouterLink v-if="accessVerified" class="inline-link" :to="`/projects/${project.slug}/variables`">环境变量</RouterLink>
       <RouterLink v-if="accessVerified" class="inline-link" :to="{ name: 'project-builds', params: { slug: project.slug } }">查看构建</RouterLink>
       <div class="summary">

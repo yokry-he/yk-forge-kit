@@ -120,7 +120,7 @@ export const deployTargets = mysqlTable('deploy_targets', {
 }, (t) => [uniqueIndex('deploy_targets_project_id_unique').on(t.projectId, t.id)]);
 
 export const builds = mysqlTable('builds', {
-  target: mysqlEnum('target', ['h5', 'mp-weixin']).notNull().default('h5'),
+  target: mysqlEnum('target', ['h5', 'mp-weixin', 'mp-alipay']).notNull().default('h5'),
   id: varchar('id', { length: 36 }).primaryKey(),
   projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
   number: int('number', { unsigned: true }).notNull(),
@@ -415,3 +415,44 @@ export const androidAudit = mysqlTable('android_audit', {
   action: mysqlEnum('action', ['config_saved', 'config_deleted', 'triggered', 'cancel_requested']).notNull(),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
 }, t => [index('android_audit_project_time_idx').on(t.projectId, t.createdAt)]);
+
+export const alipayConfigs = mysqlTable('alipay_configs', {
+  projectId: varchar('project_id', { length: 36 }).primaryKey().references(() => projects.id, { onDelete: 'cascade' }),
+  appId: varchar('app_id', { length: 32 }).notNull(),
+  encryptedPrivateKey: text('encrypted_private_key').notNull(),
+  toolId: varchar('tool_id', { length: 128 }).notNull(),
+  updatedBy: varchar('updated_by', { length: 36 }).notNull(),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow(),
+});
+export const alipayJobs = mysqlTable('alipay_jobs', {
+  id: varchar('id', { length: 36 }).primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull(),
+  buildId: varchar('build_id', { length: 36 }).notNull(),
+  appId: varchar('app_id', { length: 32 }).notNull(),
+  toolId: varchar('tool_id', { length: 128 }).notNull(),
+  input: json('input').$type<import('@forgekit/contracts').AlipayJobInput>().notNull(),
+  status: mysqlEnum('status', ['queued', 'running', 'succeeded', 'failed']).notNull().default('queued'),
+  triggeredBy: varchar('triggered_by', { length: 36 }).notNull(),
+  errorCode: varchar('error_code', { length: 64 }),
+  qrArtifactKey: varchar('qr_artifact_key', { length: 1024 }),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+  startedAt: timestamp('started_at', { fsp: 3 }),
+  finishedAt: timestamp('finished_at', { fsp: 3 }),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [foreignKey({ columns: [t.projectId, t.buildId], foreignColumns: [builds.projectId, builds.id], name: 'alipay_project_build_fk' }).onDelete('cascade'),
+  index('alipay_jobs_status_updated_idx').on(t.status, t.updatedAt), index('alipay_jobs_project_created_idx').on(t.projectId, t.createdAt)]);
+export const alipayLogChunks = mysqlTable('alipay_log_chunks', {
+  jobId: varchar('job_id', { length: 36 }).notNull().references(() => alipayJobs.id, { onDelete: 'cascade' }),
+  seq: int('seq', { unsigned: true }).notNull(),
+  stream: mysqlEnum('stream', ['stdout', 'stderr', 'system']).notNull(),
+  content: text('content').notNull(),
+  ts: timestamp('ts', { fsp: 3 }).notNull().defaultNow(),
+}, t => [primaryKey({ columns: [t.jobId, t.seq] })]);
+export const alipayAudit = mysqlTable('alipay_audit', {
+  id: bigint('id', { mode: 'number', unsigned: true }).autoincrement().primaryKey(),
+  projectId: varchar('project_id', { length: 36 }).notNull().references(() => projects.id, { onDelete: 'cascade' }),
+  jobId: varchar('job_id', { length: 36 }),
+  actorUserId: varchar('actor_user_id', { length: 36 }).notNull(),
+  action: mysqlEnum('action', ['config_saved', 'config_deleted', 'triggered']).notNull(),
+  createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
+}, t => [index('alipay_audit_project_time_idx').on(t.projectId, t.createdAt)]);

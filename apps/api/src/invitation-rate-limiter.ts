@@ -4,7 +4,7 @@ import { eq, sql } from 'drizzle-orm';
 import { invitationRateBuckets } from '@forgekit/db';
 import { DatabaseService } from './database.service';
 
-type QuotaType = 'android-write' | 'weapp-write' | 'runtime-start' | 'runtime-poll' | 'create' | 'redeem' | 'build-trigger' | 'build-cancel' | 'preview-create' | 'preview-revoke' | 'deploy-write' | 'variable-write';
+type QuotaType = 'alipay-write' | 'android-write' | 'weapp-write' | 'runtime-start' | 'runtime-poll' | 'create' | 'redeem' | 'build-trigger' | 'build-cancel' | 'preview-create' | 'preview-revoke' | 'deploy-write' | 'variable-write';
 const LIMITS: Record<QuotaType, { attempts: number; windowMs: number }> = {
   'runtime-start': { attempts: 12, windowMs: 60 * 1000 },
   'runtime-poll': { attempts: 120, windowMs: 60 * 1000 },
@@ -14,6 +14,7 @@ const LIMITS: Record<QuotaType, { attempts: number; windowMs: number }> = {
   'build-cancel': { attempts: 60, windowMs: 60 * 60 * 1000 },
   'variable-write': { attempts: 60, windowMs: 60 * 60 * 1000 },
   'android-write': { attempts: 60, windowMs: 60 * 60 * 1000 },
+  'alipay-write': { attempts: 60, windowMs: 60 * 60 * 1000 },
   'weapp-write': { attempts: 60, windowMs: 60 * 60 * 1000 },
   'deploy-write': { attempts: 60, windowMs: 60 * 60 * 1000 },
   create: { attempts: 10, windowMs: 60 * 60 * 1000 },

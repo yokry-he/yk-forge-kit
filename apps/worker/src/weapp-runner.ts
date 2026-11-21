@@ -1,8 +1,9 @@
-import { createHash, randomUUID } from 'node:crypto';
-import { mkdir, mkdtemp, open, readFile, rm, writeFile } from 'node:fs/promises';
+import { materializeMiniProgram } from './mini-program-artifact';
+import { randomUUID } from 'node:crypto';
+import { mkdir, mkdtemp, open, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
-import { checkedPath, safeRelativePath, type LocalFsArtifactStore } from '@forgekit/artifact-store';
+import { join } from 'node:path';
+import { checkedPath, type LocalFsArtifactStore } from '@forgekit/artifact-store';
 import { WeappJobInputSchema } from '@forgekit/contracts';
 import type { WeappJobRow } from '@forgekit/db';
 import { CappedBuildLogs, redactBuildLog } from './build-logs';
@@ -73,28 +74,5 @@ export class DockerWeappRunner implements WeappRunner {
     finally { if (removed) await rm(work, { recursive: true, force: true }); }
   }
 }
-export async function materializeWeapp(store: Pick<LocalFsArtifactStore, 'list' | 'open'>, artifact: { key: string; sha256: string }, directory: string, signal: AbortSignal) {
-  let count = 0, total = 0;
-  const records: Array<[string, number, string]> = [];
-  for await (const path of store.list(artifact.key)) {
-    signal.throwIfAborted(); safeRelativePath(path);
-    if (++count > 10000 || path.split('/').some(part => part === 'node_modules')) throw new Error('weapp_artifact_entry_invalid');
-    const file = await store.open(artifact.key, path);
-    const target = join(directory, path); await mkdir(dirname(target), { recursive: true, mode: 0o700 });
-    const output = await open(target, 'wx', 0o600), hash = createHash('sha256'); let size = 0;
-    try {
-      for await (const chunk of file.body) {
-        signal.throwIfAborted(); total += chunk.length; size += chunk.length;
-        if (total > 104857600) throw new Error('weapp_artifact_size');
-        hash.update(chunk); await output.writeFile(chunk);
-      }
-    } finally { file.close?.(); await output.close(); }
-    records.push([path, size, hash.digest('hex')]);
-  }
-  const digest = createHash('sha256');
-  for (const row of records.sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) digest.update(JSON.stringify(row) + '\n');
-  if (digest.digest('hex') !== artifact.sha256) throw new Error('weapp_artifact_integrity');
-  for (const path of ['app.js', 'app.json', 'project.config.json']) await checkedPath(directory, path);
-  const app = JSON.parse(await readFile(join(directory, 'app.json'), 'utf8')) as { pages?: unknown };
-  if (!Array.isArray(app.pages) || !app.pages.length) throw new Error('weapp_app_invalid');
-}
+export const materializeWeapp = (store: Pick<LocalFsArtifactStore, 'list' | 'open'>, artifact: { key: string; sha256: string }, directory: string, signal: AbortSignal) =>
+  materializeMiniProgram(store, artifact, directory, signal, 'weapp', ['app.js', 'app.json', 'project.config.json']);
