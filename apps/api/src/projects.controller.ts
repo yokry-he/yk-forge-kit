@@ -1,6 +1,7 @@
 import { Inject, BadRequestException, Body, Controller, Get, Param, Post, Req, UseGuards } from '@nestjs/common';
 import { isProjectTemplateId, normalizeProjectOptions, ProjectValidationError, type ProjectOptions } from '@forgekit/project-core';
-import { ProjectsService } from './projects.service';
+import { BeginnerProjectPlatformsSchema, beginnerPlatforms } from '@forgekit/contracts';
+import { ProjectsService, type CreateProjectInput } from './projects.service';
 import { ProjectApiGuard } from './project-api.guard';
 import { requireProjectAuth, type ProjectAuthRequest } from './project-auth-context';
 
@@ -26,7 +27,7 @@ export class ProjectsController {
 }
 
 /** Validate the untrusted HTTP payload before it reaches the persistence layer. */
-export function parseCreateProject(value: unknown): ProjectOptions {
+export function parseCreateProject(value: unknown): CreateProjectInput {
     if (!value || typeof value !== 'object' || Array.isArray(value)) throw new BadRequestException('请求体必须是项目配置对象。');
     const input = value as Record<string, unknown>;
     if (typeof input.name !== 'string' || !isProjectTemplateId(input.template) || !Array.isArray(input.features)) {
@@ -34,7 +35,13 @@ export function parseCreateProject(value: unknown): ProjectOptions {
     }
     if (input.features.some((feature) => typeof feature !== 'string')) throw new BadRequestException('项目能力格式不正确。');
     try {
-      return normalizeProjectOptions(input as unknown as ProjectOptions);
+      const options = normalizeProjectOptions(input as unknown as ProjectOptions);
+      if (input.platforms === undefined) return options;
+      const parsed = BeginnerProjectPlatformsSchema.safeParse(input.platforms);
+      if (!parsed.success || parsed.data.some(platform => !beginnerPlatforms[options.template].includes(platform))) {
+        throw new BadRequestException('目标平台与模板不兼容或格式无效。');
+      }
+      return { ...options, platforms: parsed.data };
     } catch (error) {
       if (error instanceof ProjectValidationError) throw new BadRequestException(error.message);
       throw error;

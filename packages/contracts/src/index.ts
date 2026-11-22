@@ -22,6 +22,7 @@ export interface ProjectRecord {
    */
   template: string;
   features: Array<'theme' | 'router' | 'pinia'>;
+  platforms?: import('./beginner').BeginnerPlatform[] | null;
   createdAt: string;
 }
 
@@ -99,3 +100,5 @@ export * from './weapp';
 export * from './android';
 
 export * from './alipay';
+
+export * from './beginner';

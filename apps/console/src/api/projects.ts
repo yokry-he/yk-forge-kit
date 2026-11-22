@@ -1,4 +1,4 @@
-import type { ProjectRecord } from '@forgekit/contracts';
+import type { BeginnerPlatform, ProjectRecord } from '@forgekit/contracts';
 import type { ProjectOptions } from '@forgekit/project-core';
 import { getAccessToken } from '../auth/session';
 
@@ -9,13 +9,13 @@ export class ProjectApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit): Promise<T> {
+export async function apiRequest<T>(path: string, init?: RequestInit, timeoutMs = 8000): Promise<T> {
   let response: Response;
   try {
     const headers = new Headers(init?.headers);
     const token = await getAccessToken();
     if (token) headers.set('Authorization', `Bearer ${token}`);
-    response = await fetch(`/api/v1${path}`, { ...init, headers, signal: AbortSignal.timeout(8000) });
+    response = await fetch(`/api/v1${path}`, { ...init, headers, signal: AbortSignal.timeout(timeoutMs) });
   } catch {
     throw new ProjectApiError('无法连接后端 API。请确认 API 与 MySQL 已启动。', 0);
   }
@@ -42,7 +42,7 @@ export function getProject(slug: string): Promise<ProjectRecord> {
   return projectRequest<ProjectRecord>(`/${encodeURIComponent(slug)}`);
 }
 
-export function saveProject(options: ProjectOptions): Promise<ProjectRecord> {
+export function saveProject(options: ProjectOptions & { platforms?: BeginnerPlatform[] }): Promise<ProjectRecord> {
   return projectRequest<ProjectRecord>('', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

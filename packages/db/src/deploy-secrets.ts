@@ -88,3 +88,11 @@ export function encryptAlipayKey(value: string, key: Buffer, projectId: string) 
 export function decryptAlipayKey(value: string, key: Buffer, projectId: string) {
   return decryptAuthenticatedSecret(value, key, `b20:${projectId}`);
 }
+
+/** B21 is bound to the owning user and isolated from all project credential purposes. */
+export function encryptBeginnerKey(value: string, key: Buffer, userId: string) {
+  return encryptAuthenticatedSecret(value, key, `b21:${userId}`);
+}
+export function decryptBeginnerKey(value: string, key: Buffer, userId: string) {
+  return decryptAuthenticatedSecret(value, key, `b21:${userId}`);
+}

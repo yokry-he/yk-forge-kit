@@ -25,7 +25,7 @@ onMounted(refresh);
     <p class="intro">统一查看已经登记的项目配置。源码生成仍由本地 CLI 完成。</p>
     <div class="section-toolbar">
       <span>项目记录</span>
-      <div><button type="button" class="subtle-button" :disabled="loading" @click="refresh">刷新</button><RouterLink class="primary-link" to="/projects/new">＋ 创建项目</RouterLink></div>
+      <div><RouterLink class="primary-link" to="/projects/new/beginner">新手模式</RouterLink><button type="button" class="subtle-button" :disabled="loading" @click="refresh">刷新</button><RouterLink class="primary-link" to="/projects/new">＋ 创建项目</RouterLink></div>
     </div>
     <section v-if="loading" class="state-card" role="status">正在加载项目列表…</section>
     <section v-else-if="error" class="state-card" role="alert"><strong>暂时无法加载</strong><p>{{ error }}</p><button class="subtle-button" @click="refresh">重试</button></section>

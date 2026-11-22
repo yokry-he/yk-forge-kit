@@ -12,7 +12,7 @@
     "test": "pnpm build && pnpm -r --if-present test",
     "test:startup": "node --test scripts/startup.test.mjs",
     "db:migrations:check": "pnpm --filter @forgekit/db exec drizzle-kit check",
-    "db:test:integration": "pnpm --filter @forgekit/db... build && pnpm --filter @forgekit/db exec vitest run test/integration.mysql.test.ts && pnpm --filter @forgekit/db exec vitest run test/build-repositories.mysql.test.ts test/environment-variables.mysql.test.ts test/weapp.mysql.test.ts test/alipay.mysql.test.ts test/android.mysql.test.ts"
+    "db:test:integration": "pnpm --filter @forgekit/db... build && pnpm --filter @forgekit/db exec vitest run test/integration.mysql.test.ts && pnpm --filter @forgekit/db exec vitest run test/build-repositories.mysql.test.ts test/environment-variables.mysql.test.ts test/weapp.mysql.test.ts test/alipay.mysql.test.ts test/android.mysql.test.ts test/beginner.mysql.test.ts"
   },
   "engines": { "node": ">=22" }
 }

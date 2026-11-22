@@ -285,6 +285,7 @@ watch(() => route.params.slug, refresh);
       <div class="summary">
         <div><span>项目 ID</span><strong>{{ project.id }}</strong></div>
         <div><span>模板</span><strong>{{ project.template }}</strong></div>
+        <div v-if="project.platforms?.length"><span>目标平台</span><strong>{{ project.platforms.join('、') }}</strong></div>
         <div><span>可选能力</span><strong>{{ project.features.join('、') || '无' }}</strong></div>
         <div><span>创建时间</span><strong>{{ new Date(project.createdAt).toLocaleString('zh-CN') }}</strong></div>
       </div>
