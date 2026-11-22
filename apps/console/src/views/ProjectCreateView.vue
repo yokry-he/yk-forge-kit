@@ -50,6 +50,7 @@ async function copy(): Promise<void> {
         <div class="eyebrow">NEW PROJECT</div>
         <h1>创建你的下一个<span>项目</span></h1>
         <p class="intro">选择模板和基础能力，生成标准、可维护、可自由修改的源码项目。</p>
+        <RouterLink class="primary-link" to="/projects/new/beginner">新手模式：用一句话开始 →</RouterLink>
         <div class="steps" aria-label="项目创建步骤">
           <div v-for="index in [1, 2, 3]" :key="index" :class="{ selected: step === index, done: step > index }">
             <em>{{ index }}</em>{{ ['基础配置', '选择能力', '确认创建'][index - 1] }}

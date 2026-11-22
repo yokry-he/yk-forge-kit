@@ -2,6 +2,8 @@
 
 状态：已实现（B04）。模板由 `packages/project-core` 的注册表统一管理，CLI、API 和控制台创建向导都从这里读取，不再各自写死 `vue-web`。
 
+不熟悉技术选型时，可使用 [新手模式](./beginner-mode.md)，用一句中文或英文需求获得模板建议并确认创建。
+
 ## 模型
 
 每个模板都有一份可序列化的元数据（`ProjectTemplateMetadata`）和一个纯函数渲染器：

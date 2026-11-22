@@ -9,7 +9,7 @@ import { IdentityAccountsService, identityMatches } from './identity-accounts.se
 
 import type { ProjectOptions } from '@forgekit/project-core';
 
-export type CreateProjectInput = ProjectOptions;
+export type CreateProjectInput = ProjectOptions & { platforms?: import('@forgekit/contracts').BeginnerPlatform[] };
 
 @Injectable()
 export class ProjectsService {
@@ -24,7 +24,7 @@ export class ProjectsService {
         const projectId = randomUUID();
         await tx.insert(projects).values({
           id: projectId, slug: input.name, name: input.name,
-          template: input.template, features: input.features,
+          template: input.template, features: input.features, platforms: input.platforms,
         });
         if (ownerId) await tx.insert(projectMemberships).values({ projectId, userId: ownerId, role: 'owner' });
       });

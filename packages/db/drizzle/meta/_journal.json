@@ -127,6 +127,13 @@
       "when": 1795299766812,
       "tag": "0017_b20_alipay_upload",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1795335151687,
+      "tag": "0018_b21_beginner_mode",
+      "breakpoints": true
     }
   ]
 }

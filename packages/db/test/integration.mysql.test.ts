@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { mkdtemp, mkdir, readFile, writeFile, copyFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
@@ -26,25 +26,41 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('MySQL 8.0 integrat
 
       // Stage the pre-B07 journal to exercise upgrading a populated 0000–0007 database.
       const migrationsFolder = resolve(process.cwd(), 'drizzle');
-      const journal = JSON.parse(await readFile(resolve(migrationsFolder, 'meta/_journal.json'), 'utf8'));
-      journal.entries = journal.entries.filter((entry: { idx: number }) => entry.idx < 8);
+      const journal = JSON.parse(await readFile(resolve(migrationsFolder, 'meta/_journal.json'), 'utf8')) as {
+        entries: Array<{ idx: number; tag: string; when: number }>;
+      };
+      const beginnerMigration = journal.entries.find((entry) => entry.tag === '0018_b21_beginner_mode');
+      expect(beginnerMigration).toMatchObject({ idx: 18 });
+      journal.entries = journal.entries.filter((entry) => entry.idx < 8);
       await mkdir(resolve(oldMigrations, 'meta'));
       await writeFile(resolve(oldMigrations, 'meta/_journal.json'), JSON.stringify(journal));
-      for (const entry of journal.entries as Array<{ tag: string }>) {
+      for (const entry of journal.entries) {
         await copyFile(resolve(migrationsFolder, `${entry.tag}.sql`), resolve(oldMigrations, `${entry.tag}.sql`));
       }
       await migrate(client.db, { migrationsFolder: oldMigrations });
       const [tables] = await connection.query<RowDataPacket[]>('SHOW TABLES');
       expect(tables.length).toBeGreaterThanOrEqual(9);
 
-      await client.db.insert(projects).values({ id, slug, name: 'MySQL 集成测试', template: 'vue-web', features: [] });
+      // Use only pre-B07 columns: the current Drizzle schema also inserts platforms,
+      // which is not available until 0018. Keep this row in place across the upgrade.
+      await connection.execute(
+        'INSERT INTO projects (id, slug, name, template, features) VALUES (?, ?, ?, ?, ?)',
+        [id, slug, 'MySQL 集成测试', 'vue-web', JSON.stringify([])],
+      );
       inserted = true;
       await migrate(client.db, { migrationsFolder });
       await migrate(client.db, { migrationsFolder });
       const [upgradedTables] = await connection.query<RowDataPacket[]>('SHOW TABLES');
       expect(upgradedTables.length).toBeGreaterThanOrEqual(15);
+      const beginnerMigrationHash = createHash('sha256')
+        .update(await readFile(resolve(migrationsFolder, '0018_b21_beginner_mode.sql'), 'utf8')).digest('hex');
+      const [beginnerMigrations] = await connection.execute<RowDataPacket[]>(
+        'SELECT hash, created_at FROM __drizzle_migrations WHERE hash = ?', [beginnerMigrationHash],
+      );
+      expect(beginnerMigrations).toHaveLength(1);
+      expect(Number(beginnerMigrations[0]?.created_at)).toBe(beginnerMigration?.when);
       const [created] = await client.db.select().from(projects).where(eq(projects.id, id)).limit(1);
-      expect(created).toMatchObject({ id, slug, features: [] });
+      expect(created).toMatchObject({ id, slug, name: 'MySQL 集成测试', template: 'vue-web', features: [], platforms: null });
 
       await expect(client.db.transaction(async (tx) => {
         await tx.insert(projects).values({ id: rolledBackId, slug: `test-${rolledBackId}`, name: '应回滚', features: [] });

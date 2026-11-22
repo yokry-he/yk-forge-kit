@@ -4,8 +4,10 @@ import { eq, sql } from 'drizzle-orm';
 import { invitationRateBuckets } from '@forgekit/db';
 import { DatabaseService } from './database.service';
 
-type QuotaType = 'alipay-write' | 'android-write' | 'weapp-write' | 'runtime-start' | 'runtime-poll' | 'create' | 'redeem' | 'build-trigger' | 'build-cancel' | 'preview-create' | 'preview-revoke' | 'deploy-write' | 'variable-write';
+type QuotaType = 'beginner-classify' | 'beginner-config-write' | 'alipay-write' | 'android-write' | 'weapp-write' | 'runtime-start' | 'runtime-poll' | 'create' | 'redeem' | 'build-trigger' | 'build-cancel' | 'preview-create' | 'preview-revoke' | 'deploy-write' | 'variable-write';
 const LIMITS: Record<QuotaType, { attempts: number; windowMs: number }> = {
+  'beginner-classify': { attempts: 12, windowMs: 60 * 1000 },
+  'beginner-config-write': { attempts: 30, windowMs: 60 * 60 * 1000 },
   'runtime-start': { attempts: 12, windowMs: 60 * 1000 },
   'runtime-poll': { attempts: 120, windowMs: 60 * 1000 },
   'preview-create': { attempts: 30, windowMs: 60 * 60 * 1000 },

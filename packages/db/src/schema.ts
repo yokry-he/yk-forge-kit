@@ -1,4 +1,4 @@
-import type { RunnerInfo } from '@forgekit/contracts';
+import type { BeginnerPlatform, RunnerInfo } from '@forgekit/contracts';
 import { bigint, boolean, index, int, json, mediumtext, mysqlEnum, mysqlTable, primaryKey, foreignKey, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
 
 /** Initial metadata only; no user/auth schema is assumed at this stage. */
@@ -8,6 +8,7 @@ export const projects = mysqlTable('projects', {
   name: varchar('name', { length: 150 }).notNull(),
   template: varchar('template', { length: 32 }).notNull().default('vue-web'),
   features: json('features').$type<Array<'theme' | 'router' | 'pinia'>>().notNull(),
+  platforms: json('platforms').$type<BeginnerPlatform[]>(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 });
 
@@ -456,3 +457,13 @@ export const alipayAudit = mysqlTable('alipay_audit', {
   action: mysqlEnum('action', ['config_saved', 'config_deleted', 'triggered']).notNull(),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
 }, t => [index('alipay_audit_project_time_idx').on(t.projectId, t.createdAt)]);
+
+/** Per-user B21 BYOK settings; ciphertext never belongs in API serializers. */
+export const beginnerAiConfigs = mysqlTable('beginner_ai_configs', {
+  userId: varchar('user_id', { length: 36 }).primaryKey().references(() => users.id, { onDelete: 'cascade' }),
+  provider: varchar('provider', { length: 64 }).notNull(),
+  baseUrl: varchar('base_url', { length: 512 }).notNull(),
+  model: varchar('model', { length: 128 }).notNull(),
+  encryptedApiKey: text('encrypted_api_key').notNull(),
+  updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow(),
+});

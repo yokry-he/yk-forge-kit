@@ -47,3 +47,5 @@ export * from './android-log-repository';
 
 export * from './alipay-repository';
 export * from './alipay-log-repository';
+
+export * from './beginner-repository';

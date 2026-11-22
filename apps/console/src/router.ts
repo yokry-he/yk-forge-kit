@@ -15,6 +15,7 @@ export const router = createRouter({
   routes: [
     { path: '/', redirect: '/projects' },
     { path: '/projects', component: ProjectListView },
+    { path: '/projects/new/beginner', component: () => import('./views/BeginnerModeView.vue') },
     { path: '/projects/new', component: ProjectCreateView },
     { path: '/projects/:slug', name: 'project-detail', component: ProjectDetailView },
     { path: '/projects/:slug/android/:jobId?', name: 'project-android', component: () => import('./views/AndroidPage.vue') },
