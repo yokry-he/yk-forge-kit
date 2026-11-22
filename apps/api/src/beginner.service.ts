@@ -7,6 +7,7 @@ import { InvitationRateLimiter } from './invitation-rate-limiter';
 import type { ProjectAuthContext } from './project-auth-context';
 import { classifyKeywords, compatibleSuggestion } from './beginner-classifier';
 import { BeginnerAiClient, BEGINNER_AI_TIMEOUT_MS } from './beginner-ai';
+import { BeginnerAiTargetError, resolveBeginnerAiTarget } from './beginner-ai-target';
 
 @Injectable()
 export class BeginnerService {
@@ -31,10 +32,11 @@ export class BeginnerService {
     const userId = await this.actor(auth, 'beginner-config-write');
     let key: Buffer | undefined;
     try {
+      await resolveBeginnerAiTarget(input.baseUrl, AbortSignal.timeout(BEGINNER_AI_TIMEOUT_MS));
       let encrypted: string | undefined;
       if (input.apiKey) {
         key = deployEncryptionKey(process.env.FORGEKIT_DEPLOY_ENCRYPTION_KEY);
-        encrypted = encryptBeginnerKey(input.apiKey, key, userId);
+        encrypted = encryptBeginnerKey(input.apiKey, key, userId, input);
       }
       // Plaintext never reaches repository/driver arguments.
       const { apiKey: _apiKey, ...settings } = input;
@@ -42,7 +44,8 @@ export class BeginnerService {
       this.logger.log({ action: 'config_saved', actor: userId });
       return metadata(row);
     } catch (error) {
-      if (error instanceof BeginnerKeyRequiredError) throw new BadRequestException('首次配置需要提供 API Key。');
+      if (error instanceof BeginnerAiTargetError) throw new BadRequestException('AI 服务地址不可用。');
+      if (error instanceof BeginnerKeyRequiredError) throw new BadRequestException('首次配置或更换服务地址、提供商、模型时需要提供新的 API Key。');
       throw new ServiceUnavailableException('AI 配置保存失败，请检查主密钥配置后重试。');
     } finally { key?.fill(0); }
   }
@@ -64,7 +67,7 @@ export class BeginnerService {
       const config = await this.repository.config(userId);
       if (!config?.encryptedApiKey) return this.record(userId, fallback);
       key = deployEncryptionKey(process.env.FORGEKIT_DEPLOY_ENCRYPTION_KEY);
-      plaintext = decryptBeginnerKey(config.encryptedApiKey, key, userId);
+      plaintext = decryptBeginnerKey(config.encryptedApiKey, key, userId, config);
       const apiKey = plaintext.toString('utf8');
       if (!apiKey) return this.record(userId, fallback);
       const timeout = new Promise<never>((_, reject) => {
@@ -73,7 +76,7 @@ export class BeginnerService {
       const raw = await Promise.race([this.ai.suggest({ description, apiKey, baseUrl: config.baseUrl, model: config.model, signal: controller.signal }), timeout]);
       const parsed = BeginnerSuggestionSchema.safeParse(JSON.parse(raw));
       if (parsed.success && !JSON.stringify(parsed.data).includes(apiKey)) {
-        result = { ...compatibleSuggestion(parsed.data), source: 'ai' };
+        result = { ...compatibleSuggestion(parsed.data, description), source: 'ai' };
       }
     } catch {
       // No exception, prompt, provider response or credentials are logged or returned.

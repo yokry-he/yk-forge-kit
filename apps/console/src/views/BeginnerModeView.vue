@@ -118,8 +118,8 @@ async function updateConfig(remove = false) {
           <label for="ai-provider">提供商</label><input id="ai-provider" v-model="provider" required maxlength="64" />
           <label for="ai-url">Base URL</label><input id="ai-url" v-model="baseUrl" type="url" required maxlength="512" />
           <label for="ai-model">模型</label><input id="ai-model" v-model="model" required maxlength="128" />
-          <label for="ai-key">API Key（只写）</label><input id="ai-key" v-model="apiKey" type="password" autocomplete="new-password" maxlength="4096" :required="!configured" :placeholder="configured ? '留空保留现有密钥' : '输入你的 API Key'" aria-describedby="ai-key-help" />
-          <small id="ai-key-help">保存后无法读回，只能替换。启用后，需求会发送给你配置的服务。</small>
+          <label for="ai-key">API Key（只写）</label><input id="ai-key" v-model="apiKey" type="password" autocomplete="new-password" maxlength="4096" :required="!configured" :placeholder="configured ? '目标未变时可留空' : '输入你的 API Key'" aria-describedby="ai-key-help" />
+          <small id="ai-key-help">保存后无法读回。更换服务地址、提供商或模型时须填写新密钥。启用后，需求会发送给你配置的公网服务，建议使用 HTTPS。</small>
           <div class="actions"><button type="submit" :disabled="configBusy">保存 AI 配置</button><button v-if="configured" type="button" class="back" :disabled="configBusy" @click="updateConfig(true)">删除 AI 配置</button></div>
         </fieldset>
       </form>

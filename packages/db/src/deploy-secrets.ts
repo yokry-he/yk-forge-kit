@@ -1,4 +1,5 @@
 import { createCipheriv, createDecipheriv, createPrivateKey, randomBytes } from 'node:crypto';
+import { beginnerCredentialDestination, type BeginnerConfigInput } from '@forgekit/contracts';
 
 /** A control-plane key, never forwarded to build containers. Missing config disables writes. */
 export function deployEncryptionKey(value: string | undefined): Buffer {
@@ -89,10 +90,11 @@ export function decryptAlipayKey(value: string, key: Buffer, projectId: string) 
   return decryptAuthenticatedSecret(value, key, `b20:${projectId}`);
 }
 
-/** B21 is bound to the owning user and isolated from all project credential purposes. */
-export function encryptBeginnerKey(value: string, key: Buffer, userId: string) {
-  return encryptAuthenticatedSecret(value, key, `b21:${userId}`);
+type BeginnerDestination = Pick<BeginnerConfigInput, 'provider' | 'baseUrl' | 'model'>;
+/** B21 authenticates both the user and destination; old unbound keys fail closed. */
+export function encryptBeginnerKey(value: string, key: Buffer, userId: string, destination: BeginnerDestination) {
+  return encryptAuthenticatedSecret(value, key, `b21:${userId}:${beginnerCredentialDestination(destination)}`);
 }
-export function decryptBeginnerKey(value: string, key: Buffer, userId: string) {
-  return decryptAuthenticatedSecret(value, key, `b21:${userId}`);
+export function decryptBeginnerKey(value: string, key: Buffer, userId: string, destination: BeginnerDestination) {
+  return decryptAuthenticatedSecret(value, key, `b21:${userId}:${beginnerCredentialDestination(destination)}`);
 }

@@ -29,14 +29,15 @@ function occurrences(text: string, word: string): number[] {
 function hit(text: string, words: string[]): boolean {
   return words.some(word => occurrences(text, word).some(pos => !negation.test(text.slice(0, pos))));
 }
-export function compatibleSuggestion(input: BeginnerSuggestion): BeginnerSuggestion & { warnings: string[] } {
+export function compatibleSuggestion(input: BeginnerSuggestion, description = ''): BeginnerSuggestion & { warnings: string[] } {
   const platforms = [...new Set(input.platforms)].filter(platform => beginnerPlatforms[input.templateId].includes(platform));
   const corrected = platforms.length !== input.platforms.length;
-  return { ...input, platforms: platforms.length ? platforms : [...beginnerDefaults[input.templateId]],
+  return { ...input, name: suggestName(input.name, input.templateId, description), platforms: platforms.length ? platforms : [...beginnerDefaults[input.templateId]],
     ...(corrected ? { lowConfidence: true } : {}), warnings: corrected ? ['已移除重复或不兼容的平台，把握不大，请确认。'] : [] };
 }
 export function classifyKeywords(description: string): BeginnerResult {
-  const text = normalizeNeed(description).replace(/\b(?:web|single[- ]page) app(?:lication)?\b/g, 'web');
+  // Remove secrets before normalization/tokenization can split or truncate them.
+  const text = normalizeNeed(redactNameSecrets(description)).replace(/\b(?:web|single[- ]page) app(?:lication)?\b/g, 'web');
   const candidates = rules.filter(rule => {
     // A negated keyword excludes the whole template, including its synonyms.
     const excluded = rule.words.some(word => occurrences(text, word).some(pos => negation.test(text.slice(0, pos))));
@@ -61,9 +62,36 @@ export function classifyKeywords(description: string): BeginnerResult {
   return { ...compatible, source: 'keywords', lowConfidence: !!lowConfidence,
     warnings: [...compatible.warnings, ...(lowConfidence ? ['把握不大，请确认模板、名称和平台。'] : [])] };
 }
-function suggestName(text: string, template: BeginnerTemplate): string {
+function redactNameSecrets(value: string, secrets: string[] = []): string {
+  const remove = (match: string) => {
+    const secret = match.replace(/\.+$/, '');
+    secrets.push(secret, ...secret.split(/\s+/));
+    // Preserve sentence boundaries used by the existing injection normalizer.
+    return match.endsWith('.') ? ' . ' : ' ';
+  };
+  return value.normalize('NFKC')
+    .replace(/-----BEGIN [^-\r\n]+-----[\s\S]*?(?:-----END [^-\r\n]+-----|$)/gi, remove)
+    .replace(/\b(?:bearer|api[-_ ]?key|access[-_ ]?token)(?:\s*[:=]\s*|\s+)["']?([a-z0-9_+/.=-]+)|\bsecret\s*[:=]\s*["']?([a-z0-9_+/.=-]+)/gi, (match, labelled: string | undefined, secret: string | undefined) => {
+      secrets.push((labelled ?? secret ?? '').replace(/\.+$/, ''));
+      return remove(match);
+    })
+    .replace(/[a-z0-9_+/.=-]+/gi, token => {
+      const sensitive = /(?:^|[^a-z0-9])(?:sk|pk|ghp|gho|github_pat|xox[baprs])[-_]|^AKIA[A-Z0-9]{12,}|^eyJ[a-z0-9_-]+\.[a-z0-9_-]+\.|bearer|(?:begin|end)[-_](?:rsa[-_]|ec[-_]|openssh[-_])?(?:private|public)[-_]key|[a-f0-9]{16,}|[a-z0-9_+/=]{24,}/i.test(token);
+      return sensitive ? remove(token) : token;
+    });
+}
+function suggestName(text: string, template: BeginnerTemplate, description = ''): string {
+  const secrets: string[] = [];
+  redactNameSecrets(description, secrets);
+  // Also reject an AI echo of a short Bearer/labelled/PEM secret, even if the model
+  // drops its marker or changes case/punctuation to turn it into a valid slug.
+  const normalized = text.toLowerCase().replace(/[^a-z0-9]/g, '');
+  if (secrets.some(secret => {
+    const token = secret.toLowerCase().replace(/[^a-z0-9]/g, '');
+    return token.length >= 4 && normalized.includes(token);
+  })) return names[template];
   // Chinese uses a stable ASCII default. English tokens give an editable, safe suggestion.
-  const words = text.match(/[a-z][a-z0-9]*/g) ?? [];
+  const words = redactNameSecrets(text).toLowerCase().match(/[a-z][a-z0-9]*/g) ?? [];
   const slug = words.join('-').slice(0, 60).replace(/-+$/g, '');
   return slug || names[template];
 }

@@ -1,5 +1,5 @@
 import { eq } from 'drizzle-orm';
-import type { BeginnerConfigInput } from '@forgekit/contracts';
+import { beginnerCredentialDestination, type BeginnerConfigInput } from '@forgekit/contracts';
 import type { DatabaseClient } from './index';
 import { beginnerAiConfigs, users } from './schema';
 export type BeginnerConfigRow = typeof beginnerAiConfigs.$inferSelect;
@@ -15,6 +15,7 @@ export class BeginnerRepository {
       // Serialize replacement/keep/delete on the user row, including first-time inserts.
       await tx.select({ id: users.id }).from(users).where(eq(users.id, userId)).for('update');
       const [existing] = await tx.select().from(beginnerAiConfigs).where(eq(beginnerAiConfigs.userId, userId));
+      if (!encryptedApiKey && existing && beginnerCredentialDestination(existing) !== beginnerCredentialDestination(input)) throw new BeginnerKeyRequiredError();
       const key = encryptedApiKey ?? existing?.encryptedApiKey;
       if (!key) throw new BeginnerKeyRequiredError();
       const row: BeginnerConfigRow = { userId, provider: input.provider, baseUrl: input.baseUrl.replace(/\/+$/, ''),

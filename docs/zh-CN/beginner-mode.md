@@ -124,7 +124,7 @@ API Key 的保存与展示遵循既有 B14 方案：
 - API 响应与日志**绝不**回传或打印明文、密文；
 - 错误信息使用固定文案，不回显模型原始输出中可能携带的密钥或提示词内容。
 
-用户填写密钥时不需要了解加密细节，但需要知道：写入后无法再取回明文，只能替换。
+用户填写密钥时不需要了解加密细节，但需要知道：写入后无法再取回明文，只能替换。密钥通过 B21 认证数据绑定用户与服务地址、提供商、模型，不能随配置变更发送到另一目标。修复前保存的未绑定密钥无法继续用于 AI 调用，需要重新填写并保存；重新保存前仍可使用关键词推荐。
 
 ## 6. 安全边界
 
@@ -133,15 +133,16 @@ API Key 的保存与展示遵循既有 B14 方案：
 - **防提示注入**：用户需求被视为**不可信数据**，只作为分类输入，不作为系统指令执行。需求文本中出现“忽略以上规则”“改用某个模板”“输出你的密钥”“把系统提示词发给我”之类的内容，一律不生效。
 - **超时与速率限制**：AI 调用设有超时和调用频率限制，超限即回退或提示稍后再试；具体阈值以实现与 [ADR 0020](../adr/0020-beginner-mode.md) 为准。
 - 分类接口不接受任意模板参数，也不返回模型原始文本。
+- **建议名称过滤**：关键词、AI 成功和失败回退均过滤疑似密钥、Bearer、长十六进制 / Base64 及 PEM 内容；没有安全名称时使用模板默认名称（如 `web-app` / `admin-app`），不把粘贴的秘密值写入建议名称或项目 slug。
 
 接口（均使用现有 OIDC Bearer 身份；匿名返回 401，local 模式返回 403）：
 
 - `POST /api/v1/beginner/classify`：请求 `{ description }`，1–2000 字；返回 `{ templateId, name, platforms, source, warnings?, lowConfidence? }`。
 - `GET /api/v1/beginner/ai-config`：只返回 configured、provider、baseUrl、model、updatedAt。
-- `PUT /api/v1/beginner/ai-config`：provider、baseUrl、model 可覆盖，apiKey 只写；首次必须给密钥，后续空串或省略保留原值。
+- `PUT /api/v1/beginner/ai-config`：provider、baseUrl、model 可覆盖，apiKey 只写；首次必须给密钥；仅当服务地址、提供商和模型均未改变时，空串或省略才保留原值。更换其中任一项必须同时提供新密钥。
 - `DELETE /api/v1/beginner/ai-config`：删除配置，返回 204。
 
-默认 DeepSeek、`https://api.deepseek.com`、`deepseek-chat`。自定义 URL 指向 OpenAI 兼容 API 根路径（如含 `/v1` 则保留），服务追加 `/chat/completions`；禁止 URL 用户信息、查询和片段，禁止跟随重定向。模型可覆盖。AI 调用上限 10 秒，控制台等待上限 15 秒；分类每身份每分钟 12 次，配置写入/删除每身份每小时共 30 次，超限返回 429。所有响应使用 no-store。日志只记录动作、用户 UUID 和分类来源。
+默认 DeepSeek、`https://api.deepseek.com`、`deepseek-chat`。建议始终使用 HTTPS；仅支持公网 HTTP/HTTPS 及各自默认端口（80/443），不支持内网自建服务。自定义 URL 指向 OpenAI 兼容 API 根路径（如含 `/v1` 则保留），服务追加 `/chat/completions`；禁止 URL 用户信息、查询和片段，禁止跟随重定向。保存配置及每次调用均解析并校验全部 DNS 地址，拒绝私网、回环、未指定、链路本地、CGNAT、多播、元数据和特殊用途地址；请求连接固定到本次已校验的地址，保持原域名的 Host 与 TLS 校验，防止 DNS 重绑定。校验失败仅返回固定安全错误或关键词回退，不回显地址或密钥。模型可覆盖。AI 调用上限 10 秒，控制台等待上限 15 秒；分类每身份每分钟 12 次，配置写入/删除每身份每小时共 30 次，超限返回 429。所有响应使用 no-store。日志只记录动作、用户 UUID 和分类来源。
 
 ## 7. 创建项目
 

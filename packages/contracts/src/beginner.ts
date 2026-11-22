@@ -1,4 +1,6 @@
 import { z } from 'zod';
+import { isSafeBeginnerBaseUrl } from './beginner-ai-url';
+export { isPublicBeginnerAddress, isSafeBeginnerBaseUrl } from './beginner-ai-url';
 
 export const BeginnerTemplateSchema = z.enum(['vue-web', 'vue-admin', 'nuxt-site', 'uniapp', 'tauri-desktop']);
 export type BeginnerTemplate = z.infer<typeof BeginnerTemplateSchema>;
@@ -22,16 +24,17 @@ export type BeginnerResult = BeginnerSuggestion & { source: 'ai' | 'keywords'; w
 export const DEFAULT_AI_CONFIG = { provider: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat' } as const;
 export const BeginnerConfigInputSchema = z.strictObject({
   provider: z.string().trim().min(1).max(64).regex(/^[\p{L}\p{N} ._-]+$/u).default(DEFAULT_AI_CONFIG.provider),
-  baseUrl: z.string().trim().max(512).url().refine(value => {
-    try {
-      const url = new URL(value);
-      return ['https:', 'http:'].includes(url.protocol) && !url.username && !url.password && !url.search && !url.hash;
-    } catch { return false; }
-  }).default(DEFAULT_AI_CONFIG.baseUrl),
+  baseUrl: z.string().trim().max(512).url().refine(isSafeBeginnerBaseUrl).default(DEFAULT_AI_CONFIG.baseUrl),
   model: z.string().trim().min(1).max(128).regex(/^[a-zA-Z0-9._:/-]+$/).default(DEFAULT_AI_CONFIG.model),
   apiKey: z.string().max(4096).refine(value => value === '' || value.length >= 4 && !/[\s\p{Cc}]/u.test(value)).optional(),
 });
 export type BeginnerConfigInput = z.infer<typeof BeginnerConfigInputSchema>;
+/** The credential destination includes provider/model routing as well as the API root. */
+export function beginnerCredentialDestination(input: Pick<BeginnerConfigInput, 'provider' | 'baseUrl' | 'model'>): string {
+  const url = new URL(input.baseUrl);
+  url.hostname = url.hostname.replace(/\.$/, '');
+  return JSON.stringify([input.provider, url.toString().replace(/\/+$/, ''), input.model]);
+}
 export interface BeginnerConfigMetadata { configured: boolean; provider?: string; baseUrl?: string; model?: string; updatedAt?: string }
 
 export const BeginnerProjectPlatformsSchema = z.array(BeginnerPlatformSchema).min(1).max(6)

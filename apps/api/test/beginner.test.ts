@@ -1,5 +1,6 @@
 import 'reflect-metadata';
 import { randomBytes, randomUUID } from 'node:crypto';
+import { lookup } from 'node:dns/promises';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { ForbiddenException, HttpException, Logger, Module, UnauthorizedException, type INestApplication } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
@@ -17,8 +18,10 @@ import { AuthService } from '../src/auth.service';
 import { configureJsonBodyParser } from '../src/json-body-parser';
 import { parseCreateProject } from '../src/projects.controller';
 
+vi.mock('node:dns/promises', () => ({ lookup: vi.fn() }));
+
 const actor = randomUUID(), key = randomBytes(32), secret = 'sk-b21-should-never-appear';
-const row: BeginnerConfigRow = { userId: actor, ...DEFAULT_AI_CONFIG, encryptedApiKey: encryptBeginnerKey(secret, key, actor), updatedAt: new Date() };
+const row: BeginnerConfigRow = { userId: actor, ...DEFAULT_AI_CONFIG, encryptedApiKey: encryptBeginnerKey(secret, key, actor, DEFAULT_AI_CONFIG), updatedAt: new Date() };
 const config = vi.spyOn(BeginnerRepository.prototype, 'config'), save = vi.spyOn(BeginnerRepository.prototype, 'save'), remove = vi.spyOn(BeginnerRepository.prototype, 'remove');
 const consume = vi.fn(), suggest = vi.fn(), ensureUser = vi.fn();
 const logs: unknown[] = [];
@@ -48,7 +51,7 @@ beforeAll(async () => {
 });
 afterAll(async () => { await app.close(); vi.restoreAllMocks(); vi.unstubAllEnvs(); });
 beforeEach(() => {
-  vi.clearAllMocks(); logs.length = 0; config.mockResolvedValue(row); save.mockResolvedValue(row); remove.mockResolvedValue(undefined);
+  vi.clearAllMocks(); vi.mocked(lookup).mockResolvedValue([{ address: '93.184.216.34', family: 4 }]); logs.length = 0; config.mockResolvedValue(row); save.mockResolvedValue(row); remove.mockResolvedValue(undefined);
   consume.mockResolvedValue(undefined); ensureUser.mockResolvedValue(actor);
   suggest.mockResolvedValue(JSON.stringify({ templateId: 'nuxt-site', name: 'company-site', platforms: ['web'] }));
 });
@@ -93,6 +96,34 @@ describe('B21 HTTP and optional AI', () => {
     expect(body).toMatchObject({ source: 'ai', templateId: 'vue-admin', platforms: ['web'], lowConfidence: true });
     expect(body.warnings.length).toBeGreaterThan(0);
   });
+  it.each((['keywords', 'ai', 'failure'] as const).flatMap(path => [
+    { pasted: 'sk-0123456789abcdef', aiName: 'sk-0123456789abcdef', forbidden: '0123456789abcdef' },
+    { pasted: 'Bearer short-secret', aiName: 'short-secret', forbidden: 'short-secret' },
+    { pasted: 'api_key=short-secret', aiName: 'short-secret', forbidden: 'short-secret' },
+    { pasted: '-----BEGIN PRIVATE KEY-----\nshort-secret\n-----END PRIVATE KEY-----', aiName: 'short-secret', forbidden: 'short-secret' },
+    { pasted: 'QWxhZGRpbjpvcGVuIHNlc2FtZQ==', aiName: 'qwxhzgrpbjpvcgvuihnlc2ftzq', forbidden: 'qwxhzgrpbjpvcgvuihnlc2ftzq' },
+    { pasted: 'abcdef0123456789abcdef0123456789', aiName: 'abcdef0123456789abcdef0123456789', forbidden: 'abcdef0123456789abcdef0123456789' },
+  ].map(vector => ({ path, ...vector }))))('never copies pasted secrets into any response field ($path, $aiName)', async ({ path, pasted, aiName, forbidden }) => {
+    if (path === 'keywords') config.mockResolvedValueOnce(null);
+    if (path === 'failure') suggest.mockRejectedValueOnce(new Error(pasted));
+    if (path === 'ai') suggest.mockResolvedValueOnce(JSON.stringify({ templateId: 'nuxt-site', name: aiName, platforms: ['web'] }));
+    const body = await (await request('/classify', 'POST', { description: '公司官网 ' + pasted })).json();
+    expect(body).toMatchObject({ name: 'site-app', source: path === 'ai' ? 'ai' : 'keywords' });
+    expect(JSON.stringify(body)).not.toContain(pasted); expect(JSON.stringify(body).toLowerCase()).not.toContain(forbidden);
+    expect(JSON.stringify(logs)).not.toContain(pasted);
+  });
+  it('never sends a previous key to a new destination, including a tampered stored row', async () => {
+    const changed = { ...row, baseUrl: 'https://other.example.com/v1' };
+    config.mockResolvedValueOnce(changed);
+    expect(await (await request()).json()).toMatchObject({ source: 'keywords' });
+    expect(suggest).not.toHaveBeenCalled();
+    const replacement = 'sk-replacement-credential';
+    config.mockResolvedValueOnce({ ...changed, encryptedApiKey: encryptBeginnerKey(replacement, key, actor, changed) });
+    expect(await (await request()).json()).toMatchObject({ source: 'ai' });
+    expect(suggest).toHaveBeenCalledOnce();
+    expect(suggest.mock.calls[0]![0]).toMatchObject({ baseUrl: changed.baseUrl, apiKey: replacement });
+    expect(JSON.stringify(suggest.mock.calls)).not.toContain(secret);
+  });
   it('works without config, without key, on decrypt failure, provider failure and database read failure', async () => {
     for (const setting of [null, { ...row, encryptedApiKey: '' }, { ...row, encryptedApiKey: 'broken' }]) {
       config.mockResolvedValueOnce(setting);
@@ -116,7 +147,7 @@ describe('B21 HTTP and optional AI', () => {
     expect(response.status).toBe(200); const body = await response.text();
     expect(body).not.toContain(secret); expect(body).not.toContain(row.encryptedApiKey); expect(JSON.parse(body)).toMatchObject({ configured: true, provider: 'DeepSeek' });
     expect(save.mock.calls[0]![1]).toEqual(DEFAULT_AI_CONFIG);
-    const blob = save.mock.calls[0]![2]!; expect(decryptBeginnerKey(blob, key, actor).toString()).toBe(secret);
+    const blob = save.mock.calls[0]![2]!; expect(decryptBeginnerKey(blob, key, actor, DEFAULT_AI_CONFIG).toString()).toBe(secret);
     expect(await (await request('/ai-config', 'GET', undefined)).json()).toEqual(JSON.parse(body));
     await request('/ai-config', 'PUT', { apiKey: '' }); expect(save.mock.calls[1]![2]).toBeUndefined();
     await request('/ai-config', 'PUT', {}); expect(save.mock.calls[2]![2]).toBeUndefined();
@@ -124,9 +155,21 @@ describe('B21 HTTP and optional AI', () => {
     expect(remove).toHaveBeenCalledWith(actor); expect(consume).toHaveBeenCalledWith('beginner-config-write', 'https://issuer.example', 'user');
   });
   it('supports user overrides and empty unconfigured metadata', async () => {
-    await request('/ai-config', 'PUT', { provider: 'Local', baseUrl: 'http://localhost:8000/v1', model: 'local/model', apiKey: secret });
-    expect(save.mock.calls[0]![1]).toEqual({ provider: 'Local', baseUrl: 'http://localhost:8000/v1', model: 'local/model' });
+    await request('/ai-config', 'PUT', { provider: 'Custom', baseUrl: 'https://api.example.com/v1', model: 'custom/model', apiKey: secret });
+    expect(save.mock.calls[0]![1]).toEqual({ provider: 'Custom', baseUrl: 'https://api.example.com/v1', model: 'custom/model' });
     config.mockResolvedValueOnce(null); expect(await (await request('/ai-config', 'GET', undefined)).json()).toEqual({ configured: false });
+  });
+  it('rejects private DNS results and DNS failures on configuration writes with fixed safe errors', async () => {
+    for (const addresses of [[{ address: '169.254.169.254', family: 4 }], [{ address: '93.184.216.34', family: 4 }, { address: 'fd00::1', family: 6 }]]) {
+      vi.mocked(lookup).mockResolvedValueOnce(addresses);
+      const response = await request('/ai-config', 'PUT', { baseUrl: 'https://custom.example.com', apiKey: secret });
+      expect(response.status).toBe(400);
+      const text = await response.text(); expect(text).toContain('AI 服务地址不可用');
+      expect(text).not.toContain(secret); expect(text).not.toContain('169.254'); expect(text).not.toContain('fd00');
+    }
+    vi.mocked(lookup).mockRejectedValueOnce(new Error('internal IP ' + secret));
+    expect((await request('/ai-config', 'PUT', { apiKey: secret })).status).toBe(400);
+    expect(save).not.toHaveBeenCalled();
   });
   it('validates strict descriptions and configuration without echoing body values', async () => {
     for (const body of [{ description: '' }, { description: ' '.repeat(3) }, { description: 'x'.repeat(2001) }, { description: 'nul\0' }, { description: 'web', apiKey: secret }, null]) {

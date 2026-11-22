@@ -30,6 +30,23 @@ const catalog: Array<[string, string, string[]]> = [
   ['不要桌面，只要小程序', 'uniapp', ['weapp']],
 ];
 describe('B21 catalog', () => {
+  it.each([
+    'sk-0123456789abcdef', 'sk-proj-this-is-a-private-key', '0123456789abcdef0123456789abcdef',
+    'QWxhZGRpbjpvcGVuIHNlc2FtZQ==', 'Bearer short-secret', 'api_key=short-secret',
+    '-----BEGIN PRIVATE KEY-----\nshort-secret\n-----END PRIVATE KEY-----',
+  ])('removes pasted secrets before keyword tokenization and from AI names: %s', secret => {
+    const result = classifyKeywords('公司官网 ' + secret);
+    expect(result.name).toBe('site-app'); expect(JSON.stringify(result)).not.toContain(secret);
+    const aiName = secret.replace(/^Bearer |^api_key=/, '').toLowerCase().replace(/[^a-z0-9-]/g, '-');
+    const ai = compatibleSuggestion({ templateId: 'vue-web', name: aiName, platforms: ['web'] }, '做网页 ' + secret);
+    expect(ai.name).toBe('web-app'); expect(JSON.stringify(ai)).not.toContain(secret);
+  });
+  it('preserves useful safe tokens beside secrets and uses template defaults when no safe tokens remain', () => {
+    expect(classifyKeywords('Company website sk-0123456789abcdef').name).toBe('company-website');
+    expect(classifyKeywords('sk-0123456789abcdef').name).toBe('web-app');
+    expect(classifyKeywords('后台 sk-0123456789abcdef').name).toBe('admin-app');
+    expect(compatibleSuggestion({ templateId: 'vue-web', name: 'site-sk-0123456789abcdef', platforms: ['web'] }).name).toBe('web-app');
+  });
   it.each(catalog)('%s', (description, templateId, platforms) => {
     const result = classifyKeywords(description);
     expect(result.templateId).toBe(templateId);
