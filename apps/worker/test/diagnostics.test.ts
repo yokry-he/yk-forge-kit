@@ -37,6 +37,29 @@ describe('worker error diagnostics', () => {
     expect(result).not.toContain('second-secret-line');
   });
 
+  it.each(['test"quoted-suffix', 'test\\"quoted-suffix', 'test\\quoted-suffix', 'test"\nquoted-suffix'])(
+    'redacts configured JSON-escaped credentials before generic substitutions (case %#)', password => {
+      const result = workerErrorDetails(new Error(
+        `connection failed: ${JSON.stringify({ password })}; value ${JSON.stringify(password)}; retry later`,
+      ), { DATABASE_PASSWORD: password, LEGACY_PASSWORD: 'test' }).error;
+      expect(result).not.toContain('quoted-suffix');
+      expect(result).toContain('connection failed: {"password":[REDACTED]}');
+      expect(result).toContain('value "[REDACTED]"; retry later');
+    },
+  );
+
+  it.each([
+    JSON.stringify({ password: 'test"quoted-suffix' }),
+    JSON.stringify({ password: 'test\\"quoted-suffix' }),
+    JSON.stringify({ password: 'test\\' }),
+    "password='test\\'quoted-suffix'",
+  ])('redacts complete quoted credentials with escaped characters (case %#)', credential => {
+    const result = workerErrorDetails(new Error(`connection failed: ${credential}; retry later`), {}).error;
+    expect(result).not.toContain('quoted-suffix');
+    expect(result).toContain(credential.startsWith('{') ? '{"password":[REDACTED]}' : 'password=[REDACTED]');
+    expect(result).toContain('; retry later');
+  });
+
   it('handles circular causes and never serializes arbitrary thrown config objects', () => {
     const error = new Error('cycle'); error.cause = error;
     expect(workerErrorDetails(error, {}).error).toContain('[circular cause]');
