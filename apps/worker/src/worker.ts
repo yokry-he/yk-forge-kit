@@ -1,3 +1,4 @@
+import { workerErrorDetails } from './diagnostics';
 import { startAlipayWorker } from './alipay-worker';
 import { startAndroidWorker } from './android-worker';
 import { startWeappWorker } from './weapp-worker';
@@ -16,7 +17,7 @@ import { TemplateWorkspaceSource } from './workspace-source';
 
 type Log = (event: Record<string, unknown>) => void;
 export async function startWorker(client: DatabaseClient, config: ReturnType<typeof resolveWorkerConfig>,
-  log: Log = (event) => console.log(JSON.stringify(event)), runner?: BuildRunner) {
+  log: Log = (event) => console.log(JSON.stringify(event)), runner?: BuildRunner, options: { development?: boolean } = {}) {
   const builds = new BuildRepository(client.db);
   const runnerName = runner ? 'injected' : config.runner;
   if (!runner) {
@@ -29,8 +30,8 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
     connection: { ...config.connection, maxRetriesPerRequest: null }, concurrency: config.concurrency,
     autorun: false, maxStalledCount: 1,
   });
-  worker.on('error', () => log({ event: 'worker_error' }));
-  queue.on('error', () => log({ event: 'queue_error' }));
+  worker.on('error', error => log({ event: 'worker_error', ...workerErrorDetails(error) }));
+  queue.on('error', error => log({ event: 'queue_error', ...workerErrorDetails(error) }));
   worker.on('failed', (job) => log({ event: 'job_failed', buildId: job?.id }));
   worker.on('completed', (job) => log({ event: 'job_processed', buildId: job.id }));
   let heartbeat: ReturnType<typeof setTimeout> | undefined;
@@ -76,7 +77,12 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
     throw error;
   } finally { clearTimeout(startupTimer); }
   let deployWorker;
-  try { deployWorker = await startDeployWorker(client, config, process.env, log); }
+  try {
+    if (options.development && process.env.FORGEKIT_DEPLOY_ENCRYPTION_KEY && !process.env.FORGEKIT_ARTIFACT_DIR) {
+      log({ event: 'deploy_worker_disabled', reason: 'dev requires FORGEKIT_ARTIFACT_DIR' });
+      deployWorker = { close: async () => {} };
+    } else deployWorker = await startDeployWorker(client, config, process.env, log);
+  }
   catch (error) { await Promise.allSettled([worker.close(true), queue.close()]); throw error; }
   let domainWorker;
   try { domainWorker = await startDomainWorker(client, config, process.env, log); }
@@ -93,7 +99,7 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
   let alipayWorker;
   try { alipayWorker = await startAlipayWorker(client, config, process.env, log); }
   catch (error) { await Promise.allSettled([androidWorker.close(), weappWorker.close(), runtimeWorker.close(), domainWorker.close(), deployWorker.close(), worker.close(true), queue.close()]); throw error; }
-  const running = worker.run().catch(() => log({ event: 'worker_run_error' }));
+  const running = worker.run().catch(error => log({ event: 'worker_run_error', ...workerErrorDetails(error) }));
   const tick = async () => {
     try {
       if (!worker.isRunning()) throw new Error('consumer_not_running');
@@ -101,7 +107,7 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
       await queue.getJobCounts('waiting', 'active');
       await reconcile();
       log({ event: 'worker_heartbeat', status: 'ok', concurrency: config.concurrency });
-    } catch { log({ event: 'worker_heartbeat', status: 'unavailable' }); }
+    } catch (error) { log({ event: 'worker_heartbeat', status: 'unavailable', ...workerErrorDetails(error) }); }
     if (!closing) heartbeat = setTimeout(schedule, config.heartbeatMs);
   };
   function schedule() { healthTask = tick(); }

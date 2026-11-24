@@ -1,3 +1,4 @@
+import { workerErrorDetails } from './diagnostics';
 import { isAbsolute } from 'node:path';
 import { Queue, Worker } from 'bullmq';
 import { DEPLOY_JOB_NAME, DEPLOY_QUEUE_NAME, type DeployJobPayload } from '@forgekit/contracts';
@@ -21,7 +22,7 @@ export async function startDeployWorker(client: DatabaseClient, config: ReturnTy
   const worker = new Worker<DeployJobPayload>(DEPLOY_QUEUE_NAME, job => processor.process(job.data, job.id), {
     connection: { ...config.connection, maxRetriesPerRequest: null }, concurrency: config.concurrency, autorun: false, maxStalledCount: 1,
   });
-  worker.on('error', () => log({ event: 'deploy_worker_error' })); queue.on('error', () => log({ event: 'deploy_queue_error' }));
+  worker.on('error', error => log({ event: 'deploy_worker_error', ...workerErrorDetails(error) })); queue.on('error', error => log({ event: 'deploy_queue_error', ...workerErrorDetails(error) }));
   worker.on('failed', job => log({ event: 'deploy_job_failed', deploymentId: job?.id }));
   let closing = false, timer: ReturnType<typeof setTimeout> | undefined, task: Promise<void> | undefined;
   const fail = async (id: string, from: 'pending' | 'running', code: string) => {
@@ -48,8 +49,8 @@ export async function startDeployWorker(client: DatabaseClient, config: ReturnTy
       new Promise<never>((_, reject) => { startupTimer = setTimeout(() => reject(new Error('deploy_worker_startup_timeout')), 10000); })]);
   } catch (error) { await Promise.allSettled([worker.close(true), queue.close()]); key.fill(0); throw error; }
   finally { clearTimeout(startupTimer); }
-  const running = worker.run().catch(() => log({ event: 'deploy_worker_run_error' }));
-  const schedule = () => { task = reconcile().catch(() => log({ event: 'deploy_reconcile_failed' })).finally(() => {
+  const running = worker.run().catch(error => log({ event: 'deploy_worker_run_error', ...workerErrorDetails(error) }));
+  const schedule = () => { task = reconcile().catch(error => log({ event: 'deploy_reconcile_failed', ...workerErrorDetails(error) })).finally(() => {
     if (!closing) timer = setTimeout(schedule, config.heartbeatMs);
   }); };
   timer = setTimeout(schedule, config.heartbeatMs);

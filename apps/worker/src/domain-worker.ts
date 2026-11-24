@@ -1,3 +1,4 @@
+import { workerErrorDetails } from './diagnostics';
 import { Queue, Worker } from 'bullmq';
 import { DOMAIN_JOB_NAME, DOMAIN_QUEUE_NAME, type DomainJobPayload } from '@forgekit/contracts';
 import { DomainRepository, DomainLogRepository, DeployRepository, DeployConflictError, deployEncryptionKey, type DatabaseClient } from '@forgekit/db';
@@ -15,7 +16,7 @@ export async function startDomainWorker(client: DatabaseClient, config: ReturnTy
   const worker = new Worker<DomainJobPayload>(DOMAIN_QUEUE_NAME, job => processor.process(job.data, job.id), {
     connection: { ...config.connection, maxRetriesPerRequest: null }, concurrency: config.concurrency, autorun: false, maxStalledCount: 1,
   });
-  worker.on('error', () => log({ event: 'domain_worker_error' })); queue.on('error', () => log({ event: 'domain_queue_error' }));
+  worker.on('error', error => log({ event: 'domain_worker_error', ...workerErrorDetails(error) })); queue.on('error', error => log({ event: 'domain_queue_error', ...workerErrorDetails(error) }));
   worker.on('failed', job => log({ event: 'domain_job_failed', operationId: job?.id }));
   const add = (id: string) => queue.add(DOMAIN_JOB_NAME, { operationId: id }, { jobId: id, attempts: 3,
     backoff: { type: 'exponential', delay: 1000 }, removeOnComplete: 1000, removeOnFail: 1000 });
@@ -49,8 +50,8 @@ export async function startDomainWorker(client: DatabaseClient, config: ReturnTy
       new Promise<never>((_, reject) => { startupTimer = setTimeout(() => reject(new Error('domain_worker_startup_timeout')), 10000); })]);
   } catch (error) { await Promise.allSettled([worker.close(true), queue.close()]); key.fill(0); throw error; }
   finally { clearTimeout(startupTimer); }
-  const running = worker.run().catch(() => log({ event: 'domain_worker_run_error' }));
-  const schedule = () => { task = reconcile().catch(() => log({ event: 'domain_reconcile_failed' })).finally(() => {
+  const running = worker.run().catch(error => log({ event: 'domain_worker_run_error', ...workerErrorDetails(error) }));
+  const schedule = () => { task = reconcile().catch(error => log({ event: 'domain_reconcile_failed', ...workerErrorDetails(error) })).finally(() => {
     if (!closing) timer = setTimeout(schedule, config.heartbeatMs);
   }); };
   timer = setTimeout(schedule, config.heartbeatMs);

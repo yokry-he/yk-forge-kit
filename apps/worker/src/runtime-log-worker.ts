@@ -1,3 +1,4 @@
+import { workerErrorDetails } from './diagnostics';
 import { Queue, Worker } from 'bullmq';
 import { RUNTIME_LOG_QUEUE_NAME, RUNTIME_LOG_JOB_NAME, type RuntimeLogJob } from '@forgekit/contracts';
 import { RuntimeLogRepository, DeployRepository, DomainRepository, EnvironmentVariableRepository, deployEncryptionKey, type DatabaseClient, type ResolvedVariables } from '@forgekit/db';
@@ -27,7 +28,7 @@ export async function startRuntimeLogWorker(client: DatabaseClient, config: Retu
   const worker = new Worker<RuntimeLogJob>(RUNTIME_LOG_QUEUE_NAME, job => processor.process(job.data, job.id), {
     connection: { ...config.connection, maxRetriesPerRequest: null }, concurrency: Math.min(config.concurrency, 4), autorun: false, maxStalledCount: 0,
   });
-  worker.on('error', () => log({ event: 'runtime_worker_error' })); queue.on('error', () => log({ event: 'runtime_queue_error' }));
+  worker.on('error', error => log({ event: 'runtime_worker_error', ...workerErrorDetails(error) })); queue.on('error', error => log({ event: 'runtime_queue_error', ...workerErrorDetails(error) }));
   worker.on('failed', () => log({ event: 'runtime_job_failed' }));
   let closing = false, timer: ReturnType<typeof setTimeout> | undefined, task: Promise<void> | undefined;
   const reconcile = async () => {
@@ -41,8 +42,8 @@ export async function startRuntimeLogWorker(client: DatabaseClient, config: Retu
       new Promise<never>((_, reject) => { startup = setTimeout(() => reject(new Error('runtime_worker_startup_timeout')), 10000); })]);
   } catch (error) { await Promise.allSettled([worker.close(true), queue.close()]); key.fill(0); throw error; }
   finally { clearTimeout(startup); }
-  const running = worker.run().catch(() => log({ event: 'runtime_worker_run_error' }));
-  const schedule = () => { task = reconcile().catch(() => log({ event: 'runtime_reconcile_failed' })).finally(() => {
+  const running = worker.run().catch(error => log({ event: 'runtime_worker_run_error', ...workerErrorDetails(error) }));
+  const schedule = () => { task = reconcile().catch(error => log({ event: 'runtime_reconcile_failed', ...workerErrorDetails(error) })).finally(() => {
     if (!closing) timer = setTimeout(schedule, 1000);
   }); };
   timer = setTimeout(schedule, 1000);
