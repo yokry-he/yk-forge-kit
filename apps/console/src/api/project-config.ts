@@ -1,9 +1,9 @@
 import { projectRequest, ProjectApiError } from './projects';
 
-/** Only configuration reads may interpret 404 as missing setup; jobs and writes must still fail. */
+/** Only optional config reads accept 404 or a successful empty body as missing setup. */
 export async function readProjectConfig<T>(path: string, parse: (data: unknown) => T): Promise<T | null> {
   let data: unknown;
-  try { data = await projectRequest<unknown>(path); }
+  try { data = await projectRequest<unknown>(path, undefined, { emptyAsNull: true }); }
   catch (reason) {
     if (reason instanceof ProjectApiError && reason.status === 404) return null;
     throw reason;

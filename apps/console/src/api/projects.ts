@@ -9,7 +9,9 @@ export class ProjectApiError extends Error {
   }
 }
 
-export async function apiRequest<T>(path: string, init?: RequestInit, timeoutMs = 8000): Promise<T> {
+interface ResponseOptions { emptyAsNull?: boolean }
+
+export async function apiRequest<T>(path: string, init?: RequestInit, timeoutMs = 8000, options: ResponseOptions = {}): Promise<T> {
   let response: Response;
   try {
     const headers = new Headers(init?.headers);
@@ -26,12 +28,18 @@ export async function apiRequest<T>(path: string, init?: RequestInit, timeoutMs 
     throw new ProjectApiError(response.status === 401 ? '需要登录或当前会话已失效，请重新登录。' : message, response.status);
   }
   // No Content / Reset Content responses have no JSON body (including DELETE).
-  if (response.status === 204 || response.status === 205) return undefined as T;
+  if (response.status === 204 || response.status === 205) return (options.emptyAsNull ? null : undefined) as T;
+  // Nest/Express sends a null controller result as HTTP 200 with an empty body.
+  // Only optional config reads opt in; nonempty malformed JSON must still fail.
+  if (options.emptyAsNull) {
+    const body = await response.text();
+    return (body === '' ? null : JSON.parse(body)) as T;
+  }
   return response.json() as Promise<T>;
 }
 
-export function projectRequest<T>(path: string, init?: RequestInit): Promise<T> {
-  return apiRequest<T>(`/projects${path}`, init);
+export function projectRequest<T>(path: string, init?: RequestInit, options?: ResponseOptions): Promise<T> {
+  return apiRequest<T>(`/projects${path}`, init, undefined, options);
 }
 
 export function listProjects(): Promise<ProjectRecord[]> {

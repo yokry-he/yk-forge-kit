@@ -1,3 +1,4 @@
+import { workerErrorDetails } from './diagnostics';
 import { isAbsolute } from 'node:path';
 import { Queue, Worker } from 'bullmq';
 import { ALIPAY_JOB_NAME, ALIPAY_QUEUE_NAME, type AlipayJobPayload } from '@forgekit/contracts';
@@ -26,7 +27,7 @@ export async function startAlipayWorker(client: DatabaseClient, config: ReturnTy
   const worker = new Worker<AlipayJobPayload>(ALIPAY_QUEUE_NAME, job => processor.process(job.data, job.id), {
     connection: { ...config.connection, maxRetriesPerRequest: null }, concurrency: config.concurrency, autorun: false, maxStalledCount: 1,
   });
-  worker.on('error', () => log({ event: 'alipay_worker_error' })); queue.on('error', () => log({ event: 'alipay_queue_error' }));
+  worker.on('error', error => log({ event: 'alipay_worker_error', ...workerErrorDetails(error) })); queue.on('error', error => log({ event: 'alipay_queue_error', ...workerErrorDetails(error) }));
   worker.on('failed', job => log({ event: 'alipay_job_failed', jobId: job?.id }));
   let closing = false, timer: ReturnType<typeof setTimeout> | undefined, task: Promise<void> | undefined;
   const fail = async (id: string, from: 'queued' | 'running', code: string) => {
@@ -51,8 +52,8 @@ export async function startAlipayWorker(client: DatabaseClient, config: ReturnTy
       new Promise<never>((_, reject) => { startupTimer = setTimeout(() => reject(new Error('alipay_worker_startup_timeout')), 10000); })]);
   } catch (error) { await Promise.allSettled([worker.close(true), queue.close()]); key.fill(0); throw error; }
   finally { clearTimeout(startupTimer); }
-  const running = worker.run().catch(() => log({ event: 'alipay_worker_run_error' }));
-  const schedule = () => { task = reconcile().catch(() => log({ event: 'alipay_reconcile_failed' })).finally(() => {
+  const running = worker.run().catch(error => log({ event: 'alipay_worker_run_error', ...workerErrorDetails(error) }));
+  const schedule = () => { task = reconcile().catch(error => log({ event: 'alipay_reconcile_failed', ...workerErrorDetails(error) })).finally(() => {
     if (!closing) timer = setTimeout(schedule, config.heartbeatMs);
   }); };
   timer = setTimeout(schedule, config.heartbeatMs); log({ event: 'alipay_worker_ready' });

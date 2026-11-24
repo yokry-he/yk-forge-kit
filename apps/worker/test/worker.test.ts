@@ -26,10 +26,33 @@ vi.mock('@forgekit/db', async (importOriginal) => ({
   BuildLogRepository: vi.fn(function () { return {}; }),
 }));
 vi.mock('../src/processor', () => ({ BuildProcessor: vi.fn(function () { return adapters.processor; }) }));
+vi.mock('../src/domain-worker', () => ({ startDomainWorker: vi.fn(async () => ({ close: async () => {} })) }));
+vi.mock('../src/runtime-log-worker', () => ({ startRuntimeLogWorker: vi.fn(async () => ({ close: async () => {} })) }));
+vi.mock('../src/weapp-worker', () => ({ startWeappWorker: vi.fn(async () => ({ close: async () => {} })) }));
+vi.mock('../src/android-worker', () => ({ startAndroidWorker: vi.fn(async () => ({ close: async () => {} })) }));
+vi.mock('../src/alipay-worker', () => ({ startAlipayWorker: vi.fn(async () => ({ close: async () => {} })) }));
 
-afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
+afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); vi.unstubAllEnvs(); });
 
 describe('worker shutdown', () => {
+  it('starts builds in development when the API key exists but deployment storage is unconfigured', async () => {
+    vi.stubEnv('FORGEKIT_DEPLOY_ENCRYPTION_KEY', 'a'.repeat(64));
+    vi.stubEnv('FORGEKIT_ARTIFACT_DIR', undefined);
+    const client = { ping: vi.fn(async () => {}), db: {}, close: vi.fn() } as unknown as DatabaseClient;
+    const config = resolveWorkerConfig({ DATABASE_URL: 'mysql://u:p@localhost/test', REDIS_URL: 'redis://localhost/15' });
+    const log = vi.fn();
+    const worker = await startWorker(client, config, log, undefined, { development: true });
+    try {
+      expect(log).toHaveBeenCalledWith({ event: 'deploy_worker_disabled', reason: 'dev requires FORGEKIT_ARTIFACT_DIR' });
+      expect(log).toHaveBeenCalledWith(expect.objectContaining({ event: 'worker_ready' }));
+      expect(client.ping).toHaveBeenCalled();
+    } finally { await worker.close(); }
+    // The production entry still fails on the same incomplete configuration.
+    await expect(startWorker(client, config, log)).rejects.toThrow('deploy_artifact_dir_required');
+    // Explicitly invalid development configuration must also fail.
+    vi.stubEnv('FORGEKIT_ARTIFACT_DIR', 'relative/path');
+    await expect(startWorker(client, config, log, undefined, { development: true })).rejects.toThrow('deploy_artifact_dir_required');
+  });
   it('selects Docker from startup config while keeping process creation deferred until a build', async () => {
     const client = { ping: vi.fn(async () => {}), db: {}, close: vi.fn() } as unknown as DatabaseClient;
     const log = vi.fn();

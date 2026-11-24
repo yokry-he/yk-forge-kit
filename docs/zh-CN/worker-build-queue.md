@@ -50,7 +50,9 @@ SIGINT/SIGTERM 时先暂停本 worker 的队列接收（不等待活跃任务）
 
 API 可以缺省 REDIS_URL 启动，触发时 503、不会创建构建。非空无效地址使启动失败；首次触发才连接 Redis，连接/命令有超时，失败响应不包含连接串。worker start 配置不完整或服务在 10 秒启动窗口内不可用时失败退出；worker dev 在未填 MySQL/Redis 地址时打印 `worker_disabled` 并等待源码变更，不阻碍其他应用开发。
 
-worker 输出 JSON `worker_ready`、`worker_heartbeat`（ok/unavailable）、`job_processed`、`job_failed`、`worker_error`、`queue_error`。心跳检查 MySQL、Redis 并补投递，记录并发数；无 HTTP health 端口。调度日志不包含原始构建输出、凭证或底层错误，构建结果应查询 MySQL/API；部署时按心跳缺失和 unavailable 告警。
+开发入口先读取 worker、API、仓库根目录的 `.env`（按此顺序，已有进程变量优先；可用 `DOTENV_CONFIG_PATH` 指定文件）。如果 API 已配置部署加密密钥但缺少 `FORGEKIT_ARTIFACT_DIR`，仅开发入口跳过部署消费者并输出 `deploy_worker_disabled`，构建等其他消费者继续启动；配置绝对路径制品目录并重启后才能消费部署任务。显式配置的无效目录仍导致启动失败。生产入口不读取这些开发文件，也不会跳过部署配置校验，仍须显式注入所需变量。
+
+worker 输出 JSON `worker_ready`、`worker_heartbeat`（ok/unavailable）、`job_processed`、`job_failed`、`worker_error`、`queue_error`。心跳检查 MySQL、Redis 并补投递，记录并发数；无 HTTP health 端口。启动、关闭、队列错误及补偿失败的诊断包含脱敏后的异常消息、堆栈和 cause，屏蔽 URL 用户信息、配置密码、密钥和令牌；不输出原始构建内容或驱动配置对象。构建结果应查询 MySQL/API；部署时按心跳缺失和 unavailable 告警。
 
 ## API
 
