@@ -1,3 +1,4 @@
+import { readProjectConfig } from './project-config';
 import { AlipayConfigInputSchema, AlipayConfigSchema, AlipayJobInputSchema, AlipayJobSchema, AlipayLogEventSchema, BuildStreamTicketSchema,
   type AlipayConfigInput, type AlipayJobInput } from '@forgekit/contracts';
 import { getAccessToken } from '../auth/session';
@@ -5,7 +6,7 @@ import { projectRequest, ProjectApiError } from './projects';
 const path = (id: string) => '/' + encodeURIComponent(id) + '/alipay';
 const job = (id: string, jobId: string) => path(id) + '/jobs/' + encodeURIComponent(jobId);
 const json = (method: string, input: unknown) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
-export const getAlipayConfig = (id: string) => projectRequest<unknown>(path(id) + '/config').then(data => AlipayConfigSchema.nullable().parse(data));
+export const getAlipayConfig = (id: string) => readProjectConfig(path(id) + '/config', data => AlipayConfigSchema.parse(data));
 export const saveAlipayConfig = (id: string, input: AlipayConfigInput) => projectRequest<unknown>(path(id) + '/config', json('PUT', AlipayConfigInputSchema.parse(input))).then(data => AlipayConfigSchema.parse(data));
 export const removeAlipayConfig = (id: string) => projectRequest<void>(path(id) + '/config', { method: 'DELETE' });
 export const listAlipayJobs = (id: string) => projectRequest<unknown>(path(id) + '/jobs').then(data => AlipayJobSchema.array().parse(data));

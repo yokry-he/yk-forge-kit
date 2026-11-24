@@ -57,4 +57,20 @@ describe('B17 console', () => {
     await wrapper.findAll('button').find(node => node.text() === '刷新')!.trigger('click'); await flushPromises();
     expect(wrapper.find('img').exists()).toBe(false); expect(wrapper.text()).not.toContain('operator egress IPs');
   });
+  it('shows setup guidance without errors for a missing configuration', async () => {
+    vi.mocked(getWeappConfig).mockResolvedValue(null);
+    const wrapper = await render();
+    expect(wrapper.text()).toContain('尚未配置微信');
+    expect(wrapper.text()).toContain('请先');
+    expect(wrapper.text()).not.toContain('操作失败');
+    expect(wrapper.find('[role="alert"]').exists()).toBe(false);
+  });
+  it.each([new ProjectApiError('denied', 403), new ProjectApiError('unavailable', 500), new ProjectApiError('offline', 0), new Error('malformed data')])('keeps real read failures visible', async reason => {
+    vi.mocked(getWeappConfig).mockRejectedValueOnce(reason);
+    const wrapper = await render();
+    expect(wrapper.text()).toContain('操作失败');
+    expect(wrapper.find('[role="alert"]').exists()).toBe(true);
+    expect(wrapper.text()).not.toContain('尚未配置微信');
+  });
+
 });

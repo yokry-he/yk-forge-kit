@@ -36,8 +36,9 @@ function failure(reason: unknown) {
 }
 async function refresh() {
   const pid = project.value?.id, gen = ++generation;
-  form.privateKey = ''; error.value = '';
-  if (!pid || !accessVerified.value || project.value?.template !== 'uniapp') { clear(); return; }
+  form.privateKey = '';
+  if (!pid || !accessVerified.value || project.value?.template !== 'uniapp') { fetching.value = false; clear(); return; }
+  error.value = '';
   fetching.value = true;
   try {
     const [nextConfig, nextBuilds, nextJobs] = await Promise.all([getWeappConfig(pid), listBuilds(pid, { limit: 100 }), listWeappJobs(pid)]);
@@ -108,7 +109,7 @@ onBeforeUnmount(() => { ++generation; clear(); });
         <h2>项目配置</h2>
         <p>私钥仅写入，保存后不能读取或导出。密钥不要提交到 Git。</p>
         <p v-if="config">已保存 AppID：{{ config.appId }} · 私钥{{ config.hasPrivateKey ? '已配置（仅可替换）' : '未配置' }} · {{ new Date(config.updatedAt).toLocaleString('zh-CN') }}</p>
-        <p v-else>尚未配置微信 AppID 与上传私钥。</p>
+        <p v-else-if="!fetching && !error" class="state-card compact-state" role="status">尚未配置微信 AppID 与上传私钥。请先在下方填写并保存配置，再创建微信构建和上传任务。</p>
         <p>请向部署人员确认上传出口 IP，并在微信公众平台设置 IP 白名单。备注仅供人工记录，不会修改微信后台。</p>
         <p v-if="config?.ipWhitelistNote">白名单备注：{{ config.ipWhitelistNote }}</p>
         <ElForm v-if="canRun" label-position="top" @submit.prevent="save">

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TemplateIdentity from '../components/TemplateIdentity.vue';
 import { onMounted, ref } from 'vue';
 import { RouterLink } from 'vue-router';
 import type { ProjectRecord } from '@forgekit/contracts';
@@ -32,7 +33,7 @@ onMounted(refresh);
     <section v-else-if="!projects.length" class="state-card"><strong>这里还没有项目</strong><p>从创建向导选择模板和能力，保存第一条项目记录。</p><RouterLink class="primary-link" to="/projects/new">创建第一个项目</RouterLink></section>
     <div v-else class="project-grid">
       <RouterLink v-for="project in projects" :key="project.id" class="project-card" :to="`/projects/${encodeURIComponent(project.slug)}`">
-        <div class="project-card-top"><span class="project-mark">V</span><span class="asset-tag verified">Vue Web</span></div>
+        <div class="project-card-top"><TemplateIdentity :template="project.template" short /></div>
         <strong>{{ project.name }}</strong>
         <p>{{ project.features.length ? project.features.join(' · ') : '未启用可选能力' }}</p>
         <small>创建于 {{ new Date(project.createdAt).toLocaleString('zh-CN') }}</small>

@@ -1,7 +1,10 @@
 <script setup lang="ts">
+import TemplateIdentity from '../components/TemplateIdentity.vue';
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { BeginnerNameSchema, DEFAULT_AI_CONFIG, beginnerDefaults, beginnerPlatforms, type BeginnerPlatform, type BeginnerResult, type BeginnerTemplate } from '@forgekit/contracts';
+import { ElForm, ElFormItem, ElInput } from 'element-plus';
+import { getTemplateVisual } from '../utils/template-visuals';
 import { getProjectTemplate, listProjectTemplates } from '@forgekit/project-core';
 import { saveProject } from '../api/projects';
 import { classifyNeed, getBeginnerConfig, saveBeginnerConfig, deleteBeginnerConfig } from '../api/beginner';
@@ -93,8 +96,9 @@ async function updateConfig(remove = false) {
       <p>推荐来源：{{ result?.source === 'ai' ? 'AI' : '关键词' }}（{{ result?.source }}）</p>
       <p v-if="uncertain" class="warning" role="status">把握不大，请确认</p>
       <ul v-if="result?.warnings?.length"><li v-for="warning in result.warnings" :key="warning">{{ warning }}</li></ul>
+      <TemplateIdentity :template="templateId" />
       <label for="beginner-template">项目模板</label>
-      <select id="beginner-template" v-model="templateId" @change="changeTemplate"><option v-for="t in templates" :key="t.id" :value="t.id">{{ t.name }}（{{ t.id }}）</option></select>
+      <select id="beginner-template" v-model="templateId" @change="changeTemplate"><option v-for="t in templates" :key="t.id" :value="t.id" :style="{ color: getTemplateVisual(t.id).color }">{{ getTemplateVisual(t.id).label }}（{{ t.id }}） {{ getTemplateVisual(t.id).icon }}</option></select>
       <label for="beginner-name">项目名称</label>
       <input id="beginner-name" v-model="name" maxlength="60" autocomplete="off" spellcheck="false" aria-describedby="beginner-name-help" />
       <small id="beginner-name-help">小写字母开头，可包含数字和中划线，最多 60 位。</small>
@@ -106,23 +110,25 @@ async function updateConfig(remove = false) {
     </section>
     <section v-else class="panel" aria-labelledby="create-heading">
       <h2 id="create-heading">创建项目</h2>
-      <div class="summary"><div><span>名称</span><strong>{{ name }}</strong></div><div><span>模板</span><strong>{{ getProjectTemplate(templateId)?.name ?? templateId }}</strong></div><div><span>目标平台</span><strong>{{ platforms.join('、') }}</strong></div></div>
+      <div class="summary"><div><span>名称</span><strong>{{ name }}</strong></div><div><span>模板</span><strong><TemplateIdentity :template="templateId" /></strong></div><div><span>目标平台</span><strong>{{ platforms.join('、') }}</strong></div></div>
       <p>保存项目配置，成功后打开项目详情。源码生成由现有本地 CLI 完成。</p>
       <div class="actions"><button type="button" class="back" :disabled="busy" @click="step = 2">上一步</button><button type="button" :disabled="busy || !valid" @click="create">{{ busy ? '正在创建…' : '创建项目配置' }}</button></div>
     </section>
     <p v-if="error" class="form-error" role="alert">{{ error }}</p>
     <details class="panel ai-config"><summary>AI 配置（可选，自备 API Key）</summary>
       <p role="status">{{ configured ? '已配置（仅可替换）' : '未配置，使用关键词推荐' }}</p>
-      <form v-if="configReady" @submit.prevent="updateConfig()">
-        <fieldset :disabled="configBusy"><legend>OpenAI 兼容服务</legend>
-          <label for="ai-provider">提供商</label><input id="ai-provider" v-model="provider" required maxlength="64" />
-          <label for="ai-url">Base URL</label><input id="ai-url" v-model="baseUrl" type="url" required maxlength="512" />
-          <label for="ai-model">模型</label><input id="ai-model" v-model="model" required maxlength="128" />
-          <label for="ai-key">API Key（只写）</label><input id="ai-key" v-model="apiKey" type="password" autocomplete="new-password" maxlength="4096" :required="!configured" :placeholder="configured ? '目标未变时可留空' : '输入你的 API Key'" aria-describedby="ai-key-help" />
+      <ElForm v-if="configReady" label-position="top" :disabled="configBusy" @submit.prevent="updateConfig()">
+        <fieldset><legend>OpenAI 兼容服务</legend>
+          <div class="ai-config-grid">
+            <ElFormItem label="提供商" for="ai-provider"><ElInput id="ai-provider" v-model="provider" required maxlength="64" /></ElFormItem>
+            <ElFormItem label="Base URL" for="ai-url"><ElInput id="ai-url" v-model="baseUrl" type="url" required maxlength="512" /></ElFormItem>
+            <ElFormItem label="模型" for="ai-model"><ElInput id="ai-model" v-model="model" required maxlength="128" /></ElFormItem>
+            <ElFormItem label="API Key（只写）" for="ai-key"><ElInput id="ai-key" v-model="apiKey" type="password" autocomplete="new-password" maxlength="4096" :required="!configured" :placeholder="configured ? '目标未变时可留空' : '输入你的 API Key'" aria-describedby="ai-key-help" /></ElFormItem>
+          </div>
           <small id="ai-key-help">保存后无法读回。更换服务地址、提供商或模型时须填写新密钥。启用后，需求会发送给你配置的公网服务，建议使用 HTTPS。</small>
           <div class="actions"><button type="submit" :disabled="configBusy">保存 AI 配置</button><button v-if="configured" type="button" class="back" :disabled="configBusy" @click="updateConfig(true)">删除 AI 配置</button></div>
         </fieldset>
-      </form>
+      </ElForm>
       <p v-if="configError" role="alert">{{ configError }} <button v-if="!configReady" type="button" class="subtle-button" @click="loadConfig">重试</button></p>
       <p v-if="configStatus" role="status">{{ configStatus }}</p>
     </details>
@@ -135,6 +141,9 @@ async function updateConfig(remove = false) {
 .beginner-mode fieldset { min-width: 0; margin-top: 20px; border: 1px solid var(--el-border-color, #44444d); border-radius: 9px; padding: 14px; }
 .beginner-mode .choice { display: flex; gap: 12px; align-items: center; }
 .beginner-mode .choice input { width: auto; }
-.beginner-mode .ai-config { display: block; }
+.beginner-mode .ai-config { display: block; margin-top: 24px; min-height: 0; }
+.ai-config-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
+.ai-config-grid .el-form-item { min-width: 0; }
+@media (max-width: 800px) { .ai-config-grid { grid-template-columns: minmax(0, 1fr); } }
 .beginner-mode .ai-config summary { cursor: pointer; }
 </style>
