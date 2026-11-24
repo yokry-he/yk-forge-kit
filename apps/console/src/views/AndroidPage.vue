@@ -35,8 +35,9 @@ function failure(reason: unknown) {
 }
 async function refresh() {
   const pid = project.value?.id, gen = ++generation;
-  clearSigning(); error.value = '';
-  if (!pid || !accessVerified.value || project.value?.template !== 'uniapp') { clear(); return; }
+  clearSigning();
+  if (!pid || !accessVerified.value || project.value?.template !== 'uniapp') { fetching.value = false; clear(); return; }
+  error.value = '';
   fetching.value = true;
   try {
     const [nextConfig, nextJobs] = await Promise.all([getAndroidConfig(pid), listAndroidJobs(pid)]);
@@ -106,7 +107,7 @@ onBeforeUnmount(() => { ++generation; clear(); });
 </script>
 
 <template>
-  <main class="page android-page">
+  <main class="content android-page">
     <RouterLink :to="`/projects/${slug}`">返回项目</RouterLink>
     <h1>Android 打包</h1>
     <p v-if="loading" role="status">正在验证项目权限…</p>
@@ -118,6 +119,7 @@ onBeforeUnmount(() => { ++generation; clear(); });
         <ElButton :loading="fetching" @click="refresh">刷新</ElButton>
         <section aria-labelledby="android-config-title">
           <h2 id="android-config-title">应用与签名配置</h2>
+          <p v-if="!config && !fetching && !error" class="state-card compact-state" role="status">尚未配置 Android 打包。请先填写包名、DCloud AppID / AppKey 并保存；正式发布还需上传签名。</p>
           <p role="status">发布签名：{{ config?.hasSigning ? '已配置（仅可替换）' : '未配置' }}。Debug 使用镜像生成的调试密钥，需登记对应证书指纹；不能用于正式发布。</p>
           <ElForm label-position="top" @submit.prevent="save">
             <ElFormItem label="Android 包名"><ElInput v-model="form.packageName" aria-label="Android 包名" placeholder="com.example.app" :disabled="!canRun || active" /></ElFormItem>
@@ -160,9 +162,10 @@ onBeforeUnmount(() => { ++generation; clear(); });
 </template>
 
 <style scoped>
-.android-page { max-width: 960px; }
+.android-page { min-width: 0; }
+.el-form { max-width: 42rem; }
 section { margin-top: 24px; }
-fieldset { padding: 16px; margin-bottom: 16px; border: 1px solid var(--color-border); }
+fieldset { padding: 16px; margin-bottom: 16px; border: 1px solid var(--el-border-color); }
 .checksum { overflow-wrap: anywhere; }
 li { margin-block: 8px; }
 </style>

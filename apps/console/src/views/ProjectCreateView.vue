@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import TemplateIdentity from '../components/TemplateIdentity.vue';
 import { computed, ref, watch } from 'vue';
 import { createProjectPlan, listProjectTemplates, type ProjectFeature, type ProjectTemplateId } from '@forgekit/project-core';
 import { RouterLink } from 'vue-router';
@@ -65,10 +66,10 @@ async function copy(): Promise<void> {
           <label>项目模板</label>
           <div class="template-list" role="radiogroup" aria-label="项目模板">
             <button v-for="item in templates" :key="item.id" type="button" class="template" role="radio" :aria-checked="item.id === templateId" :class="{ selected: item.id === templateId }" @click="selectTemplate(item.id)">
-              <div class="vue-mark">V</div><div><strong>{{ item.name }}</strong><small>{{ item.stack.join(' · ') }}</small><small>{{ item.description }}</small></div><span v-if="item.id === templateId">✓ 已选择</span>
+              <div><TemplateIdentity :template="item.id" /><small>{{ item.stack.join(' · ') }}</small><small>{{ item.description }}</small></div><span v-if="item.id === templateId">✓ 已选择</span>
             </button>
           </div>
-          <div class="coming">计划支持：内容站 / 官网（Nuxt）、小程序与移动 App（uni-app）、桌面应用（Tauri 2）。</div>
+          <div class="coming">根据目标选择模板；构建、签名和发布需在创建后单独配置。</div>
         </section>
 
         <section v-else-if="step === 2" class="panel">
@@ -86,7 +87,7 @@ async function copy(): Promise<void> {
           <h2>确认项目配置</h2><p>可先将配置保存至 MySQL。保存记录不会自动生成本机源码。</p>
           <div class="summary">
             <div><span>名称</span><strong>{{ name }}</strong></div>
-            <div><span>模板</span><strong>{{ template.name }}</strong></div>
+            <div><span>模板</span><strong><TemplateIdentity :template="template.id" /></strong></div>
             <div><span>能力</span><strong>{{ features.join('、') || '无' }}</strong></div>
             <div><span>文件数</span><strong>{{ plan?.files.length }}</strong></div>
           </div>

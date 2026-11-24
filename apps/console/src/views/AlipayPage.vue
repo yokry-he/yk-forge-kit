@@ -36,8 +36,9 @@ function failure(reason: unknown) {
 }
 async function refresh() {
   const pid = project.value?.id, gen = ++generation;
-  form.privateKey = ''; error.value = '';
-  if (!pid || !accessVerified.value || project.value?.template !== 'uniapp') { clear(); return; }
+  form.privateKey = '';
+  if (!pid || !accessVerified.value || project.value?.template !== 'uniapp') { fetching.value = false; clear(); return; }
+  error.value = '';
   fetching.value = true;
   try {
     const [nextConfig, nextBuilds, nextJobs] = await Promise.all([getAlipayConfig(pid), listBuilds(pid, { limit: 100 }), listAlipayJobs(pid)]);
@@ -109,7 +110,7 @@ onBeforeUnmount(() => { ++generation; clear(); });
         <h2>项目配置</h2>
         <p>私钥仅写入，保存后不能读取或导出。密钥不要提交到 Git。</p>
         <p v-if="config">已保存 AppID：{{ config.appId }} · 私钥{{ config.hasPrivateKey ? '已配置（仅可替换）' : '未配置' }} · {{ new Date(config.updatedAt).toLocaleString('zh-CN') }}</p>
-        <p v-else>尚未配置支付宝 AppID、toolId 与工具私钥。</p>
+        <p v-else-if="!fetching && !error" class="state-card compact-state" role="status">尚未配置支付宝 AppID、toolId 与工具私钥。请先在下方填写并保存配置，再创建支付宝构建和上传任务。</p>
         <p v-if="config">工具 ID：{{ config.toolId }}</p>
         <p>在支付宝开放平台「工具密钥」管理中配置公钥；私钥只保存在此处。账号需要对应小程序的开发权限。</p>
         <ElForm v-if="canRun" label-position="top" @submit.prevent="save">

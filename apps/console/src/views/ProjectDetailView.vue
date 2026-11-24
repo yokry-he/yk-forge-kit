@@ -1,7 +1,11 @@
 <script setup lang="ts">
+import TemplateIdentity from '../components/TemplateIdentity.vue';
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue';
 import { RouterLink, useRoute } from 'vue-router';
 import { parseAssetVerificationReceipt, type AssetVerificationReceipt, type ProjectAssetRecord, type ProjectMembersResponse, type ProjectRecord } from '@forgekit/contracts';
+import { getProjectTemplate } from '@forgekit/project-core';
+import { projectFeatureLinks } from '../utils/project-features';
+import { getTemplateVisual } from '../utils/template-visuals';
 import { getAssetVersionStatus, listAssets } from '@forgekit/asset-core';
 import { getProject } from '../api/projects';
 import { listProjectAssets, planProjectAsset, upgradeProjectAssetPlan } from '../api/project-assets';
@@ -42,7 +46,11 @@ const issuedInvite = ref<IssuedInvitation | null>(null);
 const invitations = ref<InvitationSummary[]>([]);
 const inviteError = ref('');
 const revokingInvite = ref('');
-const catalog = listAssets().filter((asset) => asset.target.includes('vue-web'));
+const catalog = computed(() => {
+  const target = project.value && getProjectTemplate(project.value.template)?.assetTarget;
+  return target ? listAssets().filter(asset => asset.target.includes(target)) : [];
+});
+const featureLinks = computed(() => project.value ? projectFeatureLinks(project.value) : []);
 const pendingAssets = computed(() => assets.value.filter((item) => item.status === 'planned'));
 
 function quoteShell(value: string): string {
@@ -274,17 +282,14 @@ watch(() => route.params.slug, refresh);
     <section v-else-if="error" class="state-card" role="alert"><strong>无法读取项目</strong><p>{{ error }}</p><button class="subtle-button" @click="refresh">重试</button></section>
     <section v-if="project && !accessVerified" class="state-card" :role="accessError ? 'alert' : 'status'">{{ accessError || '正在核对项目访问权限…' }} <button v-if="accessError && !accessChecking" class="subtle-button" @click="refreshAccess">重试验证</button></section>
     <section v-else-if="project" class="panel project-detail-panel">
-      <div class="project-card-top"><span class="project-mark">V</span><span class="asset-tag verified">已保存元数据</span></div>
+      <div class="project-card-top"><TemplateIdentity :template="project.template" /><span class="asset-tag verified">已保存元数据</span></div>
       <h2>{{ project.name }}</h2>
-      <RouterLink v-if="accessVerified" class="inline-link" :to="{ name: 'project-deployments', params: { slug: project.slug } }">部署目标与历史</RouterLink>
-      <RouterLink v-if="accessVerified && project.template === 'uniapp'" class="inline-link" :to="`/projects/${project.slug}/android`">Android 打包</RouterLink>
-      <RouterLink v-if="accessVerified && project.template === 'uniapp'" class="inline-link" :to="`/projects/${project.slug}/weapp`">微信上传与预览</RouterLink>
-      <RouterLink v-if="accessVerified && project.template === 'uniapp'" class="inline-link" :to="`/projects/${project.slug}/alipay`">支付宝上传与预览</RouterLink>
-      <RouterLink v-if="accessVerified" class="inline-link" :to="`/projects/${project.slug}/variables`">环境变量</RouterLink>
-      <RouterLink v-if="accessVerified" class="inline-link" :to="{ name: 'project-builds', params: { slug: project.slug } }">查看构建</RouterLink>
+      <nav v-if="accessVerified" class="project-feature-nav" aria-label="项目功能">
+        <RouterLink v-for="link in featureLinks" :key="link.route" :to="{ name: link.route, params: { slug: project.slug } }">{{ link.label }}</RouterLink>
+      </nav>
       <div class="summary">
         <div><span>项目 ID</span><strong>{{ project.id }}</strong></div>
-        <div><span>模板</span><strong>{{ project.template }}</strong></div>
+        <div><span>模板</span><strong>{{ getTemplateVisual(project.template).label }}</strong></div>
         <div v-if="project.platforms?.length"><span>目标平台</span><strong>{{ project.platforms.join('、') }}</strong></div>
         <div><span>可选能力</span><strong>{{ project.features.join('、') || '无' }}</strong></div>
         <div><span>创建时间</span><strong>{{ new Date(project.createdAt).toLocaleString('zh-CN') }}</strong></div>
@@ -307,6 +312,7 @@ watch(() => route.params.slug, refresh);
         <div v-for="item in assets" :key="item.id"><strong>{{ item.assetId }}</strong><small>登记版本 v{{ item.version }}</small><span class="asset-tag" :class="{ verified: getAssetVersionStatus(item.assetId, item.version) === 'current' }">{{ getAssetVersionStatus(item.assetId, item.version) === 'current' ? '当前 Registry 版本' : getAssetVersionStatus(item.assetId, item.version) === 'upgrade-available' ? '有可升级版本' : '版本不受支持' }}</span><span class="asset-tag">{{ item.status === 'planned' ? '仅登记计划' : '历史安装标记' }}</span></div>
       </div>
       <h3>可选公共资产</h3>
+      <p v-if="!catalog.length" class="state-card compact-state" role="status">暂无适配该模板的推荐资源。</p>
       <div v-for="item in catalog" :key="item.id" class="asset-option-row">
         <div><strong>{{ item.name }}</strong><small>{{ item.description }} · v{{ item.version }}</small></div>
         <button class="subtle-button" :disabled="!!planning || assetsLoading || assets.some((asset) => asset.assetId === item.id)" @click="planAsset(item.id)">{{ planning === item.id ? '正在登记…' : assets.some((asset) => asset.assetId === item.id) ? '已登记' : '登记安装计划' }}</button>

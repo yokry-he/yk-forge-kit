@@ -1,3 +1,4 @@
+import { readProjectConfig } from './project-config';
 import { WeappConfigInputSchema, WeappConfigSchema, WeappJobInputSchema, WeappJobSchema, WeappLogEventSchema, BuildStreamTicketSchema,
   type WeappConfigInput, type WeappJobInput } from '@forgekit/contracts';
 import { getAccessToken } from '../auth/session';
@@ -5,7 +6,7 @@ import { projectRequest, ProjectApiError } from './projects';
 const path = (id: string) => '/' + encodeURIComponent(id) + '/weapp';
 const job = (id: string, jobId: string) => path(id) + '/jobs/' + encodeURIComponent(jobId);
 const json = (method: string, input: unknown) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
-export const getWeappConfig = (id: string) => projectRequest<unknown>(path(id) + '/config').then(data => WeappConfigSchema.nullable().parse(data));
+export const getWeappConfig = (id: string) => readProjectConfig(path(id) + '/config', data => WeappConfigSchema.parse(data));
 export const saveWeappConfig = (id: string, input: WeappConfigInput) => projectRequest<unknown>(path(id) + '/config', json('PUT', WeappConfigInputSchema.parse(input))).then(data => WeappConfigSchema.parse(data));
 export const removeWeappConfig = (id: string) => projectRequest<void>(path(id) + '/config', { method: 'DELETE' });
 export const listWeappJobs = (id: string) => projectRequest<unknown>(path(id) + '/jobs').then(data => WeappJobSchema.array().parse(data));

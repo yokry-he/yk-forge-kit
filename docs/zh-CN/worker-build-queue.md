@@ -86,7 +86,7 @@ corepack pnpm --filter @forgekit/worker start
 
 认证配置见 [本地 Keycloak](./keycloak-development.md)。取得已有项目 UUID 和有效 API access token 后，可用 `curl -X POST "http://127.0.0.1:3001/api/v1/projects/$PROJECT_ID/builds" -H "Authorization: Bearer $ACCESS_TOKEN" -H "Content-Type: application/json" -d '{"sourceRef":"snapshots/noop-dev"}'` 触发，再按上表轮询状态和日志。
 
-日常使用现有本地 MySQL 和 Redis 时，按 `.env.example` 导出环境变量后运行根 `corepack pnpm dev`（包含 API、console、worker）；单独 `corepack pnpm --filter @forgekit/worker dev` 运行 worker。生产 start 不使用 dev 的缺省跳过机制。`compose.test.yml` 的 Redis 7 仅绑定 36379 回环端口、无持久卷，供测试/本地临时开发；不可作为生产持久化配置。
+日常使用现有本地 MySQL 和 Redis 时，参照 `.env.example` 配置环境变量后运行根 `corepack pnpm dev`（包含 API、console、worker）；单独 `corepack pnpm --filter @forgekit/worker dev` 运行 worker。开发入口按顺序读取 `apps/worker/.env`、API 使用的 `apps/api/.env`、仓库根 `.env`；仅补充尚未设置的变量，进程环境优先。设置 `DOTENV_CONFIG_PATH` 时仅读取指定文件。`NODE_ENV=production` 不自动读取文件；生产 `start` 始终要求显式注入环境变量，也不使用 dev 的缺省跳过机制。`compose.test.yml` 的 Redis 7 仅绑定 36379 回环端口、无持久卷，供测试/本地临时开发；不可作为生产持久化配置。
 
 默认 `corepack pnpm test` 跑 fake repository/runner 状态机与 HTTP 权限/参数测试，跳过外部服务集成。显式真实集成入口：
 

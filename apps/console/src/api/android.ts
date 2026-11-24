@@ -1,3 +1,4 @@
+import { readProjectConfig } from './project-config';
 import { AndroidConfigInputSchema, AndroidConfigSchema, AndroidJobInputSchema, AndroidJobSchema, AndroidLogEventSchema, BuildStreamTicketSchema,
   type AndroidConfigInput, type AndroidJobInput } from '@forgekit/contracts';
 import { getAccessToken } from '../auth/session';
@@ -5,7 +6,7 @@ import { projectRequest, ProjectApiError } from './projects';
 const path = (id: string) => '/' + encodeURIComponent(id) + '/android';
 const job = (id: string, jobId: string) => path(id) + '/jobs/' + encodeURIComponent(jobId);
 const json = (method: string, input: unknown) => ({ method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) });
-export const getAndroidConfig = (id: string) => projectRequest<unknown>(path(id) + '/config').then(data => AndroidConfigSchema.nullable().parse(data));
+export const getAndroidConfig = (id: string) => readProjectConfig(path(id) + '/config', data => AndroidConfigSchema.parse(data));
 export const saveAndroidConfig = (id: string, input: AndroidConfigInput) => projectRequest<unknown>(path(id) + '/config', json('PUT', AndroidConfigInputSchema.parse(input))).then(data => AndroidConfigSchema.parse(data));
 export const removeAndroidConfig = (id: string) => projectRequest<void>(path(id) + '/config', { method: 'DELETE' });
 export const listAndroidJobs = (id: string) => projectRequest<unknown>(path(id) + '/jobs').then(data => AndroidJobSchema.array().parse(data));

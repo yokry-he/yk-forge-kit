@@ -136,7 +136,7 @@ onBeforeUnmount(() => { disposed = true; ++generation; clearTimeout(timer); clea
 </template>
 <style scoped>
 .domains-page { --el-color-primary: var(--brand, #8b5cf6); --el-bg-color: var(--panel, #18181b); --el-fill-color-blank: var(--panel, #18181b); --el-text-color-primary: var(--text, #e4e4e7); --el-text-color-regular: var(--text, #e4e4e7); --el-border-color: var(--line, #3f3f46); }
-.summary { margin-block: 1.5rem; }
+.summary { margin-block: 1.5rem; padding: 24px; background: var(--panel, #18181b); }
 .domain-row, .operation-row { border-top: 1px solid var(--line, #3f3f46); padding: 1rem 0; overflow-wrap: anywhere; }
 .el-form { max-width: 720px; margin-block: 1.5rem; }
 .actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 1rem; }

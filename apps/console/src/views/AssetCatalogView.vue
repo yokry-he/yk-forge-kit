@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import TemplateIdentity from '../components/TemplateIdentity.vue';
+import { getTemplateVisual } from '../utils/template-visuals';
 import { computed, ref } from 'vue';
 import { emptyAssetLock, listAssets, planAssetInstall } from '@forgekit/asset-core';
 
@@ -48,7 +50,7 @@ async function copy(text: string): Promise<void> {
       <label class="sr-only" for="asset-search">搜索资产</label>
       <input id="asset-search" v-model="query" type="search" placeholder="搜索名称、能力或资产 ID" />
       <label class="sr-only" for="asset-target">目标平台</label>
-      <select id="asset-target" v-model="target"><option value="all">全部平台</option><option value="vue-web">Vue Web</option></select>
+      <select id="asset-target" v-model="target"><option value="all">全部平台</option><option value="vue-web">{{ getTemplateVisual('vue-web').shortName }}</option></select>
     </div>
 
     <div class="asset-layout">
@@ -56,7 +58,7 @@ async function copy(text: string): Promise<void> {
         <div class="catalog-meta"><strong>官方资产</strong><span>{{ filtered.length }} 项可用</span></div>
         <button v-for="asset in filtered" :key="asset.id" class="asset-card" :class="{ picked: selected?.id === asset.id }" @click="selectedId = asset.id">
           <div class="asset-icon">◈</div>
-          <div class="asset-card-content"><div class="asset-title">{{ asset.name }} <small>v{{ asset.version }}</small></div><p>{{ asset.description }}</p><span class="asset-tag">Vue Web</span><span class="asset-tag verified">官方内置</span></div>
+          <div class="asset-card-content"><div class="asset-title">{{ asset.name }} <small>v{{ asset.version }}</small></div><p>{{ asset.description }}</p><TemplateIdentity v-for="template in asset.target" :key="template" :template="template" short /><span class="asset-tag verified">官方内置</span></div>
         </button>
         <div v-if="!filtered.length" class="asset-empty">没有找到匹配的资产。试试其他关键词或平台。</div>
         <div class="roadmap"><strong>计划中的业务资产</strong><p>用户中心 · 权限管理 · 数据大屏 · 文件管理</p><small>尚未开放，具体实现以之后的版本为准。</small></div>

@@ -1,4 +1,3 @@
-import 'dotenv/config';
 import { createDatabaseClient } from '@forgekit/db';
 import { resolveWorkerConfig } from './config';
 import { startWorker } from './worker';

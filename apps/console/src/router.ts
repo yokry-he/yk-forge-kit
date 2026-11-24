@@ -18,6 +18,7 @@ export const router = createRouter({
     { path: '/projects/new/beginner', component: () => import('./views/BeginnerModeView.vue') },
     { path: '/projects/new', component: ProjectCreateView },
     { path: '/projects/:slug', name: 'project-detail', component: ProjectDetailView },
+    { path: '/projects/:slug/desktop', name: 'project-desktop', component: () => import('./views/DesktopPage.vue') },
     { path: '/projects/:slug/android/:jobId?', name: 'project-android', component: () => import('./views/AndroidPage.vue') },
     { path: '/projects/:slug/alipay/:jobId?', name: 'project-alipay', component: () => import('./views/AlipayPage.vue') },
     { path: '/projects/:slug/weapp/:jobId?', name: 'project-weapp', component: () => import('./views/WeappPage.vue') },

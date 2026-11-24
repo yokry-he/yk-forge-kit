@@ -49,6 +49,8 @@ describe('新手模式向导', () => {
     expect(wrapper.text()).toContain('请确认推荐');
     await wrapper.get('#beginner-template').setValue('tauri-desktop');
     expect(wrapper.findAll('input[type="checkbox"]').map(c => c.attributes('value'))).toEqual(['tauri-desktop']);
+    expect(wrapper.get('[data-template="tauri-desktop"]').text()).toContain('Tauri 桌面应用');
+    expect(wrapper.get('.template-mark').text()).toBe('◈');
     await wrapper.get('#beginner-name').setValue('../unsafe');
     expect(wrapper.findAll('button').find(b => b.text() === '继续 →')!.attributes('disabled')).toBeDefined();
     await wrapper.get('#beginner-name').setValue('safe'); await wrapper.get('input[type="checkbox"]').setValue(false);
