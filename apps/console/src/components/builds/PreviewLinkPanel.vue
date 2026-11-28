@@ -75,47 +75,54 @@ onBeforeUnmount(() => { ++generation; clearInterval(timer); dismissCreatedUrl();
 </script>
 
 <template>
-  <section class="state-card preview-link-panel" aria-label="预览链接">
-    <h2>预览链接</h2>
+  <section class="build-detail-card preview-link-panel" aria-label="预览链接">
+    <header class="build-panel-header">
+      <h2>预览链接</h2>
+      <button class="subtle-button" type="button" :disabled="isLoading || isCreating || !!revokingId" @click="refreshList">刷新链接</button>
+    </header>
     <p>链接持有者可访问构建内容，请谨慎分享。</p>
     <p v-if="errorMessage" role="alert">{{ errorMessage }}</p>
     <div v-if="justCreatedUrl" role="status" class="created-url-block">
       <p>此链接仅显示一次，请立即复制保存。</p>
       <label for="created-url">完整预览链接</label>
-      <input id="created-url" :value="justCreatedUrl" readonly type="url" />
-      <button class="subtle-button" type="button" @click="copyCreatedUrl">复制链接</button>
-      <button class="subtle-button" type="button" @click="dismissCreatedUrl">关闭提示</button>
+      <input id="created-url" class="build-panel-input" :value="justCreatedUrl" readonly type="url" />
+      <div class="created-url-actions">
+        <button class="subtle-button" type="button" @click="copyCreatedUrl">复制链接</button>
+        <button class="subtle-button" type="button" @click="dismissCreatedUrl">关闭提示</button>
+      </div>
       <p aria-live="polite">{{ copyMessage }}</p>
     </div>
-    <div v-if="canManage" class="create-preview-link">
-      <label for="ttl-select">有效期</label>
-      <select id="ttl-select" v-model.number="selectedTtlSeconds">
-        <option :value="300">5 分钟</option><option :value="3600">1 小时</option>
-        <option :value="21600">6 小时</option><option :value="86400">24 小时（默认）</option><option :value="604800">7 天</option>
-      </select>
+    <div v-if="canManage" class="create-preview-link build-panel-controls">
+      <div class="build-panel-field">
+        <label for="ttl-select">有效期</label>
+        <select id="ttl-select" v-model.number="selectedTtlSeconds" class="build-panel-input">
+          <option :value="300">5 分钟</option><option :value="3600">1 小时</option>
+          <option :value="21600">6 小时</option><option :value="86400">24 小时（默认）</option><option :value="604800">7 天</option>
+        </select>
+      </div>
       <button class="subtle-button" type="button" :disabled="isCreating || isLoading || !!revokingId" @click="handleCreate">{{ isCreating ? '创建中…' : '创建链接' }}</button>
     </div>
     <p v-if="isLoading" role="status">加载中…</p>
     <p v-else-if="!activeLinks.length">暂无有效预览链接。</p>
-    <table v-else>
-      <thead><tr><th scope="col">链接 ID</th><th scope="col">过期时间</th><th scope="col">最近访问</th><th v-if="canManage" scope="col">操作</th></tr></thead>
-      <tbody><tr v-for="link in activeLinks" :key="link.id">
-        <td>{{ link.id }}</td><td>{{ new Date(link.expiresAt).toLocaleString('zh-CN') }}</td>
-        <td>{{ link.lastAccessedAt ? new Date(link.lastAccessedAt).toLocaleString('zh-CN') : '从未访问' }}</td>
-        <td v-if="canManage"><button class="subtle-button" type="button" :disabled="!!revokingId || isCreating || isLoading" @click="handleRevoke(link)">{{ revokingId === link.id ? '撤销中…' : '撤销' }}</button></td>
-      </tr></tbody>
-    </table>
-    <button class="subtle-button" type="button" :disabled="isLoading || isCreating || !!revokingId" @click="refreshList">刷新链接</button>
+    <div v-else class="preview-link-table" role="region" aria-label="有效预览链接" tabindex="0">
+      <table>
+        <thead><tr><th scope="col">链接 ID</th><th scope="col">过期时间</th><th scope="col">最近访问</th><th v-if="canManage" scope="col">操作</th></tr></thead>
+        <tbody><tr v-for="link in activeLinks" :key="link.id">
+          <td>{{ link.id }}</td><td>{{ new Date(link.expiresAt).toLocaleString('zh-CN') }}</td>
+          <td>{{ link.lastAccessedAt ? new Date(link.lastAccessedAt).toLocaleString('zh-CN') : '从未访问' }}</td>
+          <td v-if="canManage"><button class="subtle-button" type="button" :disabled="!!revokingId || isCreating || isLoading" @click="handleRevoke(link)">{{ revokingId === link.id ? '撤销中…' : '撤销' }}</button></td>
+        </tr></tbody>
+      </table>
+    </div>
   </section>
 </template>
 
 <style scoped>
-.preview-link-panel { padding: 1rem; overflow-x: auto; }
-.created-url-block { margin-bottom: 1rem; padding: 0.75rem; border: 1px solid var(--build-border, #3f3f46); border-radius: 6px; }
-input, select { background: var(--build-surface, #18181b); color: var(--build-text, #e4e4e7); border: 1px solid var(--build-border, #3f3f46); border-radius: 0.25rem; padding: 0.5rem; font: inherit; }
-input:focus-visible, select:focus-visible { outline: 2px solid var(--build-accent, #8b5cf6); outline-offset: 2px; }
+.created-url-block { margin: 1rem 0; padding: 1rem; border: 1px solid var(--build-border, #3f3f46); border-radius: 9px; }
+.created-url-actions { display: flex; flex-wrap: wrap; gap: 0.75rem; }
 .created-url-block input { width: 100%; margin-bottom: 0.5rem; }
-.create-preview-link { display: flex; flex-wrap: wrap; gap: 0.75rem; align-items: center; margin-bottom: 1rem; }
-table { width: 100%; border-collapse: collapse; }
+.preview-link-table { max-width: 100%; overflow-x: auto; margin-top: 1rem; font-size: .8125rem; }
+.preview-link-table:focus-visible { outline: 2px solid var(--build-log-cyan, #22d3ee); outline-offset: 3px; }
+table { width: 100%; min-width: 32rem; border-collapse: collapse; }
 th, td { padding: 0.5rem; text-align: left; overflow-wrap: anywhere; border-bottom: 1px solid var(--build-border, #3f3f46); }
 </style>

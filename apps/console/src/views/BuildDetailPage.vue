@@ -269,7 +269,10 @@ onUnmounted(() => {
         >
           ← 返回构建列表
         </RouterLink>
-        <button type="button" class="subtle-button" @click="loadBuild">刷新构建</button>
+        <div class="build-detail-toolbar-actions">
+          <button v-if="build && !showTriggerForm" type="button" class="subtle-button" @click="showTriggerForm = true">再次构建</button>
+          <button type="button" class="subtle-button" @click="loadBuild">刷新构建</button>
+        </div>
       </div>
 
       <div v-if="buildLoading" class="state-card" role="status">
@@ -281,7 +284,7 @@ onUnmounted(() => {
       </div>
 
       <template v-else-if="build">
-        <section class="build-summary summary">
+        <section class="build-summary build-detail-card">
           <h1>
             <BuildStatusBadge :status="build.status" />
             构建 #{{ build.number }}
@@ -324,52 +327,44 @@ onUnmounted(() => {
         </section>
 
         <p v-if="!oidcEnabled" role="status">本机模式仅支持查看构建</p>
-        <section class="build-actions">
+        <section v-if="showTriggerForm" class="build-actions">
+          <BuildTriggerForm
+            :project-id="project.id"
+            :can-run="canRun"
+            :initial-source-ref="build.sourceRef"
+            :initial-target="build.target"
+            @created="handleBuildCreated"
+            @unauthorized="handleUnauthorized"
+            @forbidden="refreshAccess"
+          />
           <button
-            v-if="!showTriggerForm"
             type="button"
             class="subtle-button"
-            @click="showTriggerForm = true"
+            @click="showTriggerForm = false"
           >
-            再次构建
+            取消再次构建
           </button>
-          <div v-else>
-            <BuildTriggerForm
-              :project-id="project.id"
-              :can-run="canRun"
-              :initial-source-ref="build.sourceRef"
-              :initial-target="build.target"
-              @created="handleBuildCreated"
-              @unauthorized="handleUnauthorized"
-              @forbidden="refreshAccess"
-            />
-            <button
-              type="button"
-              class="subtle-button"
-              @click="showTriggerForm = false"
-            >
-              取消再次构建
-            </button>
-          </div>
         </section>
 
-        <RouterLink v-if="build.target === 'mp-weixin' && build.status === 'succeeded'" :to="{ name: 'project-weapp', params: { slug: project.slug }, query: { buildId: build.id } }">微信上传与预览</RouterLink>
-        <RouterLink v-if="build.target === 'mp-alipay' && build.status === 'succeeded'" :to="{ name: 'project-alipay', params: { slug: project.slug }, query: { buildId: build.id } }">支付宝上传与预览</RouterLink>
-        <BuildDeployPanel v-if="build.target !== 'mp-weixin' && build.target !== 'mp-alipay' && build.status === 'succeeded' && oidcEnabled" :key="`deploy:${project.id}:${build.id}`"
-          :project-id="project.id" :slug="project.slug" :build-id="build.id" :can-manage="canRun"
-          @unauthorized="handleUnauthorized" @forbidden="handleForbidden" />
-        <PreviewLinkPanel v-if="build.target !== 'mp-weixin' && build.target !== 'mp-alipay' && build.status === 'succeeded' && oidcEnabled"
-          :key="`preview:${project.id}:${build.id}`" :project-id="project.id" :build-id="build.id" :can-manage="canRun"
-          @unauthorized="handleUnauthorized" @forbidden="refreshAccess" />
-        <BuildLogViewer
-          :key="`${project.id}:${build.id}`"
-          :project-id="project.id"
-          :build-id="build.id"
-          @status="handleBuildStatus"
-          @end="handleBuildEnd"
-          @unauthorized="handleUnauthorized"
-          @forbidden="handleForbidden"
-        />
+        <div class="build-detail-panels">
+          <RouterLink v-if="build.target === 'mp-weixin' && build.status === 'succeeded'" :to="{ name: 'project-weapp', params: { slug: project.slug }, query: { buildId: build.id } }">微信上传与预览</RouterLink>
+          <RouterLink v-if="build.target === 'mp-alipay' && build.status === 'succeeded'" :to="{ name: 'project-alipay', params: { slug: project.slug }, query: { buildId: build.id } }">支付宝上传与预览</RouterLink>
+          <BuildDeployPanel v-if="build.target !== 'mp-weixin' && build.target !== 'mp-alipay' && build.status === 'succeeded' && oidcEnabled" :key="`deploy:${project.id}:${build.id}`"
+            :project-id="project.id" :slug="project.slug" :build-id="build.id" :can-manage="canRun"
+            @unauthorized="handleUnauthorized" @forbidden="handleForbidden" />
+          <PreviewLinkPanel v-if="build.target !== 'mp-weixin' && build.target !== 'mp-alipay' && build.status === 'succeeded' && oidcEnabled"
+            :key="`preview:${project.id}:${build.id}`" :project-id="project.id" :build-id="build.id" :can-manage="canRun"
+            @unauthorized="handleUnauthorized" @forbidden="refreshAccess" />
+          <BuildLogViewer
+            :key="`${project.id}:${build.id}`"
+            :project-id="project.id"
+            :build-id="build.id"
+            @status="handleBuildStatus"
+            @end="handleBuildEnd"
+            @unauthorized="handleUnauthorized"
+            @forbidden="handleForbidden"
+          />
+        </div>
       </template>
       <div v-else class="state-card" role="alert">未找到构建记录。</div>
     </template>

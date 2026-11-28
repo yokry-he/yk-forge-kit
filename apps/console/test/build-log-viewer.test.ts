@@ -29,6 +29,15 @@ beforeEach(() => { vi.stubGlobal('EventSource', FakeEventSource); });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('BuildLogViewer with the real log stream composable', () => {
+  it('names the log card and groups status, labelled auto-scroll and refresh in its header', () => {
+    const wrapper = mount(BuildLogViewer, { props: { projectId: 'project-1', buildId: 'build-1' } });
+    expect(wrapper.get('header h2').text()).toBe('构建日志');
+    expect(wrapper.get('header [role="status"]').exists()).toBe(true);
+    expect(wrapper.get('header label').text()).toBe('自动滚动');
+    expect(wrapper.get('header label input').attributes('type')).toBe('checkbox');
+    expect(wrapper.get('header button').text()).toBe('刷新日志');
+    expect(wrapper.get('[aria-label="构建日志内容"]').attributes('tabindex')).toBe('0');
+  });
   it('removes split ANSI controls while rendering HTML as literal text', async () => {
     const wrapper = mount(BuildLogViewer, { props: { projectId: 'project-1', buildId: 'build-1' } });
     FakeEventSource.last.emitLog(1, 'stdout', '\x1b[3'); await nextTick();

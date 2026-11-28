@@ -17,6 +17,18 @@ beforeEach(() => {
 });
 afterEach(() => { vi.unstubAllGlobals(); });
 describe('PreviewLinkPanel', () => {
+  it('groups refresh in the card header and labels the TTL beside the create action', async () => {
+    const wrapper = mount(PreviewLinkPanel, { props }); await flushPromises();
+    expect(wrapper.get('header h2').text()).toBe('预览链接');
+    expect(wrapper.get('header button').text()).toBe('刷新链接');
+    const controls = wrapper.get('.build-panel-controls');
+    expect(controls.get('label').attributes('for')).toBe(controls.get('select').attributes('id'));
+    expect((controls.get('select').element as HTMLSelectElement).value).toBe('86400');
+    expect(controls.get('button').text()).toBe('创建链接');
+    expect(controls.get('button').classes()).toEqual(wrapper.get('header button').classes());
+    await wrapper.get('header button').trigger('click'); await flushPromises();
+    expect(listPreviewLinks).toHaveBeenCalledTimes(2);
+  });
   it('chooses TTL, shows URL once, copies, then discards it without storage', async () => {
     const writeText = vi.fn().mockResolvedValue(undefined); vi.stubGlobal('navigator', { clipboard: { writeText } });
     const storage = vi.spyOn(Storage.prototype, 'setItem');
