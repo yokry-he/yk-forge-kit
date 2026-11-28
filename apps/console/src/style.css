@@ -134,6 +134,53 @@ button.template small { display: block; }
 .build-list-page button:focus-visible, .build-detail-page button:focus-visible, .build-log-container:focus-visible { outline: 2px solid #22d3ee; outline-offset: 3px; }
 @media (max-width: 580px) { .build-list-page .section-toolbar, .build-detail-page .section-toolbar { flex-wrap: wrap; } .build-table { font-size: .75rem; } .build-meta { grid-template-columns: 5rem minmax(0, 1fr); } }
 
+/* Build detail panels share the summary card's geometry without summary row dividers. */
+.build-detail-card {
+  min-width: 0;
+  padding: 1.25rem;
+  border: 1px solid var(--build-card-border, #35353f);
+  border-radius: 10px;
+  background: var(--build-card-background, transparent);
+  color: var(--build-text, #e4e4e7);
+}
+.build-detail-panels { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1.25rem; margin-top: 1.25rem; }
+.build-panel-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.25rem; }
+.build-panel-header h2 { margin: 0; color: #fafafa; font-size: 1.25rem; font-weight: 600; line-height: 1.4; }
+.build-panel-header .inline-link { font-size: .8125rem; line-height: 1.6; }
+.build-detail-card p { margin: 1rem 0; color: var(--build-muted, #a1a1aa); font-size: .8125rem; line-height: 1.7; overflow-wrap: anywhere; }
+.build-detail-card > p:last-child { margin-bottom: 0; }
+.build-detail-card [role=alert] { color: #fda4af; }
+.build-panel-controls { display: flex; flex-wrap: wrap; align-items: flex-end; gap: .75rem; margin-top: 1rem; }
+.build-panel-field { display: grid; gap: .5rem; flex: 1; min-width: min(16rem, 100%); }
+.build-panel-field label, .created-url-block label { color: var(--build-text, #e4e4e7); font-size: .8125rem; }
+.build-detail-card .build-panel-input {
+  width: 100%; min-width: 0; min-height: 40px; padding: .625rem .875rem;
+  border: 1px solid var(--build-border, #3f3f46); border-radius: 9px;
+  background: #111116; color: var(--build-text, #e4e4e7); color-scheme: dark;
+  font: inherit; font-size: .8125rem; line-height: 1.5;
+}
+.build-detail-card .deploy-target-select { width: 100%; min-width: min(16rem, 100%); }
+.deploy-target-select .el-select__wrapper { min-height: 40px; padding: .625rem .875rem; border-radius: 9px; background: #111116; }
+.deploy-target-select .el-select__wrapper.is-focused { outline: 2px solid #22d3ee; outline-offset: 3px; }
+.build-detail-card .subtle-button, .build-detail-card .subtle-button.el-button {
+  flex-shrink: 0; min-height: 40px; height: auto; margin: 0; padding: 10px 14px;
+  border: 1px solid #45454e; border-radius: 9px; background: #24242a; color: var(--build-text, #e4e4e7);
+  font-size: 12px; line-height: 1.5; white-space: nowrap;
+}
+.build-detail-card .subtle-button:hover:not(:disabled) { background: #303039; border-color: #71717a; }
+.build-detail-card .subtle-button:disabled { opacity: .55; cursor: not-allowed; }
+.build-detail-card :is(button, input, select, a):focus-visible { outline: 2px solid #22d3ee; outline-offset: 3px; }
+.build-panel-empty { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-top: 1.25rem; padding: 1rem; border: 1px solid var(--build-border, #3f3f46); border-radius: 9px; background: var(--build-surface, #18181b); }
+.build-panel-empty p { flex: 1; min-width: min(16rem, 100%); margin: 0; }
+@media (max-width: 580px) {
+  .build-panel-header { align-items: flex-start; }
+  .build-panel-controls { flex-direction: column; align-items: stretch; }
+  .build-panel-field { flex: auto; width: 100%; min-width: 0; }
+  .build-panel-empty { flex-direction: column; align-items: flex-start; }
+  .build-panel-empty p { min-width: 0; }
+  .build-detail-page .build-detail-toolbar-actions { justify-content: flex-end; }
+}
+
 /* Shared control sizing also applies to teleported Element Plus dropdowns. */
 .content .el-form-item__content { min-width: 0; }
 .content .el-select { width: 100%; min-width: min(240px, 100%); }

@@ -95,23 +95,26 @@ function formatTime(ts: string): string {
 </script>
 
 <template>
-  <section class="build-log-viewer" aria-label="构建日志">
-    <div class="build-log-toolbar">
-      <span class="build-log-status" role="status">{{ stateText }}</span>
-      <span v-if="error" class="build-log-error" role="alert">{{ error }}</span>
-      <label class="build-log-autoscroll">
-        <input v-model="autoScroll" type="checkbox" />
-        自动滚动
-      </label>
-      <button
-        type="button"
-        class="build-log-reconnect"
-        :disabled="state === 'connecting' || state === 'reconnecting'"
-        @click="reconnect"
-      >
-        {{ reconnectLabel }}
-      </button>
-    </div>
+  <section class="build-detail-card build-log-viewer" aria-label="构建日志">
+    <header class="build-panel-header">
+      <h2>构建日志</h2>
+      <div class="build-log-toolbar">
+        <span class="build-log-status" role="status">{{ stateText }}</span>
+        <label class="build-log-autoscroll">
+          <input v-model="autoScroll" type="checkbox" />
+          自动滚动
+        </label>
+        <button
+          type="button"
+          class="subtle-button build-log-reconnect"
+          :disabled="state === 'connecting' || state === 'reconnecting'"
+          @click="reconnect"
+        >
+          {{ reconnectLabel }}
+        </button>
+      </div>
+    </header>
+    <p v-if="error" class="build-log-error" role="alert">{{ error }}</p>
 
     <div v-if="truncated" class="build-log-truncated" role="status">仅显示最近日志</div>
 
@@ -136,13 +139,11 @@ function formatTime(ts: string): string {
 <style scoped>
 .build-log-viewer {
   --build-log-bg: #09090b;
-  --build-log-panel: #18181b;
   --build-log-accent: #8b5cf6;
   --build-log-cyan: #22d3ee;
   --build-log-stdout: #d4d4d8;
   --build-log-stderr: #f87171;
   --build-log-system: #22d3ee;
-  margin-top: 1.5rem;
   font-family: inherit;
 }
 
@@ -151,7 +152,7 @@ function formatTime(ts: string): string {
   align-items: center;
   flex-wrap: wrap;
   gap: 0.75rem;
-  margin-bottom: 0.75rem;
+  font-size: 0.8125rem;
 }
 
 .build-log-status {
@@ -159,30 +160,17 @@ function formatTime(ts: string): string {
   color: var(--build-log-cyan);
 }
 
-.build-log-error {
+.build-log-viewer .build-log-error {
   color: var(--build-log-stderr);
 }
 
 .build-log-autoscroll {
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
-  margin-left: auto;
+  gap: 0.5rem;
 }
 
-.build-log-reconnect {
-  background: var(--build-log-panel);
-  color: #e4e4e7;
-  border: 1px solid #3f3f46;
-  border-radius: 0.375rem;
-  padding: 0.25rem 0.75rem;
-  cursor: pointer;
-}
-
-.build-log-reconnect:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
+.build-log-autoscroll input { accent-color: var(--build-log-accent); }
 
 .build-log-truncated {
   background: #27272a;
@@ -197,6 +185,7 @@ function formatTime(ts: string): string {
   border: 1px solid #27272a;
   border-radius: 0.5rem;
   padding: 0.75rem;
+  min-width: 0;
   max-height: 600px;
   overflow-y: auto;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
@@ -263,8 +252,14 @@ function formatTime(ts: string): string {
 }
 
 .build-log-empty {
-  color: #71717a;
+  color: var(--build-muted, #a1a1aa);
   margin: 1rem 0;
   text-align: center;
+}
+
+@media (max-width: 580px) {
+  .build-log-toolbar { width: 100%; }
+  .build-log-status { flex-basis: 100%; }
+  .build-log-reconnect { margin-left: auto; }
 }
 </style>

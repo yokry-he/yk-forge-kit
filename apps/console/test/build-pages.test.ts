@@ -528,6 +528,16 @@ describe('BuildDetailPage', () => {
     expect(wrapper.findComponent(PreviewLinkPanel).props()).toEqual({ projectId: project.id, buildId: runningBuild.id, canManage: true });
   });
 
+  it('keeps rebuild with refresh and groups deployment, preview and logs as sibling panels', async () => {
+    vi.mocked(getBuild).mockResolvedValue(succeededBuild);
+    const wrapper = await mountDetail(await createTestRouter());
+    expect(wrapper.get('.build-detail-toolbar-actions').findAll('button').map(button => button.text())).toEqual(['再次构建', '刷新构建']);
+    const panels = wrapper.get('.build-detail-panels');
+    expect(panels.get('[data-testid="deploy-panel"]').element.parentElement).toBe(panels.element);
+    expect(panels.get('.preview-link-panel').element.parentElement).toBe(panels.element);
+    expect(panels.get('.build-log-viewer-stub').element.parentElement).toBe(panels.element);
+  });
+
   it('直接访问构建详情，slug 解析为项目 UUID', async () => {
     const router = await createTestRouter();
     const wrapper = await mountDetail(router);
