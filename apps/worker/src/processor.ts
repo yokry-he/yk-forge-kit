@@ -20,7 +20,16 @@ export class BuildProcessor {
   private async finish(id: string, status: 'succeeded' | 'failed' | 'timed_out', patch: Parameters<BuildRepository['updateStatus']>[3]) {
     if (status !== 'succeeded' && !patch?.diagnosis) patch = { ...patch,
       diagnosis: classifyBuildFailure({ errorCodes: patch?.errorMessage?.split(':').slice(0, 1), logs: [] }) };
-    try { await this.builds.updateStatus(id, 'running', status, patch); }
+    try {
+      try { await this.builds.updateStatus(id, 'running', status, patch); }
+      catch (error) {
+        if (error instanceof BuildTransitionError || !patch?.diagnosis) throw error;
+        // Diagnosis is optional: retry the same terminal result without it so a JSON
+        // persistence error cannot replace the original exit code or failure fields.
+        const { diagnosis: _diagnosis, ...terminalPatch } = patch;
+        await this.builds.updateStatus(id, 'running', status, terminalPatch);
+      }
+    }
     catch (error) {
       if (!(error instanceof BuildTransitionError)) throw error;
       const current = await this.builds.get(id);

@@ -38,6 +38,7 @@ const seqs = computed(() => props.build.diagnosis?.matchedLogSeqs ?? []);
   --diagnosis-bg: #fafafa;
   --diagnosis-border: #71717a;
 }
+.build-diagnosis .build-panel-header h2 { color: var(--diagnosis-text); }
 .build-diagnosis p { color: var(--diagnosis-muted); }
 .build-diagnosis ol { padding-left: 1.5rem; font-size: .875rem; line-height: 1.8; }
 .build-diagnosis pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8125rem; }

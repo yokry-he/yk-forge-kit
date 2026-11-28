@@ -49,6 +49,44 @@ describe('build failure diagnosis', () => {
     expect(classifyBuildFailure({ phase: 'build', logs: [{ seq: 1, content: 'ENOTFOUND registry.npmjs.org' }] }).category).toBe('unknown');
     expect(classifyBuildFailure({ exitCode: 124, logs: [] }).category).toBe('timeout');
   });
+  it.each([
+    ['unknown', 'ERR_PNPM_UNSUPPORTED_ENGINE Unsupported Node.js version: wanted >=24, current v22.0.0'],
+    ['compile_error', '> prepare: tsc\nsrc/index.ts(1,1): error TS2322: Type string is not assignable to type number.'],
+    ['unknown', 'ELIFECYCLE Command failed with exit code 1.'],
+  ])('classifies offline install failures as %s without inventing network evidence', (category, content) => {
+    expect(classifyBuildFailure({ phase: 'install', installNetwork: 'none', exitCode: 1,
+      logs: [{ seq: 1, content }] }).category).toBe(category);
+  });
+  it.each([
+    'corepack: Error when performing the request to https://registry.npmjs.org/pnpm/latest\n[cause]: Error: getaddrinfo EAI_AGAIN registry.npmjs.org',
+    'connect ECONNREFUSED registry.npmjs.org:443',
+    'Failed to fetch https://registry.npmjs.org/pnpm',
+    'Corepack failed to download pnpm',
+  ])('requires network evidence and the none policy for offline install diagnosis: %s', content => {
+    const input = { phase: 'install' as const, exitCode: 1, logs: [{ seq: 3, content }] };
+    expect(classifyBuildFailure({ ...input, installNetwork: 'none' })).toMatchObject({
+      category: 'install_network_disabled', matchedLogSeqs: [3],
+    });
+    expect(classifyBuildFailure({ ...input, installNetwork: 'outbound' }).category).toBe('dependency_registry_network');
+  });
+  it('uses structured network evidence for offline install failures', () => {
+    expect(classifyBuildFailure({ phase: 'install', installNetwork: 'none', errorCodes: ['ECONNRESET'], logs: [] }).category)
+      .toBe('install_network_disabled');
+    expect(classifyBuildFailure({ phase: 'install', installNetwork: 'outbound',
+      errorCodes: ['install_network_disabled'], logs: [] }).category).toBe('unknown');
+  });
+  it.each([238, 239, 240])('truncates on code point boundaries with an emoji at UTF-16 offset %s', offset => {
+    const prefix = 'SyntaxError'.padEnd(offset, 'x');
+    const result = classifyBuildFailure({ logs: [{ seq: 1, content: `${prefix}😀tail` }] });
+    expect(result.excerpt).toEqual([offset === 238 ? `${prefix}😀` : prefix]);
+    expect(BuildDiagnosisSchema.parse(result)).toEqual(result);
+    expect(result.excerpt[0]!.isWellFormed()).toBe(true);
+  });
+  it('replaces lone input surrogates while preserving valid surrogate pairs', () => {
+    const result = classifyBuildFailure({ logs: [{ seq: 1, content: 'SyntaxError \ud800text\udc00 😀 \ud800' }] });
+    expect(result.excerpt).toEqual(['SyntaxError \ufffdtext\ufffd 😀 \ufffd']);
+    expect(result.excerpt[0]!.isWellFormed()).toBe(true);
+  });
   it('redacts whole lines before truncating to three 240-character excerpts', () => {
     const fakeSecret = 'PLACEHOLDER_ENV_VALUE_FOR_TESTS';
     const content = `error TS2322: ${'x'.repeat(210)} ${fakeSecret} token=PLACEHOLDER_TOKEN https://u:PLACEHOLDER_PASSWORD@registry.example`;
@@ -76,6 +114,8 @@ describe('build failure diagnosis', () => {
     ['runner_unavailable', 'runner_not_configured'],
     ['artifact_missing', 'artifact_storage_unavailable'],
   ])('uses structured code %s without requiring raw exception text', (category, code) => {
-    expect(classifyBuildFailure({ errorCodes: [code], phase: 'install', logs: [] })).toEqual({ category, matchedLogSeqs: [], excerpt: [] });
+    expect(classifyBuildFailure({ errorCodes: [code], phase: 'install',
+      installNetwork: category === 'install_network_disabled' ? 'none' : undefined, logs: [] }))
+      .toEqual({ category, matchedLogSeqs: [], excerpt: [] });
   });
 });

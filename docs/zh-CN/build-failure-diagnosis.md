@@ -46,7 +46,7 @@
 
 ## install_network_disabled（安装阶段禁止联网）
 
-安装失败且容器的安装网络策略为 `none` 时，平台显示此提示。`FORGEKIT_BUILD_INSTALL_NETWORK` 默认为 `none`；管理员可以评估设为 `outbound`，或使用 `registry` 受控代理策略。`registry` 还要求配置 `FORGEKIT_BUILD_REGISTRY_NETWORK` 与 `FORGEKIT_BUILD_REGISTRY_PROXY`，具体约束见 [Docker Runner](./docker-build-runner.md)。源码编译阶段始终断网。
+安装阶段失败、容器的安装网络策略为 `none`，且日志或错误码包含 DNS、连接、依赖源拉取或 Corepack 下载失败等网络证据时，平台显示此提示。Node 版本不兼容不会仅因禁网策略归入此类；prepare 钩子中的类型或编译错误归为 `compile_error`，其他未匹配故障归为 `unknown`。`FORGEKIT_BUILD_INSTALL_NETWORK` 默认为 `none`；管理员可以评估设为 `outbound`，或使用 `registry` 受控代理策略。`registry` 还要求配置 `FORGEKIT_BUILD_REGISTRY_NETWORK` 与 `FORGEKIT_BUILD_REGISTRY_PROXY`，具体约束见 [Docker Runner](./docker-build-runner.md)。源码编译阶段始终断网。
 
 1. 联系管理员检查 `FORGEKIT_BUILD_INSTALL_NETWORK` 的实际取值与网络策略。
 2. 由管理员按需评估 `outbound` 或 `registry` 策略，并确认配置对当前 Worker 生效。
@@ -124,7 +124,8 @@
 
 - 纯分类器及 schema 位于 `packages/contracts/src/build-diagnosis.ts`；脱敏函数位于同包的 `build-log-redaction.ts`，Worker 原入口继续导出相同函数。没有外部 AI 调用或新增依赖。
 - Worker 根据退出码、固定错误码、安装/编译阶段及网络策略分类；仅允许列出的内部异常码参与诊断，不保存任意异常文本。优先使用明确超时、OOM、Runner 和产物信号，其次按固定顺序匹配锁文件、包缺失、禁网、依赖源网络及编译错误。网络类日志只在非编译阶段作为安装故障处理。规则是启发式判断，可能误判。
-- 日志在持久化时脱敏；诊断再次对完整日志块脱敏后才截断。Worker 仅保留最近 5000 块 / 2 MiB 作为本次诊断输入。每条诊断至多关联 3 个日志块，摘录至多 3 行，每行至多 240 个 UTF-16 代码单元。
+- 日志在持久化时脱敏；诊断再次对完整日志块脱敏后才截断。Worker 仅保留最近 5000 块 / 2 MiB 作为本次诊断输入。每条诊断至多关联 3 个日志块，摘录至多 3 行，每行至多 240 个 UTF-16 代码单元，按 Unicode 码点边界截断，并将输入中的孤立代理项替换为 `U+FFFD`，避免生成 MySQL JSON 无法接受的文本。
+- 终态写入若携带诊断失败，Worker 会保留原状态、退出码、错误消息及其他字段，重试一次不含诊断的写入；状态转换守卫仍生效，取消等已完成终态不会被覆盖。
 - `builds.diagnosis` 为可空 JSON，内容为 `{ category, matchedLogSeqs, excerpt }`。迁移为 `packages/db/drizzle/0019_b26_build_failure_diagnosis.sql`，必须先应用迁移再部署应用。
 - 现有 `GET /api/v1/projects/:projectId/builds/:buildId` 在 Build 对象中返回 `diagnosis`；列表和日志流的 Build 状态对象也使用相同契约。继续检查 `build:read` 项目权限与构建归属；没有新增匿名读取入口。
 - 本功能沿用 ADR-0008/0010 的依赖与授权边界，不引入新技术路线。回退应用可保留可空字段，无须删除构建或日志；不要对生产数据直接执行逆向删列。

@@ -47,6 +47,49 @@ describe('build processor with guarded repository', () => {
     const f = fixture('queued', { run: async () => ({ exitCode: 17 }) }); await f.run();
     expect(f.row).toMatchObject({ status: 'failed', exitCode: 17 });
   });
+  it.each(['exit', 'exception', 'timeout', 'lost worker'] as const)(
+    'preserves the original terminal result without diagnosis when its write fails: %s', async failure => {
+      vi.useFakeTimers();
+      const runnerInfo = { runnerId: 'docker-cli', image: 'node:22' };
+      const runner: BuildRunner = failure === 'timeout' ? hanging : { run: async () => {
+        if (failure === 'exception') throw new Error('secret');
+        return { exitCode: 17, runnerInfo };
+      } };
+      const f = fixture(failure === 'lost worker' ? 'running' : 'queued', runner);
+      const update = f.repository.updateStatus.getMockImplementation()!;
+      f.repository.updateStatus.mockImplementation(async (id, from, to, patch = {}) => {
+        if ('diagnosis' in patch) throw new Error('Invalid JSON text: invalid surrogate pair');
+        return update(id, from, to, patch);
+      });
+      const pending = f.run();
+      if (failure === 'timeout') await vi.advanceTimersByTimeAsync(101);
+      await pending;
+      const attempts = f.repository.updateStatus.mock.calls.filter(([, from]) => from === 'running');
+      expect(attempts).toHaveLength(2);
+      const [id, from, status, patch] = attempts[0]!;
+      expect(patch).toHaveProperty('diagnosis');
+      const { diagnosis: _diagnosis, ...originalFields } = patch as Record<string, unknown>;
+      expect(attempts[1]).toEqual([id, from, status, originalFields]);
+      expect(f.row).toMatchObject({ ...originalFields, status, diagnosis: null });
+      if (failure === 'exit') expect(f.row).toMatchObject({ status: 'failed', exitCode: 17, runnerInfo });
+      if (failure === 'exception') expect(f.row.errorMessage).toBe('runner_or_control_failure');
+      if (failure === 'timeout') expect(f.row).toMatchObject({ status: 'timed_out', errorMessage: 'build_timeout' });
+      if (failure === 'lost worker') expect(f.row.errorMessage).toContain('worker_lost');
+    });
+  it('keeps cancellation authoritative if it wins during a diagnosis-free fallback', async () => {
+    const f = fixture('queued', { run: async () => ({ exitCode: 17 }) });
+    const update = f.repository.updateStatus.getMockImplementation()!;
+    f.repository.updateStatus.mockImplementation(async (id, from, to, patch = {}) => {
+      if ('diagnosis' in patch) {
+        f.row.status = 'canceled';
+        throw new Error('Invalid diagnosis JSON');
+      }
+      return update(id, from, to, patch);
+    });
+    await f.run();
+    expect(f.row).toMatchObject({ status: 'canceled', exitCode: null, diagnosis: null });
+    expect(f.repository.updateStatus).toHaveBeenCalledTimes(3);
+  });
   it('persists safe diagnosis with the actual stored sequence on failure', async () => {
     const f = fixture('queued', { run: async (_build, logs) => {
       await logs.write('stdout', 'starting\n');
