@@ -16,6 +16,8 @@ BuildRunner 返回 `{ exitCode, artifact?, runnerInfo? }`，处理器在 B07 状
 
 ## 宿主准备
 
+本机从环境配置到控制台构建、打开预览的完整步骤，见 [本地 Docker 构建与预览](./local-docker-preview.md)。
+
 1. 使用独立 Linux 执行宿主/虚机、受支持且及时修补的 Docker Engine 与默认 seccomp、启用 cgroup CPU/内存/PID 限制。控制台/API 不与不可信构建共享执行宿主，禁止暴露未认证 Docker TCP API。Worker 需 Node 22（与仓库一致）和 corepack pnpm。
 2. 以专用非 root 用户运行 Worker，并授予其访问专用 Docker daemon 的权限。Runner 使用该用户 UID/GID 运行容器，确保 bind mount 可写；root 启动会在构建前被拒绝。该 daemon 权限相当于宿主高权限，不能视为普通项目用户权限；rootless/userns-remap 部署需另行验证 UID 映射、挂载权限及资源限制。
 3. 以该用户创建工作根与制品根，目录权限 0700，不经过不可信用户可写的祖先或符号链接，制品目录放在工作目录外。Docker daemon 必须是本机或与 Worker 具有一致的 bind mount 路径；不支持任意远程 daemon 路径映射。工作盘使用独立配额文件系统和磁盘/inode 告警，按并发数预留内存与磁盘。制品大小限制不能限制 node_modules 或安装脚本写盘。
