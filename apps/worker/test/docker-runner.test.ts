@@ -61,6 +61,29 @@ describe('Docker arguments and configuration', () => {
   });
 });
 describe('Docker runner lifecycle with fake command process', () => {
+  it.each(['none', 'registry', 'outbound'] as const)('preserves install network policy %s in nonzero result', async installNetwork => {
+    const f = await fixture();
+    const docker: DockerCommand = { execute: async args => args[0] === 'run' ? 1 : 0 };
+    const result = await new DockerBuildRunner(f.source, f.store, { ...dockerOptions, installNetwork,
+      registryNetwork: 'forgekit-registry', registryProxy: 'http://proxy.example:3128', workspaceRoot: f.work }, docker)
+      .run(buildRecord(), sink, new AbortController().signal);
+    expect(result).toEqual({ exitCode: 1, failureSignals: { phase: 'install', installNetwork } });
+  });
+  it.each(['absent output', 'empty output', 'storage permission'] as const)('uses safe artifact signals for %s', async reason => {
+    const f = await fixture();
+    const source: WorkspaceSource = reason === 'storage permission' ? f.source : { prepare: async (_build, path) => {
+      if (reason === 'empty output') await mkdir(join(path, 'dist'));
+      return { script: 'build', outputDirectory: 'dist' };
+    } };
+    const store = reason === 'storage permission' ? { put: vi.fn(async () => {
+      throw Object.assign(new Error('PLACEHOLDER_PRIVATE_PATH'), { code: 'EACCES' });
+    }), remove: vi.fn(), open: f.store.open.bind(f.store) } : f.store;
+    const docker: DockerCommand = { execute: async () => 0 };
+    const pending = new DockerBuildRunner(source, store, { ...dockerOptions, workspaceRoot: f.work }, docker)
+      .run(buildRecord(), sink, new AbortController().signal);
+    await expect(pending).rejects.toMatchObject({ message: reason === 'absent output' ? 'build_output_missing'
+      : reason === 'empty output' ? 'build_artifact_missing' : 'artifact_storage_unavailable' });
+  });
   it('publishes output after two isolated phases and removes containers before workspace', async () => {
     const f = await fixture(); const calls: string[][] = [];
     const docker: DockerCommand = { execute: async (args) => { calls.push(args); expect(await readdir(f.work)).toHaveLength(1); return 0; } };
@@ -89,7 +112,7 @@ describe('Docker runner lifecycle with fake command process', () => {
     } };
     const runner = new DockerBuildRunner(f.source, f.store, { ...dockerOptions, workspaceRoot: f.work, timeoutMs: reason === 'timeout' ? 1000 : 60000 }, docker);
     const pending = runner.run(buildRecord(), sink, controller.signal);
-    const checked = reason === 'nonzero' ? expect(pending).resolves.toEqual({ exitCode: 17 }) : expect(pending).rejects.toThrow();
+    const checked = reason === 'nonzero' ? expect(pending).resolves.toEqual({ exitCode: 17, failureSignals: { phase: 'install', installNetwork: 'outbound' } }) : expect(pending).rejects.toThrow();
     await starting;
     if (reason === 'cancel') controller.abort(new Error('canceled'));
     await checked;

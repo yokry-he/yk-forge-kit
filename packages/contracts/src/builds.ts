@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { BuildDiagnosisSchema } from './build-diagnosis';
 
 export const buildStatuses = ['queued', 'running', 'succeeded', 'failed', 'canceled', 'timed_out'] as const;
 export const BuildStatusSchema = z.enum(buildStatuses);
@@ -39,6 +40,7 @@ export const BuildSchema = z.strictObject({
   artifactKey: key.nullable(), artifactSize: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER).nullable(),
   artifactSha256: Sha256Schema.nullable(), logStorageKey: key.nullable(),
   runnerInfo: RunnerInfoSchema.nullable(),
+  diagnosis: BuildDiagnosisSchema.nullable().default(null),
 });
 export type Build = z.infer<typeof BuildSchema>;
 

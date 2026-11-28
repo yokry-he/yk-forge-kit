@@ -18,7 +18,7 @@ const projectId = randomUUID(), buildId = randomUUID(), actorId = randomUUID();
 const now = new Date();
 const initial = { id: buildId, projectId, triggeredBy: actorId, template: 'vue-web', sourceRef: 'sources/snapshot.tar',
   number: 1, status: 'queued' as const, queuedAt: now, startedAt: null, finishedAt: null, createdAt: now, updatedAt: now,
-  exitCode: null, errorMessage: null, artifactKey: null, artifactSize: null, artifactSha256: null, logStorageKey: null, runnerInfo: null };
+  exitCode: null, errorMessage: null, artifactKey: null, artifactSize: null, artifactSha256: null, logStorageKey: null, runnerInfo: null, diagnosis: null };
 const enqueue = vi.fn(), configured = vi.fn(), consume = vi.fn();
 const create = vi.spyOn(BuildRepository.prototype, 'create');
 const get = vi.spyOn(BuildRepository.prototype, 'get');
@@ -68,6 +68,15 @@ beforeEach(() => {
 });
 
 describe('build HTTP endpoints', () => {
+  it('exposes stored diagnosis to project readers and returns null for legacy builds', async () => {
+    const diagnosis = { category: 'compile_error' as const, matchedLogSeqs: [2], excerpt: ['error TS2322: invalid type'] };
+    get.mockResolvedValueOnce({ ...initial, status: 'failed', diagnosis });
+    const response = await request(`/${buildId}`, 'viewer');
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({ diagnosis });
+    expect(await (await request(`/${buildId}`, 'viewer')).json()).toMatchObject({ diagnosis: null });
+    expect((await request(`/${buildId}`, 'outsider')).status).toBe(404);
+  });
   it('requires authentication on every route', async () => {
     for (const [path, method, body] of [['', 'GET'], ['', 'POST', { sourceRef: 'snapshot' }],
       [`/${buildId}`, 'GET'], [`/${buildId}/logs`, 'GET'], [`/${buildId}/cancel`, 'POST']] as const) {
@@ -139,7 +148,8 @@ describe('build HTTP endpoints', () => {
   it('marks dispatch failure using CAS and reports 503', async () => {
     enqueue.mockRejectedValueOnce(new HttpException('queue unavailable', 503));
     expect((await request('', 'owner', 'POST', { sourceRef: 'snapshot' })).status).toBe(503);
-    expect(update).toHaveBeenCalledWith(buildId, 'queued', 'failed', { errorMessage: 'queue_enqueue_failed' });
+    expect(update).toHaveBeenCalledWith(buildId, 'queued', 'failed', { errorMessage: 'queue_enqueue_failed',
+      diagnosis: { category: 'runner_unavailable', matchedLogSeqs: [], excerpt: [] } });
   });
   it('applies shared identity rate limits before mutation', async () => {
     consume.mockRejectedValueOnce(new HttpException('quota', 429));

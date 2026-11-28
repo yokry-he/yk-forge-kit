@@ -10,7 +10,7 @@ function fixture(status: BuildStatus = 'queued', runner: BuildRunner = new NoopR
   const now = new Date();
   const row: BuildRecord = { id: randomUUID(), projectId: randomUUID(), number: 1, template: 'vue-web', sourceRef: 'snapshot/key',
     triggeredBy: randomUUID(), status, queuedAt: now, startedAt: null, finishedAt: null, createdAt: now, updatedAt: now,
-    exitCode: null, errorMessage: null, artifactKey: null, artifactSize: null, artifactSha256: null, logStorageKey: null, runnerInfo: null };
+    exitCode: null, errorMessage: null, artifactKey: null, artifactSize: null, artifactSha256: null, logStorageKey: null, runnerInfo: null, diagnosis: null };
   const changes: BuildStatus[] = [];
   const repository = {
     get: vi.fn(async () => ({ ...row })),
@@ -47,6 +47,24 @@ describe('build processor with guarded repository', () => {
     const f = fixture('queued', { run: async () => ({ exitCode: 17 }) }); await f.run();
     expect(f.row).toMatchObject({ status: 'failed', exitCode: 17 });
   });
+  it('persists safe diagnosis with the actual stored sequence on failure', async () => {
+    const f = fixture('queued', { run: async (_build, logs) => {
+      await logs.write('stdout', 'starting\n');
+      await logs.write('stderr', 'src/App.vue error TS2322: token=PLACEHOLDER_TOKEN\n');
+      return { exitCode: 2, failureSignals: { phase: 'build' } };
+    } });
+    await f.run();
+    expect(f.row.diagnosis).toEqual({ category: 'compile_error', matchedLogSeqs: [2],
+      excerpt: ['src/App.vue error TS2322: token=[REDACTED]'] });
+    expect(JSON.stringify(f.lines)).not.toContain('PLACEHOLDER_TOKEN');
+    expect(f.repository.updateStatus).toHaveBeenLastCalledWith(f.row.id, 'running', 'failed',
+      expect.objectContaining({ diagnosis: f.row.diagnosis }));
+  });
+  it('uses structured Docker failure codes instead of leaking exception details', async () => {
+    const f = fixture('queued', { run: async () => { throw new Error('docker_cli_error'); } });
+    await f.run();
+    expect(f.row.diagnosis?.category).toBe('runner_unavailable');
+  });
   it('persists artifact metadata and runner info with the B07 success transition', async () => {
     const artifact = { key: 'build/artifact', size: 123, sha256: 'a'.repeat(64) };
     const runnerInfo = { runnerId: 'docker-cli', image: 'node:22' };
@@ -60,11 +78,13 @@ describe('build processor with guarded repository', () => {
     const f = fixture('queued', { run: async () => { throw new Error('secret'); } }); await f.run();
     expect(f.row.errorMessage).toBe('runner_or_control_failure');
     expect(f.row.status).toBe('failed');
+    expect(f.row.diagnosis).toEqual({ category: 'unknown', matchedLogSeqs: [], excerpt: [] });
   });
   it('times out and aborts the runner', async () => {
     vi.useFakeTimers(); const f = fixture('queued', hanging); const pending = f.run();
     await vi.advanceTimersByTimeAsync(101); await pending;
     expect(f.changes).toEqual(['running', 'timed_out']);
+    expect(f.row.diagnosis?.category).toBe('timeout');
     expect(hanging.run).toHaveBeenCalledOnce();
   });
   it('never runs a canceled queued build', async () => {

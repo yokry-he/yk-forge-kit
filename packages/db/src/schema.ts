@@ -1,4 +1,4 @@
-import type { BeginnerPlatform, RunnerInfo } from '@forgekit/contracts';
+import type { BeginnerPlatform, RunnerInfo, BuildDiagnosis } from '@forgekit/contracts';
 import { bigint, boolean, index, int, json, mediumtext, mysqlEnum, mysqlTable, primaryKey, foreignKey, text, timestamp, uniqueIndex, varchar } from 'drizzle-orm/mysql-core';
 
 /** Initial metadata only; no user/auth schema is assumed at this stage. */
@@ -139,6 +139,7 @@ export const builds = mysqlTable('builds', {
   artifactSha256: varchar('artifact_sha256', { length: 64 }),
   logStorageKey: varchar('log_storage_key', { length: 1024 }),
   runnerInfo: json('runner_info').$type<RunnerInfo>(),
+  diagnosis: json('diagnosis').$type<BuildDiagnosis>(),
   createdAt: timestamp('created_at', { fsp: 3 }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { fsp: 3 }).notNull().defaultNow().$onUpdateFn(() => new Date()),
 }, (t) => [

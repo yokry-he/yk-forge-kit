@@ -115,6 +115,7 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B07 MySQL reposito
       expect(created.map((b) => b.number).sort((a, b) => a - b)).toEqual(Array.from({ length: 12 }, (_, n) => n + 1));
       const first = created.find((b) => b.number === 1)!;
       const isolated = await repository.create({ ...input, projectId: otherProjectId });
+      expect(isolated.diagnosis).toBeNull();
       expect(isolated.number).toBe(1);
       expect(await repository.get(first.id)).toMatchObject({ number: 1, status: 'queued', startedAt: null, finishedAt: null });
       expect(BuildSchema.parse(wire(first)).id).toBe(first.id);
@@ -156,8 +157,9 @@ describe.skipIf(process.env.FORGEKIT_DB_INTEGRATION !== '1')('B07 MySQL reposito
       await repository.updateStatus(timedOut.id, 'running', 'timed_out', { exitCode: 137, errorMessage: '超时' });
       expect(await repository.get(timedOut.id)).toMatchObject({ status: 'timed_out', exitCode: 137, errorMessage: '超时' });
       const failed = await repository.create(input);
-      await repository.updateStatus(failed.id, 'queued', 'failed', { errorMessage: '调度失败' });
-      expect(await repository.get(failed.id)).toMatchObject({ startedAt: null, status: 'failed', errorMessage: '调度失败' });
+      const diagnosis = { category: 'runner_unavailable' as const, matchedLogSeqs: [], excerpt: [] };
+      await repository.updateStatus(failed.id, 'queued', 'failed', { errorMessage: '调度失败', diagnosis });
+      expect(await repository.get(failed.id)).toMatchObject({ startedAt: null, status: 'failed', errorMessage: '调度失败', diagnosis });
 
       const chunks = await Promise.all(Array.from({ length: 10 }, (_, n) => (n % 2 ? logs : otherLogs).append({
         buildId: running.id, stream: n % 3 === 0 ? 'stderr' : n % 3 === 1 ? 'stdout' : 'system', content: `输出 ${n}\n`,

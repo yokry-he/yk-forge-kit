@@ -11,7 +11,7 @@ const build = {
   id, projectId: id, number: 1, template: 'vue-web', sourceRef: 'source/snapshot-1.tar', status: 'queued',
   triggeredBy: id, queuedAt: time, startedAt: null, finishedAt: null, createdAt: time, updatedAt: time,
   exitCode: null, errorMessage: null, artifactKey: null, artifactSize: null, artifactSha256: null,
-  logStorageKey: null, runnerInfo: null,
+  logStorageKey: null, runnerInfo: null, diagnosis: null,
 };
 const preview = { id, buildId: id, createdBy: id, createdAt: time, expiresAt: time, revokedAt: null, lastAccessedAt: null };
 

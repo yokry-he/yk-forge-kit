@@ -31,6 +31,7 @@ import { listProjectMembers } from '../src/api/project-members';
 import { clearSession, oidcEnabled } from '../src/auth/session';
 
 enableAutoUnmount(afterEach);
+const showDiagnosisLogs = vi.fn();
 
 vi.mock('../src/api/projects', () => {
   class ProjectApiError extends Error {
@@ -120,7 +121,7 @@ const runningBuild: Build = {
   artifactSize: null,
   artifactSha256: null,
   logStorageKey: null,
-  runnerInfo: null,
+  runnerInfo: null, diagnosis: null,
 };
 
 const succeededBuild: Build = {
@@ -277,6 +278,7 @@ async function mountDetail(router: Router, buildId = 'build-1'): Promise<VueWrap
           name: 'BuildLogViewer',
           props: { projectId: String, buildId: String },
           emits: ['status', 'end', 'unauthorized', 'forbidden'],
+          setup(_props, { expose }) { expose({ showLogs: showDiagnosisLogs }); },
           template: '<div class="build-log-viewer-stub" />',
         }),
         BuildTriggerForm: defineComponent({
@@ -536,6 +538,16 @@ describe('BuildDetailPage', () => {
     expect(panels.get('[data-testid="deploy-panel"]').element.parentElement).toBe(panels.element);
     expect(panels.get('.preview-link-panel').element.parentElement).toBe(panels.element);
     expect(panels.get('.build-log-viewer-stub').element.parentElement).toBe(panels.element);
+  });
+  it('places failure diagnosis above raw logs and wires the related-log action', async () => {
+    vi.mocked(getBuild).mockResolvedValue({ ...runningBuild, status: 'failed', diagnosis: {
+      category: 'compile_error', matchedLogSeqs: [42], excerpt: ['error TS2322: invalid type'],
+    } });
+    const wrapper = await mountDetail(await createTestRouter());
+    const panels = wrapper.get('.build-detail-panels');
+    expect(panels.get('.build-diagnosis').element.nextElementSibling).toBe(panels.get('.build-log-viewer-stub').element);
+    await panels.get('.build-diagnosis button').trigger('click');
+    expect(showDiagnosisLogs).toHaveBeenCalledWith([42]);
   });
 
   it('直接访问构建详情，slug 解析为项目 UUID', async () => {

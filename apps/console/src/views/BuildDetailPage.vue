@@ -9,6 +9,7 @@ import { useBuildProjectAccess } from '../composables/useBuildProjectAccess';
 import BuildStatusBadge from '../components/builds/BuildStatusBadge.vue';
 import BuildTriggerForm from '../components/builds/BuildTriggerForm.vue';
 import BuildLogViewer from '../components/builds/BuildLogViewer.vue';
+import BuildFailureDiagnosis from '../components/builds/BuildFailureDiagnosis.vue';
 import PreviewLinkPanel from '../components/builds/PreviewLinkPanel.vue';
 
 const BuildDeployPanel = defineAsyncComponent(() => import('../components/deploys/BuildDeployPanel.vue').then(module => module.default));
@@ -29,6 +30,7 @@ const {
 } = useBuildProjectAccess(slug);
 
 const build = ref<Build | null>(null);
+const logViewer = ref<InstanceType<typeof BuildLogViewer> | null>(null);
 const buildLoading = ref(false);
 const buildError = ref('');
 const readDenied = ref('');
@@ -355,7 +357,9 @@ onUnmounted(() => {
           <PreviewLinkPanel v-if="build.target !== 'mp-weixin' && build.target !== 'mp-alipay' && build.status === 'succeeded' && oidcEnabled"
             :key="`preview:${project.id}:${build.id}`" :project-id="project.id" :build-id="build.id" :can-manage="canRun"
             @unauthorized="handleUnauthorized" @forbidden="refreshAccess" />
+          <BuildFailureDiagnosis :build="build" @view-logs="logViewer?.showLogs($event)" />
           <BuildLogViewer
+            ref="logViewer"
             :key="`${project.id}:${build.id}`"
             :project-id="project.id"
             :build-id="build.id"

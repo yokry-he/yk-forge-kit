@@ -25,7 +25,7 @@ vi.mock('ioredis', () => ({ Redis: class {
 } }));
 const projectId = randomUUID(), buildId = randomUUID();
 const now = new Date();
-const terminal: Build = { id: buildId, projectId, triggeredBy: randomUUID(), number: 1, template: 'vue-web', sourceRef: 'template:vue-web', status: 'succeeded', queuedAt: now.toISOString(), startedAt: now.toISOString(), finishedAt: now.toISOString(), createdAt: now.toISOString(), updatedAt: now.toISOString(), exitCode: 0, errorMessage: null, artifactKey: null, artifactSize: null, artifactSha256: null, logStorageKey: null, runnerInfo: null };
+const terminal: Build = { id: buildId, projectId, triggeredBy: randomUUID(), number: 1, template: 'vue-web', sourceRef: 'template:vue-web', status: 'succeeded', queuedAt: now.toISOString(), startedAt: now.toISOString(), finishedAt: now.toISOString(), createdAt: now.toISOString(), updatedAt: now.toISOString(), exitCode: 0, errorMessage: null, artifactKey: null, artifactSize: null, artifactSha256: null, logStorageKey: null, runnerInfo: null, diagnosis: null };
 const get = vi.fn(async (_pid: string, _bid: string, _auth: StreamIdentity['auth']): Promise<Build> => terminal);
 const logs = vi.spyOn(BuildLogRepository.prototype, 'listSince');
 const high = vi.spyOn(BuildLogRepository.prototype, 'highestSeq');

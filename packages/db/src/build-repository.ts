@@ -3,7 +3,7 @@ import { and, asc, desc, eq, gt, isNull, lt, or } from 'drizzle-orm';
 import {
   BuildSchema, BuildStatusSchema, canTransition, BuildLogEventSchema,
   PreviewLinkCreateRequestSchema, Sha256Schema,
-  type BuildStatus, type BuildLogEvent, type RunnerInfo,
+  type BuildStatus, type BuildLogEvent, type RunnerInfo, type BuildDiagnosis,
 } from '@forgekit/contracts';
 import type { DatabaseClient } from './index';
 import { builds, buildLogChunks, previewLinks, projects, buildAudit, previewLinkAudit, environments, buildEnvironments } from './schema';
@@ -11,7 +11,7 @@ import { builds, buildLogChunks, previewLinks, projects, buildAudit, previewLink
 type Database = DatabaseClient['db'];
 type BuildRow = typeof builds.$inferSelect;
 const statusPatchSchema = BuildSchema.pick({ exitCode: true, errorMessage: true, artifactKey: true,
-  artifactSize: true, artifactSha256: true, logStorageKey: true, runnerInfo: true }).partial();
+  artifactSize: true, artifactSha256: true, logStorageKey: true, runnerInfo: true, diagnosis: true }).partial();
 
 export class BuildNotFoundError extends Error {
   constructor() { super('构建或项目不存在。'); }
@@ -41,7 +41,7 @@ export class BuildRepository {
     const row: BuildRow = {
       ...input, target: input.target ?? 'h5', id: randomUUID(), number: 1, status: 'queued', queuedAt: now, startedAt: null,
       finishedAt: null, exitCode: null, errorMessage: null, artifactKey: null, artifactSize: null,
-      artifactSha256: null, logStorageKey: null, runnerInfo: null, createdAt: now, updatedAt: now,
+      artifactSha256: null, logStorageKey: null, runnerInfo: null, diagnosis: null, createdAt: now, updatedAt: now,
     };
     BuildSchema.parse({ ...row, queuedAt: now.toISOString(), createdAt: now.toISOString(), updatedAt: now.toISOString() });
     return this.db.transaction(async (tx) => {
@@ -94,7 +94,7 @@ export class BuildRepository {
 
   async updateStatus(id: string, from: BuildStatus, to: BuildStatus, patch: {
     exitCode?: number; errorMessage?: string; artifactKey?: string; artifactSize?: number;
-    artifactSha256?: string; logStorageKey?: string; runnerInfo?: RunnerInfo;
+    artifactSha256?: string; logStorageKey?: string; runnerInfo?: RunnerInfo; diagnosis?: BuildDiagnosis;
   } = {}, cancelActorId?: string): Promise<BuildRow> {
     if (cancelActorId !== undefined) {
       BuildSchema.shape.triggeredBy.parse(cancelActorId);

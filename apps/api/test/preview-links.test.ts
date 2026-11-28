@@ -20,7 +20,7 @@ const projectId = randomUUID(), buildId = randomUUID(), actorId = randomUUID(), 
 const now = new Date();
 const initial = { id: buildId, projectId, triggeredBy: actorId, template: 'vue-web', sourceRef: 'template:vue-web',
   number: 1, status: 'succeeded' as const, queuedAt: now, startedAt: now, finishedAt: now, createdAt: now, updatedAt: now,
-  exitCode: 0, errorMessage: null, artifactKey: `${buildId}/${randomUUID()}`, artifactSize: 100, artifactSha256: 'a'.repeat(64), logStorageKey: null, runnerInfo: null };
+  exitCode: 0, errorMessage: null, artifactKey: `${buildId}/${randomUUID()}`, artifactSize: 100, artifactSha256: 'a'.repeat(64), logStorageKey: null, runnerInfo: null, diagnosis: null };
 const row = { id: linkId, buildId, createdBy: actorId, createdAt: now, expiresAt: new Date(now.getTime() + 86400000), revokedAt: null, lastAccessedAt: null };
 const get = vi.spyOn(BuildRepository.prototype, 'get'), create = vi.spyOn(PreviewLinkRepository.prototype, 'create');
 const list = vi.spyOn(PreviewLinkRepository.prototype, 'listActive'), revoke = vi.spyOn(PreviewLinkRepository.prototype, 'revoke');
