@@ -120,6 +120,16 @@ getent ahostsv4 probe.preview.localhost
 
 创建返回 409 时确认构建成功且有制品；503 时检查 API 的预览配置、共享制品目录及数据库。链接打不开时先确认预览进程日志与 DNS；已过期、已撤销或错误 host 会返回 404。接口、日志与权限说明见 [构建控制台](./build-console.md) 和 [静态预览链接](./preview-links.md)。
 
+## uni-app H5 真实构建验证
+
+已验证的本地流程使用 `uniapp` 模板项目，目标为 `h5`，沿用上述 Vue Web 的 Docker runner 与 `FORGEKIT_BUILD_INSTALL_NETWORK=outbound` 安装配置。在控制台进入“查看构建”，填写来源键 `sourceRef=template:uniapp` 后触发构建；也可通过 `POST /projects/:id/builds` 触发。来源键必须与项目模板一致。
+
+热缓存下，本次构建约 17 秒成功，从触发到完成约 22 秒，状态为 `succeeded`，退出码为 0，日志以 `DONE  Build complete.` 结束。静态制品约 14 个文件、220 KB，包含 `index.html` 与 `assets`。pnpm 输出了涉及 `core-js`、`esbuild` 的 `Ignored build scripts` 警告，本次验证中无害，不影响构建与预览。
+
+构建成功后创建预览链接，按上文确保 `*.preview.localhost` 解析到本机，并在浏览器**新标签页**打开；预览禁止 iframe 嵌入。实际访问返回 HTTP 200，显示 uni-app 首页及底部“首页 / 列表 / 我的”标签栏。
+
+本次仅验证 H5 目标；微信 / 支付宝小程序、Android / iOS、Tauri 未验证。
+
 ## 安全与停止
 
 预览 URL 是 **bearer 凭证**，凭证子域本身也等同完整凭证。不要将真实 URL 或凭证 host 粘贴到 Git、PR、Issue、日志或分析系统；本机 hosts 中的记录也不要复制到仓库。不要提交真实 `.env` 文件，仅提交无秘密示例。撤销链接可阻止后续请求，但不能收回已加载内容，详见 [ADR-0009](../adr/0009-build-and-preview-security-model.md)。
