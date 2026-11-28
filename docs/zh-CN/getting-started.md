@@ -4,6 +4,8 @@
 
 ## 环境要求
 
+本机运行真实 Docker 构建并打开静态预览链接，见 [本地 Docker 构建与预览](./local-docker-preview.md)。
+
 - Node.js 22 或更高版本
 - Corepack（使用仓库声明的 pnpm 版本）
 
