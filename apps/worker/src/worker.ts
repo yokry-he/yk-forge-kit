@@ -6,7 +6,7 @@ import { startRuntimeLogWorker } from './runtime-log-worker';
 import { startDomainWorker } from './domain-worker';
 import { startDeployWorker } from './deploy-worker';
 import { Queue, Worker } from 'bullmq';
-import { BUILD_JOB_NAME, BUILD_QUEUE_NAME, type BuildJobPayload } from '@forgekit/contracts';
+import { BUILD_JOB_NAME, BUILD_QUEUE_NAME, classifyBuildFailure, type BuildJobPayload } from '@forgekit/contracts';
 import { BuildLogRepository, BuildRepository, EnvironmentVariableRepository, BuildTransitionError, type DatabaseClient } from '@forgekit/db';
 import { BuildProcessor } from './processor';
 import { NoopRunner, type BuildRunner } from './runner';
@@ -44,7 +44,8 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
       const job = await queue.getJob(row.id);
       const state = await job?.getState();
       if (!job || state === 'failed' || state === 'completed') {
-        try { await builds.updateStatus(row.id, 'running', 'failed', { errorMessage: 'worker_lost: queue job unavailable' }); }
+        try { await builds.updateStatus(row.id, 'running', 'failed', { errorMessage: 'worker_lost: queue job unavailable',
+          diagnosis: classifyBuildFailure({ errorCodes: ['worker_lost'], logs: [] }) }); }
         catch (error) { if (!(error instanceof BuildTransitionError)) throw error; }
       }
     }
@@ -53,7 +54,8 @@ export async function startWorker(client: DatabaseClient, config: ReturnType<typ
       if (job) {
         const state = await job.getState();
         if (state === 'failed' || state === 'completed') {
-          try { await builds.updateStatus(row.id, 'queued', 'failed', { errorMessage: 'queue_job_ended_before_start' }); }
+          try { await builds.updateStatus(row.id, 'queued', 'failed', { errorMessage: 'queue_job_ended_before_start',
+            diagnosis: classifyBuildFailure({ errorCodes: ['queue_job_ended_before_start'], logs: [] }) }); }
           catch (error) { if (!(error instanceof BuildTransitionError)) throw error; }
         }
       } else {

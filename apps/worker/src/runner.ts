@@ -1,4 +1,4 @@
-import type { BuildLogEvent } from '@forgekit/contracts';
+import { redactBuildLog, type BuildLogEvent, type BuildFailureSignals } from '@forgekit/contracts';
 import type { BuildRepository, BuildLogRepository } from '@forgekit/db';
 import type { RunnerInfo } from '@forgekit/contracts';
 import type { ArtifactMetadata } from './artifact-store';
@@ -13,16 +13,23 @@ export interface BuildLogSink {
 /** B09 must terminate and clean up its isolated process when signal is aborted. */
 export interface BuildRunner {
   run(build: BuildRecord, logs: BuildLogSink, signal: AbortSignal): Promise<{
-    exitCode: number; artifact?: ArtifactMetadata; runnerInfo?: RunnerInfo;
+    exitCode: number; artifact?: ArtifactMetadata; runnerInfo?: RunnerInfo; failureSignals?: BuildFailureSignals;
   }>;
 }
 export class RepositoryLogSink implements BuildLogSink {
   constructor(private readonly buildId: string, private readonly logs: Pick<BuildLogRepository, 'append'>,
-    private readonly signal: AbortSignal) {}
+    private readonly signal: AbortSignal,
+    private readonly onLog?: (log: { seq: number; content: string }) => void) {}
   async write(stream: BuildLogEvent['stream'], content: string): Promise<void> {
     this.signal.throwIfAborted();
-    await this.logs.append({ buildId: this.buildId, stream, content });
+    const row = await this.logs.append({ buildId: this.buildId, stream, content: redactBuildLog(content) });
+    this.onLog?.(row);
   }
+}
+
+/** Carries only fixed codes, never a raw exception or environment value. */
+export class BuildRunnerFailure extends Error {
+  constructor(readonly code: 'build_artifact_missing' | 'artifact_storage_unavailable', readonly failureSignals: BuildFailureSignals) { super(code); }
 }
 /** Never reads sourceRef, executes user code, or creates an artifact. */
 export class NoopRunner implements BuildRunner {

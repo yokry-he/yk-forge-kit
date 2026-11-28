@@ -39,7 +39,7 @@ const build: Build = {
   artifactSize: null,
   artifactSha256: null,
   logStorageKey: null,
-  runnerInfo: null,
+  runnerInfo: null, diagnosis: null,
 };
 
 const logEvent: BuildLogEvent = {

@@ -29,6 +29,21 @@ beforeEach(() => { vi.stubGlobal('EventSource', FakeEventSource); });
 afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
 describe('BuildLogViewer with the real log stream composable', () => {
+  it('focuses and highlights the related stored chunk and disables auto-scroll', async () => {
+    const wrapper = mount(BuildLogViewer, { props: { projectId: 'project-1', buildId: 'build-1' }, attachTo: document.body });
+    FakeEventSource.last.emitLog(1, 'stdout', 'start\n');
+    FakeEventSource.last.emitLog(2, 'stderr', 'error TS2322\n');
+    await nextTick();
+    const scroll = vi.fn();
+    Object.defineProperty(wrapper.get('[data-seq="2"]').element, 'scrollIntoView', { value: scroll });
+    await wrapper.vm.showLogs([2]);
+    expect(wrapper.get('.build-log-highlight').attributes('data-seq')).toBe('2');
+    expect(scroll).toHaveBeenCalledWith({ block: 'center' });
+    expect(document.activeElement).toBe(wrapper.get('[aria-label="构建日志内容"]').element);
+    expect((wrapper.get('input').element as HTMLInputElement).checked).toBe(false);
+    await wrapper.vm.showLogs([]);
+    expect(wrapper.find('.build-log-highlight').exists()).toBe(false);
+  });
   it('names the log card and groups status, labelled auto-scroll and refresh in its header', () => {
     const wrapper = mount(BuildLogViewer, { props: { projectId: 'project-1', buildId: 'build-1' } });
     expect(wrapper.get('header h2').text()).toBe('构建日志');

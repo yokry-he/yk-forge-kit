@@ -42,7 +42,7 @@ function makeBuild(overrides: Partial<Build> = {}): Build {
     artifactSize: null,
     artifactSha256: null,
     logStorageKey: null,
-    runnerInfo: null,
+    runnerInfo: null, diagnosis: null,
     ...overrides,
   };
 }

@@ -1,6 +1,6 @@
 import { BadRequestException, ConflictException, ForbiddenException, Inject, Injectable, NotFoundException } from '@nestjs/common';
 import { BuildLogRepository, BuildRepository, BuildTransitionError } from '@forgekit/db';
-import { BuildSchema, BuildLogEventSchema } from '@forgekit/contracts';
+import { BuildSchema, BuildLogEventSchema, classifyBuildFailure } from '@forgekit/contracts';
 import { DatabaseService } from './database.service';
 import { ProjectsService } from './projects.service';
 import { BuildQueueService } from './build-queue.service';
@@ -31,7 +31,8 @@ export class BuildsService {
     try { await this.queue.enqueue(row.id); }
     catch (error) {
       // An ambiguous enqueue may already have reached Redis. The CAS guard preserves a worker's result.
-      try { await repository.updateStatus(row.id, 'queued', 'failed', { errorMessage: 'queue_enqueue_failed' }); }
+      try { await repository.updateStatus(row.id, 'queued', 'failed', { errorMessage: 'queue_enqueue_failed',
+        diagnosis: classifyBuildFailure({ errorCodes: ['queue_enqueue_failed'], logs: [] }) }); }
       catch (transitionError) { if (!(transitionError instanceof BuildTransitionError)) throw transitionError; }
       throw error;
     }

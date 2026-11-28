@@ -27,8 +27,30 @@ const {
 
 const autoScroll = ref(true);
 const logContainer = ref<HTMLElement | null>(null);
+const selectedSeqs = ref<number[]>([]);
+let pendingSelection = false;
+const selectionMissing = computed(() => selectedSeqs.value.length > 0 && state.value === 'ended'
+  && !chunks.value.some(chunk => selectedSeqs.value.includes(chunk.seq)));
+
+async function scrollToSelection(): Promise<void> {
+  await nextTick();
+  const container = logContainer.value;
+  const target = container?.querySelector<HTMLElement>('.build-log-highlight');
+  if (target) { target.scrollIntoView?.({ block: 'center' }); pendingSelection = false; }
+  else container?.scrollIntoView?.({ block: 'center' });
+  container?.focus({ preventScroll: true });
+}
+
+async function showLogs(seqs: number[]): Promise<void> {
+  autoScroll.value = false;
+  selectedSeqs.value = seqs;
+  pendingSelection = seqs.length > 0;
+  await scrollToSelection();
+}
+defineExpose({ showLogs });
 
 watch(() => chunks.value.at(-1)?.seq ?? 0, async () => {
+  if (pendingSelection && chunks.value.some(chunk => selectedSeqs.value.includes(chunk.seq))) await scrollToSelection();
   if (autoScroll.value) {
     await nextTick();
     if (logContainer.value) logContainer.value.scrollTop = logContainer.value.scrollHeight;
@@ -117,6 +139,7 @@ function formatTime(ts: string): string {
     <p v-if="error" class="build-log-error" role="alert">{{ error }}</p>
 
     <div v-if="truncated" class="build-log-truncated" role="status">仅显示最近日志</div>
+    <p v-if="selectionMissing" role="status">相关日志尚未加载或已超出最近日志范围，请结合上方摘录排查。</p>
 
     <div
       ref="logContainer"
@@ -127,7 +150,8 @@ function formatTime(ts: string): string {
     >
       <pre v-if="chunks.length > 0" class="build-log-list"><span
         v-for="chunk in chunks" :key="chunk.seq"
-        class="build-log-entry" :class="`build-log-${chunk.stream}`"
+        class="build-log-entry" :class="[`build-log-${chunk.stream}`, { 'build-log-highlight': selectedSeqs.includes(chunk.seq) }]"
+        :data-seq="chunk.seq"
         :title="`${streamLabel(chunk.stream)} · ${formatTime(chunk.ts)}`"
         role="group" :aria-label="streamLabel(chunk.stream)"
       >{{ chunk.content }}</span></pre>
@@ -210,6 +234,13 @@ function formatTime(ts: string): string {
 
 .build-log-entry {
   display: inline;
+}
+
+.build-log-highlight {
+  color: #fef3c7;
+  background: #713f12;
+  outline: 2px solid #fbbf24;
+  scroll-margin: 2rem;
 }
 
 .build-log-stream {

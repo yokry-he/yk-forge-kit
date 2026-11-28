@@ -7,7 +7,7 @@ import { join } from 'node:path';
 import { checkedPath, type ArtifactMetadata, type ArtifactStore } from './artifact-store';
 import { CappedBuildLogs, redactBuildLog } from './build-logs';
 import { DockerCli, type DockerCommand } from './docker-cli';
-import type { BuildLogSink, BuildRecord, BuildRunner } from './runner';
+import { BuildRunnerFailure, type BuildLogSink, type BuildRecord, type BuildRunner } from './runner';
 import type { WorkspaceSource } from './workspace-source';
 
 export interface DockerRunnerOptions {
@@ -89,6 +89,7 @@ export class DockerBuildRunner implements BuildRunner {
         const name = `forgekit-${build.id}-${phase}-${randomUUID()}`;
         const args = buildDockerArgs(this.options, { name, workspace, phase, script: plan.script, uid, gid, variableNames: Object.keys(resolved.values) });
         let code: number;
+        const phaseStartedAt = Date.now();
         containersRemoved = false;
         try { code = await this.docker.execute(args, controller.signal, logs, phase === 'build' ? resolved.values : undefined); }
         finally {
@@ -102,7 +103,10 @@ export class DockerBuildRunner implements BuildRunner {
           }
         }
         controller.signal.throwIfAborted();
-        if (code !== 0) return { exitCode: code };
+        if (code !== 0) return { exitCode: code, failureSignals: { phase, installNetwork: this.options.installNetwork,
+          // timeout --signal=KILL exits 137 too; its elapsed deadline distinguishes it from early OOM.
+          ...(code === 137 && Date.now() - phaseStartedAt >= Math.ceil(this.options.timeoutMs / 1000) * 1000
+            ? { errorCodes: ['build_timeout'] } : {}) } };
       }
       const candidates = plan.outputDirectory ? [plan.outputDirectory] : ['dist', '.output/public'];
       let output: string | undefined;
@@ -111,8 +115,20 @@ export class DockerBuildRunner implements BuildRunner {
         catch (error) { if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error; }
       }
       if (!output) throw new Error('build_output_missing');
-      for (const path of build.target === 'mp-weixin' ? ['app.js', 'app.json', 'project.config.json'] : build.target === 'mp-alipay' ? ['app.js', 'app.json', 'mini.project.json'] : ['index.html']) await checkedPath(output, path);
-      artifact = await this.artifacts.put(build.id, output, controller.signal);
+      try {
+        for (const path of build.target === 'mp-weixin' ? ['app.js', 'app.json', 'project.config.json'] : build.target === 'mp-alipay' ? ['app.js', 'app.json', 'mini.project.json'] : ['index.html']) await checkedPath(output, path);
+      } catch (error) {
+        if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new BuildRunnerFailure('build_artifact_missing', { phase: 'artifact' });
+        throw error;
+      }
+      try { artifact = await this.artifacts.put(build.id, output, controller.signal); }
+      catch (error) {
+        if (['ENOENT', 'ENOTDIR', 'EACCES', 'EROFS'].includes((error as NodeJS.ErrnoException).code ?? '')
+          || (error instanceof Error && error.message === 'unsafe_artifact_root')) {
+          throw new BuildRunnerFailure('artifact_storage_unavailable', { phase: 'artifact' });
+        }
+        throw error;
+      }
       controller.signal.throwIfAborted();
       return { exitCode: 0, artifact, runnerInfo: { runnerId: 'docker-cli', image: this.options.image } };
     } catch (error) {
